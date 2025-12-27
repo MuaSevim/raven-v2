@@ -1,0 +1,54 @@
+{
+  "project_info": {
+    "project_number": "728915617614",
+    "project_id": "raven-app-e21c2",
+    "storage_bucket": "raven-app-e21c2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:728915617614:android:021968061e1892a8bbe01f",
+        "android_client_info": {
+          "package_name": "com.muasevim.raven"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "728915617614-kl3jmp4um66a61q9jdtjs3prduh9dnb8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.muasevim.raven",
+            "certificate_hash": "96a05edd7d640a2b8298584e5c984ef6d480b33e"
+          }
+        },
+        {
+          "client_id": "728915617614-cvqm9ttt8a6n8bb4q3j75nh4ia3nhi5a.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCmZadroNLMu3uRM2pYrf3TGPlRxen4cHs"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "728915617614-cvqm9ttt8a6n8bb4q3j75nh4ia3nhi5a.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "728915617614-29gc1nidu0v318ph67h4r5ucs0n3ch7o.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.muasevim.raven"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
