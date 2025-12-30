@@ -16,11 +16,11 @@ import { Button, Header, ProgressIndicator } from '../../components/ui';
 import { colors, typography, spacing, borderRadius, dimensions } from '../../theme';
 import { RootStackParamList } from '../../navigation';
 import { useSignupStore } from '../../store/useSignupStore';
-import { 
-  fetchCountries, 
-  fetchCities, 
+import {
+  fetchCountries,
+  fetchCities,
   searchCountries,
-  Country 
+  Country
 } from '../../services/locationService';
 
 type Props = {
@@ -52,11 +52,11 @@ function SelectModal({
 
   const filteredItems = useMemo(() => {
     if (!search.trim()) return items;
-    
+
     if (onSearch) {
       return onSearch(search);
     }
-    
+
     // Standard search
     return items.filter(item =>
       item.label.toLowerCase().includes(search.toLowerCase())
@@ -75,7 +75,7 @@ function SelectModal({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+    <Modal visible={visible} animationType="slide" presentationStyle="formSheet">
       <SafeAreaView style={styles.modalContainer}>
         <View style={styles.modalHeader}>
           <Text style={styles.modalTitle}>{title}</Text>
@@ -134,29 +134,29 @@ function SelectModal({
 
 export default function SignUpStep3Screen({ navigation }: Props) {
   const { data, updateData } = useSignupStore();
-  
+
   // Countries state
   const [countries, setCountries] = useState<Country[]>([]);
   const [isLoadingCountries, setIsLoadingCountries] = useState(true);
   const [countriesError, setCountriesError] = useState<string | null>(null);
-  
+
   // Selection state
   const [selectedCountry, setSelectedCountry] = useState<Country | null>(null);
   const [selectedCity, setSelectedCity] = useState(data.city || '');
-  
+
   // Cities state
   const [cities, setCities] = useState<string[]>([]);
   const [isLoadingCities, setIsLoadingCities] = useState(false);
-  
+
   // Modal state
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [showCityModal, setShowCityModal] = useState(false);
-  
+
   // Form state
   const [errors, setErrors] = useState<{ country?: string; city?: string }>({});
 
-  // Form validity
-  const isFormValid = selectedCountry !== null && selectedCity !== '';
+  // Form validity - location is now optional
+  const isFormValid = true; // Always allow proceeding
 
   // Fetch countries on mount
   useEffect(() => {
@@ -185,7 +185,7 @@ export default function SignUpStep3Screen({ navigation }: Props) {
   const loadCountries = async () => {
     setIsLoadingCountries(true);
     setCountriesError(null);
-    
+
     try {
       const fetchedCountries = await fetchCountries();
       setCountries(fetchedCountries);
@@ -200,7 +200,7 @@ export default function SignUpStep3Screen({ navigation }: Props) {
   const loadCities = async (countryName: string) => {
     setIsLoadingCities(true);
     setCities([]);
-    
+
     try {
       const fetchedCities = await fetchCities(countryName);
       setCities(fetchedCities);
@@ -237,28 +237,22 @@ export default function SignUpStep3Screen({ navigation }: Props) {
     }));
   };
 
-  const validateForm = (): boolean => {
-    const newErrors: { country?: string; city?: string } = {};
-
-    if (!selectedCountry) {
-      newErrors.country = 'Please select your country';
-    }
-
-    if (!selectedCity) {
-      newErrors.city = 'Please select your city';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+  const handleNext = () => {
+    // Location is now optional - proceed with or without it
+    updateData({
+      country: selectedCountry?.name || '',
+      countryCode: selectedCountry?.code || '',
+      city: selectedCity || '',
+    });
+    navigation.navigate('SignUpStep4');
   };
 
-  const handleNext = () => {
-    if (!validateForm()) return;
-    
+  const handleSkip = () => {
+    // Skip location and proceed
     updateData({
-      country: selectedCountry!.name,
-      countryCode: selectedCountry!.code,
-      city: selectedCity,
+      country: '',
+      countryCode: '',
+      city: '',
     });
     navigation.navigate('SignUpStep4');
   };
@@ -322,7 +316,7 @@ export default function SignUpStep3Screen({ navigation }: Props) {
         showBack
         onBack={() => navigation.goBack()}
       />
-      
+
       <View style={styles.content}>
         <View style={styles.progressContainer}>
           <ProgressIndicator totalSteps={5} currentStep={3} />
@@ -388,6 +382,9 @@ export default function SignUpStep3Screen({ navigation }: Props) {
       </View>
 
       <View style={styles.footer}>
+        <TouchableOpacity onPress={handleSkip} style={styles.skipButton}>
+          <Text style={styles.skipText}>Skip for now</Text>
+        </TouchableOpacity>
         <Button title="Next" onPress={handleNext} disabled={!isFormValid} />
       </View>
 
@@ -491,6 +488,16 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
+  },
+  skipButton: {
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  skipText: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
   },
   // Modal styles
   modalContainer: {

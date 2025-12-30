@@ -8,10 +8,11 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { Wand2, Check, X } from 'lucide-react-native';
+import { Check, X, Eye, EyeOff } from 'lucide-react-native';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../services/firebaseConfig';
 import { Input, Button, Header, ProgressIndicator } from '../../components/ui';
@@ -39,19 +40,19 @@ interface PasswordStrength {
 
 const calculatePasswordStrength = (password: string): PasswordStrength => {
   let score = 0;
-  
+
   if (password.length >= 8) score++;
   if (password.length >= 12) score++;
   if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
   if (/\d/.test(password)) score++;
   if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) score++;
-  
+
   // Cap at 4
   score = Math.min(score, 4);
-  
+
   const labels = ['Weak', 'Fair', 'Good', 'Strong', 'Very Strong'];
   const colorMap = [colors.error, '#FF6B00', colors.warning, '#7CB342', colors.success];
-  
+
   return {
     score,
     label: labels[score],
@@ -81,31 +82,32 @@ const generatePassword = (): string => {
   const lowercase = 'abcdefghijklmnopqrstuvwxyz';
   const numbers = '0123456789';
   const special = '!@#$%^&*';
-  
+
   let password = '';
-  
+
   // Ensure at least one of each type
   password += uppercase[Math.floor(Math.random() * uppercase.length)];
   password += lowercase[Math.floor(Math.random() * lowercase.length)];
   password += numbers[Math.floor(Math.random() * numbers.length)];
   password += special[Math.floor(Math.random() * special.length)];
-  
+
   // Fill the rest randomly
   const allChars = uppercase + lowercase + numbers + special;
   for (let i = 0; i < 8; i++) {
     password += allChars[Math.floor(Math.random() * allChars.length)];
   }
-  
+
   // Shuffle the password
   return password.split('').sort(() => Math.random() - 0.5).join('');
 };
 
 export default function SignUpStep4Screen({ navigation }: Props) {
-  const { data, updateData } = useSignupStore();
-  
+  const { data, updateData, reset } = useSignupStore();
+
   const [email, setEmail] = useState(data.email);
   const [password, setPassword] = useState(data.password);
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // Synchronized visibility for both fields
   const [errors, setErrors] = useState<{
     email?: string;
     password?: string;
@@ -124,9 +126,9 @@ export default function SignUpStep4Screen({ navigation }: Props) {
   );
 
   // Check if form is valid for enabling Next button
-  const isFormValid = 
-    isValidEmail(email.trim()) && 
-    passwordStrength.score >= 2 && 
+  const isFormValid =
+    isValidEmail(email.trim()) &&
+    passwordStrength.score >= 2 &&
     password === confirmPassword &&
     confirmPassword.length > 0;
 
@@ -161,9 +163,9 @@ export default function SignUpStep4Screen({ navigation }: Props) {
 
   const handleNext = async () => {
     if (!validateForm()) return;
-    
+
     setIsLoading(true);
-    
+
     try {
       // Check if email already exists
       const { exists } = await authApi.checkEmail(email.trim().toLowerCase());
@@ -196,7 +198,7 @@ export default function SignUpStep4Screen({ navigation }: Props) {
 
       // Update local store
       updateData({ email: email.trim().toLowerCase(), password });
-      
+
       // Navigate to verification
       navigation.navigate('SignUpStep5');
     } catch (err: any) {
@@ -208,25 +210,44 @@ export default function SignUpStep4Screen({ navigation }: Props) {
     }
   };
 
-  const handleGeneratePassword = () => {
-    const newPassword = generatePassword();
-    setPassword(newPassword);
-    setConfirmPassword(newPassword);
-    if (errors.password) setErrors({ ...errors, password: undefined });
-    if (errors.confirmPassword) setErrors({ ...errors, confirmPassword: undefined });
+  const handleCancel = () => {
+    Alert.alert(
+      'Cancel Sign Up',
+      'Are you sure you want to cancel? All your progress will be lost.',
+      [
+        {
+          text: 'Continue Sign Up',
+          style: 'cancel',
+        },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: () => {
+            reset();
+            navigation.navigate('SignIn');
+          },
+        },
+      ]
+    );
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      <Header
-        title="Raven"
-        showBack
-        onBack={() => navigation.goBack()}
-      />
-      
+      <View style={styles.headerContainer}>
+        <Header
+          title="Raven"
+          showBack
+          onBack={() => navigation.goBack()}
+        />
+        <TouchableOpacity onPress={handleCancel} style={styles.cancelButton}>
+          <X size={24} color={colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -254,18 +275,41 @@ export default function SignUpStep4Screen({ navigation }: Props) {
             autoCorrect={false}
           />
 
-          {/* Password Input */}
-          <Input
-            label="Password"
-            placeholder="Create a strong password"
-            value={password}
-            onChangeText={(text) => {
-              setPassword(text);
-              if (errors.password) setErrors({ ...errors, password: undefined });
-            }}
-            error={errors.password}
-            isPassword
-          />
+          {/* Password Input with Custom Eye Button */}
+          <View style={styles.passwordInputContainer}>
+            <Text style={styles.inputLabel}>Password</Text>
+            <View style={[
+              styles.customInputWrapper,
+              errors.password && styles.inputError
+            ]}>
+              <TextInput
+                style={styles.customInput}
+                placeholder="Create a strong password"
+                placeholderTextColor={colors.placeholder}
+                value={password}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  if (errors.password) setErrors({ ...errors, password: undefined });
+                }}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {password.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeButton}
+                >
+                  {showPassword ? (
+                    <EyeOff size={20} color={colors.textSecondary} />
+                  ) : (
+                    <Eye size={20} color={colors.textSecondary} />
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+            {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+          </View>
 
           {/* Password Strength Indicator */}
           {password.length > 0 && (
@@ -294,7 +338,44 @@ export default function SignUpStep4Screen({ navigation }: Props) {
             </View>
           )}
 
-          {/* Password Requirements */}
+          {/* Confirm Password Input with Shared Eye Button */}
+          <View style={styles.passwordInputContainer}>
+            <Text style={styles.inputLabel}>Confirm Password</Text>
+            <View style={[
+              styles.customInputWrapper,
+              errors.confirmPassword && styles.inputError
+            ]}>
+              <TextInput
+                style={styles.customInput}
+                placeholder="Confirm your password"
+                placeholderTextColor={colors.placeholder}
+                value={confirmPassword}
+                onChangeText={(text) => {
+                  setConfirmPassword(text);
+                  if (errors.confirmPassword)
+                    setErrors({ ...errors, confirmPassword: undefined });
+                }}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              {confirmPassword.length > 0 && (
+                <TouchableOpacity
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.eyeButton}
+                >
+                  {showPassword ? (
+                    <EyeOff size={20} color={colors.textSecondary} />
+                  ) : (
+                    <Eye size={20} color={colors.textSecondary} />
+                  )}
+                </TouchableOpacity>
+              )}
+            </View>
+            {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+          </View>
+
+          {/* Password Requirements - Now below confirm password */}
           {password.length > 0 && (
             <View style={styles.requirementsContainer}>
               {passwordRequirements.map((req, index) => (
@@ -316,29 +397,6 @@ export default function SignUpStep4Screen({ navigation }: Props) {
               ))}
             </View>
           )}
-
-          {/* Generate Password Button */}
-          <TouchableOpacity
-            style={styles.generateButton}
-            onPress={handleGeneratePassword}
-          >
-            <Wand2 size={18} color={colors.accent} />
-            <Text style={styles.generateButtonText}>Generate strong password</Text>
-          </TouchableOpacity>
-
-          {/* Confirm Password Input */}
-          <Input
-            label="Confirm Password"
-            placeholder="Confirm your password"
-            value={confirmPassword}
-            onChangeText={(text) => {
-              setConfirmPassword(text);
-              if (errors.confirmPassword)
-                setErrors({ ...errors, confirmPassword: undefined });
-            }}
-            error={errors.confirmPassword}
-            isPassword
-          />
         </ScrollView>
 
         <View style={styles.footer}>
@@ -354,12 +412,23 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
+  headerContainer: {
+    position: 'relative',
+  },
+  cancelButton: {
+    position: 'absolute',
+    right: spacing.md,
+    top: spacing.md,
+    padding: spacing.xs,
+    zIndex: 10,
+  },
   keyboardView: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: spacing.lg,
+    paddingBottom: spacing['3xl'], // Extra space for keyboard
   },
   progressContainer: {
     paddingVertical: spacing.md,
@@ -370,6 +439,46 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginTop: spacing.lg,
     marginBottom: spacing.xl,
+  },
+  // Custom password input styles
+  passwordInputContainer: {
+    marginBottom: spacing.md,
+  },
+  inputLabel: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.fontSize.sm,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  customInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 52,
+    backgroundColor: colors.backgroundSecondary,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+  },
+  inputError: {
+    borderColor: colors.error,
+  },
+  customInput: {
+    flex: 1,
+    height: '100%',
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.base,
+    color: colors.textPrimary,
+  },
+  eyeButton: {
+    padding: spacing.xs,
+    marginLeft: spacing.sm,
+  },
+  errorText: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.xs,
+    color: colors.error,
+    marginTop: spacing.xs,
   },
   strengthContainer: {
     flexDirection: 'row',
@@ -413,19 +522,6 @@ const styles = StyleSheet.create({
   },
   requirementMet: {
     color: colors.success,
-  },
-  generateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  generateButtonText: {
-    fontFamily: typography.fontFamily.medium,
-    fontSize: typography.fontSize.sm,
-    color: colors.accent,
-    marginLeft: spacing.xs,
   },
   footer: {
     paddingHorizontal: spacing.lg,

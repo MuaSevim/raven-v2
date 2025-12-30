@@ -13,13 +13,13 @@ import {
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { 
-  ArrowLeft, 
-  X, 
-  BadgeCheck, 
-  MapPin, 
-  Calendar, 
-  Package, 
+import {
+  ArrowLeft,
+  X,
+  BadgeCheck,
+  MapPin,
+  Calendar,
+  Package,
   Scale,
   DollarSign,
   MessageCircle,
@@ -44,8 +44,6 @@ interface ShipmentDetails {
   meetingPoint: string | null;
   meetingPointLat: number | null;
   meetingPointLng: number | null;
-  destAirport: string | null;
-  destAirportCode: string | null;
   dateStart: string;
   dateEnd: string;
   price: number;
@@ -71,33 +69,38 @@ interface ShipmentDetails {
   _count?: {
     offers: number;
   };
+  offers?: {
+    id: string;
+    courierId: string;
+    status: string;
+  }[];
 }
 
 export default function ShipmentDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { user } = useAuthStore();
-  
+
   const shipmentId = route.params?.shipmentId;
-  
+
   const [shipment, setShipment] = useState<ShipmentDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [showOfferModal, setShowOfferModal] = useState(false);
   const [offerMessage, setOfferMessage] = useState("Hi! I am traveling on this route and would be happy to deliver your package. Let me know if you have any questions!");
   const [submitting, setSubmitting] = useState(false);
-  
+
   useEffect(() => {
     if (shipmentId) {
       fetchShipment();
     }
   }, [shipmentId]);
-  
+
   const fetchShipment = async () => {
     if (!shipmentId || !user) {
       setLoading(false);
       return;
     }
-    
+
     try {
       const token = await user.getIdToken();
       const response = await fetch(`${API_URL}/shipments/${shipmentId}`, {
@@ -105,9 +108,9 @@ export default function ShipmentDetailScreen() {
           'Authorization': `Bearer ${token}`,
         },
       });
-      
+
       if (!response.ok) throw new Error('Failed to fetch shipment');
-      
+
       const data = await response.json();
       setShipment(data);
     } catch (error) {
@@ -117,10 +120,10 @@ export default function ShipmentDetailScreen() {
       setLoading(false);
     }
   };
-  
+
   const handleMakeOffer = async () => {
     if (!shipment || !user || offerMessage.length < 10) return;
-    
+
     setSubmitting(true);
     try {
       const token = await user.getIdToken();
@@ -132,12 +135,12 @@ export default function ShipmentDetailScreen() {
         },
         body: JSON.stringify({ message: offerMessage }),
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || 'Failed to send offer');
       }
-      
+
       setShowOfferModal(false);
       Alert.alert('Offer Sent!', 'The sender will be notified and can accept your offer.');
       fetchShipment(); // Refresh to update offer count
@@ -147,12 +150,12 @@ export default function ShipmentDetailScreen() {
       setSubmitting(false);
     }
   };
-  
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
-  
+
   const formatDateRange = (start: string, end: string) => {
     const startDate = new Date(start);
     const endDate = new Date(end);
@@ -160,7 +163,7 @@ export default function ShipmentDetailScreen() {
     const endStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     return `${startStr} - ${endStr}`;
   };
-  
+
   const getCurrencySymbol = (currency: string) => {
     switch (currency) {
       case 'EUR': return '\u20AC';
@@ -169,7 +172,7 @@ export default function ShipmentDetailScreen() {
       default: return '$';
     }
   };
-  
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'OPEN': return '#22C55E';
@@ -180,7 +183,7 @@ export default function ShipmentDetailScreen() {
       default: return colors.textSecondary;
     }
   };
-  
+
   const getStatusLabel = (status: string) => {
     switch (status) {
       case 'OPEN': return 'Open for Offers';
@@ -191,11 +194,11 @@ export default function ShipmentDetailScreen() {
       default: return status;
     }
   };
-  
+
   // Calculate earnings (price minus 15% Raven fee)
   const ravenFee = shipment ? Math.round(shipment.price * 0.15) : 0;
   const earnings = shipment ? shipment.price - ravenFee : 0;
-  
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -204,7 +207,7 @@ export default function ShipmentDetailScreen() {
       </View>
     );
   }
-  
+
   if (!shipment) {
     return (
       <SafeAreaView style={styles.container}>
@@ -225,11 +228,11 @@ export default function ShipmentDetailScreen() {
       </SafeAreaView>
     );
   }
-  
+
   const senderName = `${shipment.sender.firstName || ''} ${shipment.sender.lastName || ''}`.trim() || 'Unknown';
   const isMySender = shipment.sender.id === user?.uid;
   const currencySymbol = getCurrencySymbol(shipment.currency);
-  
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
@@ -240,8 +243,8 @@ export default function ShipmentDetailScreen() {
         <Text style={styles.headerTitle}>Shipment Details</Text>
         <View style={{ width: 40 }} />
       </View>
-      
-      <ScrollView 
+
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -253,7 +256,7 @@ export default function ShipmentDetailScreen() {
             {getStatusLabel(shipment.status)}
           </Text>
         </View>
-        
+
         {/* Route Card */}
         <View style={styles.card}>
           <View style={styles.routeContainer}>
@@ -265,9 +268,9 @@ export default function ShipmentDetailScreen() {
                 <Text style={styles.routeCountry}>{shipment.originCountry}</Text>
               </View>
             </View>
-            
+
             <View style={styles.routeLine} />
-            
+
             <View style={styles.routePoint}>
               <View style={[styles.routeDot, styles.routeDotDest]} />
               <View style={styles.routeInfo}>
@@ -277,24 +280,15 @@ export default function ShipmentDetailScreen() {
               </View>
             </View>
           </View>
-          
-          {shipment.destAirport && (
-            <View style={styles.airportBadge}>
-              <Plane size={14} color={colors.textSecondary} />
-              <Text style={styles.airportText}>
-                {shipment.destAirport} ({shipment.destAirportCode})
-              </Text>
-            </View>
-          )}
         </View>
-        
+
         {/* Package Image */}
         {shipment.imageUrl && (
           <View style={styles.card}>
             <Image source={{ uri: shipment.imageUrl }} style={styles.packageImage} />
           </View>
         )}
-        
+
         {/* Price Card */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Your Earnings</Text>
@@ -315,11 +309,11 @@ export default function ShipmentDetailScreen() {
             </View>
           </View>
         </View>
-        
+
         {/* Details Card */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Package Details</Text>
-          
+
           <View style={styles.detailRow}>
             <View style={styles.detailIcon}>
               <Package size={18} color={colors.textSecondary} />
@@ -329,7 +323,7 @@ export default function ShipmentDetailScreen() {
               <Text style={styles.detailValue}>{shipment.content}</Text>
             </View>
           </View>
-          
+
           <View style={styles.detailRow}>
             <View style={styles.detailIcon}>
               <Scale size={18} color={colors.textSecondary} />
@@ -339,7 +333,7 @@ export default function ShipmentDetailScreen() {
               <Text style={styles.detailValue}>{shipment.weight} {shipment.weightUnit}</Text>
             </View>
           </View>
-          
+
           <View style={styles.detailRow}>
             <View style={styles.detailIcon}>
               <Calendar size={18} color={colors.textSecondary} />
@@ -349,7 +343,7 @@ export default function ShipmentDetailScreen() {
               <Text style={styles.detailValue}>{formatDateRange(shipment.dateStart, shipment.dateEnd)}</Text>
             </View>
           </View>
-          
+
           {shipment.meetingPoint && (
             <View style={styles.detailRow}>
               <View style={styles.detailIcon}>
@@ -362,11 +356,11 @@ export default function ShipmentDetailScreen() {
             </View>
           )}
         </View>
-        
+
         {/* Sender Card */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Posted by</Text>
-          
+
           <TouchableOpacity style={styles.senderRow} activeOpacity={0.7}>
             <View style={styles.senderAvatar}>
               {shipment.sender.avatar ? (
@@ -392,11 +386,11 @@ export default function ShipmentDetailScreen() {
             </View>
             <ChevronRight size={20} color={colors.textTertiary} />
           </TouchableOpacity>
-          
+
           {/* Contact Options */}
           {!isMySender && (
             <View style={styles.contactOptions}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.chatButton}
                 onPress={() => navigation.navigate('Chat', {
                   shipmentId: shipment.id,
@@ -410,7 +404,7 @@ export default function ShipmentDetailScreen() {
             </View>
           )}
         </View>
-        
+
         {/* Offers Count */}
         {shipment._count && shipment._count.offers > 0 && (
           <View style={styles.offersInfo}>
@@ -420,26 +414,40 @@ export default function ShipmentDetailScreen() {
             </Text>
           </View>
         )}
-        
+
         {/* Posted Date */}
         <Text style={styles.postedDate}>
           Posted on {formatDate(shipment.createdAt)}
         </Text>
       </ScrollView>
-      
+
       {/* Bottom Action */}
       {!isMySender && shipment.status === 'OPEN' && (
         <View style={styles.bottomContainer}>
-          <TouchableOpacity
-            style={styles.offerButton}
-            onPress={() => setShowOfferModal(true)}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.offerButtonText}>Make an Offer</Text>
-          </TouchableOpacity>
+          {shipment.offers?.some((o: any) => o.courierId === user?.uid) ? (
+            <TouchableOpacity
+              style={[styles.offerButton, { backgroundColor: '#22C55E20' }]}
+              onPress={() => navigation.navigate('Chat', {
+                shipmentId: shipment.id,
+                recipientId: shipment.sender.id,
+                recipientName: senderName,
+              })}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.offerButtonText, { color: '#22C55E' }]}>You already made an offer</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={styles.offerButton}
+              onPress={() => setShowOfferModal(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.offerButtonText}>Make an Offer</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
-      
+
       {/* Offer Modal */}
       <Modal
         visible={showOfferModal}
@@ -450,7 +458,7 @@ export default function ShipmentDetailScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => setShowOfferModal(false)}
                 style={styles.modalCloseBtn}
               >
@@ -459,7 +467,7 @@ export default function ShipmentDetailScreen() {
               <Text style={styles.modalTitle}>Send Offer</Text>
               <View style={{ width: 40 }} />
             </View>
-            
+
             <View style={styles.modalSenderRow}>
               <View style={styles.modalAvatar}>
                 {shipment.sender.avatar ? (
@@ -475,7 +483,7 @@ export default function ShipmentDetailScreen() {
                 </Text>
               </View>
             </View>
-            
+
             <Text style={styles.modalLabel}>Your message</Text>
             <TextInput
               style={styles.messageInput}
@@ -487,12 +495,12 @@ export default function ShipmentDetailScreen() {
               numberOfLines={5}
               textAlignVertical="top"
             />
-            
+
             <View style={styles.modalEarnings}>
               <Text style={styles.modalEarningsLabel}>You will earn</Text>
               <Text style={styles.modalEarningsValue}>{currencySymbol}{earnings}</Text>
             </View>
-            
+
             <TouchableOpacity
               style={[styles.sendButton, (submitting || offerMessage.length < 10) && styles.sendButtonDisabled]}
               onPress={handleMakeOffer}

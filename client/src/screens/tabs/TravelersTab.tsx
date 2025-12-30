@@ -1,17 +1,18 @@
 import React, { useState, useCallback } from 'react';
-import { 
-  View, 
-  Text, 
-  StyleSheet, 
-  ScrollView, 
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { 
+import {
   Package,
   MapPin,
   Calendar,
@@ -100,7 +101,7 @@ interface TravelerCardProps {
 function TravelerCard({ travel, onPress }: TravelerCardProps) {
   const travelerName = `${travel.traveler?.firstName || ''} ${travel.traveler?.lastName || ''}`.trim() || 'Unknown';
   const currencySymbol = getCurrencySymbol(travel.currency);
-  
+
   return (
     <TouchableOpacity
       style={styles.travelerCard}
@@ -140,7 +141,7 @@ function TravelerCard({ travel, onPress }: TravelerCardProps) {
           </Text>
         )}
       </View>
-      
+
       {/* Route */}
       <View style={styles.routeRow}>
         <View style={styles.routePoint}>
@@ -161,7 +162,7 @@ function TravelerCard({ travel, onPress }: TravelerCardProps) {
           )}
         </View>
       </View>
-      
+
       {/* Details Row */}
       <View style={styles.detailsRow}>
         <View style={styles.detailItem}>
@@ -173,7 +174,7 @@ function TravelerCard({ travel, onPress }: TravelerCardProps) {
           <Text style={styles.detailText}>{travel.availableWeight} {travel.weightUnit} available</Text>
         </View>
       </View>
-      
+
       {travel.flightNumber && (
         <View style={styles.flightRow}>
           <Text style={styles.flightLabel}>Flight:</Text>
@@ -187,7 +188,7 @@ function TravelerCard({ travel, onPress }: TravelerCardProps) {
 export default function TravelersTab() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
-  
+
   const [travels, setTravels] = useState<Travel[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -196,12 +197,12 @@ export default function TravelersTab() {
 
   const fetchTravels = async (showRefresh = false) => {
     if (!user) return;
-    
+
     if (showRefresh) setRefreshing(true);
     else setLoading(true);
-    
+
     setError(null);
-    
+
     try {
       const token = await user.getIdToken();
       const response = await fetch(`${API_URL}/travels`, {
@@ -209,16 +210,22 @@ export default function TravelersTab() {
           'Authorization': `Bearer ${token}`,
         },
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch travels');
       }
-      
+
       const data = await response.json();
       setTravels(data);
     } catch (err: any) {
       console.error('Error fetching travels:', err);
-      setError(err.message || 'Failed to load travels');
+      if (err.response) {
+        console.error('Response data:', err.response.data);
+        console.error('Response status:', err.response.status);
+      }
+      const errorMessage = err.message || 'Failed to load travels';
+      setError(errorMessage);
+      Alert.alert('Error', `Could not load travels: ${errorMessage}`);
     } finally {
       setLoading(false);
       setRefreshing(false);

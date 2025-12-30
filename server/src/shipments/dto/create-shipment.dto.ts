@@ -35,13 +35,7 @@ export class CreateShipmentDto {
   @IsString()
   destAddress?: string;
 
-  @IsOptional()
-  @IsString()
-  destAirport?: string;
 
-  @IsOptional()
-  @IsString()
-  destAirportCode?: string;
 
   // Package Details
   @IsNumber()

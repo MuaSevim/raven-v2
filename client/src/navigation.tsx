@@ -15,6 +15,7 @@ import { colors, spacing } from "./theme";
 
 // Screens
 import WelcomeScreen from "./screens/WelcomeScreen";
+import ProfileScreen from "./screens/ProfileScreen";
 import {
   SignInScreen,
   SignUpStep1Screen,
@@ -83,6 +84,7 @@ export type RootStackParamList = {
   AddCard: undefined;
   PaymentMethods: undefined;
   DeliveryTracking: { transactionId: string };
+  Profile: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -144,6 +146,7 @@ export default function Navigation() {
             <Stack.Screen name="AddCard" component={AddCardScreen} />
             <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
             <Stack.Screen name="DeliveryTracking" component={DeliveryTrackingScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
           </>
         ) : (
           // Auth Stack

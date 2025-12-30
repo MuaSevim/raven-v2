@@ -70,8 +70,7 @@ model Shipment {
   destCountry     String
   destCity        String
   destAddress     String?
-  destAirport     String?
-  destAirportCode String?
+
   
   // Package Details
   weight          Float     // in kg

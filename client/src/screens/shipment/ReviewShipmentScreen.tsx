@@ -11,15 +11,15 @@ import {
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { 
-  MapPin, 
-  Plane, 
-  Navigation, 
-  Package, 
-  Calendar, 
-  DollarSign, 
-  User, 
-  Phone, 
+import {
+  MapPin,
+  Plane,
+  Navigation,
+  Package,
+  Calendar,
+  DollarSign,
+  User,
+  Phone,
   Mail,
   Check,
   Edit3,
@@ -72,10 +72,10 @@ export default function ReviewShipmentScreen() {
   const navigation = useNavigation<any>();
   const { draft, resetDraft, totalSteps } = useShipmentStore();
   const { user } = useAuthStore();
-  
+
   const [loading, setLoading] = useState(false);
   const [uploadProgress] = useState(new Animated.Value(0));
-  
+
   const getCurrencySymbol = () => {
     switch (draft.currency) {
       case 'EUR': return '€';
@@ -84,25 +84,25 @@ export default function ReviewShipmentScreen() {
       default: return '$';
     }
   };
-  
+
   const handlePublish = async () => {
     if (!user) {
       Alert.alert('Error', 'You must be logged in to create a shipment');
       return;
     }
-    
+
     setLoading(true);
-    
+
     // Animate progress
     Animated.timing(uploadProgress, {
       toValue: 100,
       duration: 2000,
       useNativeDriver: false,
     }).start();
-    
+
     try {
       const token = await user.getIdToken();
-      
+
       // Prepare shipment data
       const shipmentData = {
         // Route
@@ -110,33 +110,32 @@ export default function ReviewShipmentScreen() {
         originCity: draft.originCity,
         destCountry: draft.destCountry,
         destCity: draft.destCity,
-        destAirport: draft.destAirport,
-        
+
         // Meeting Point
         meetingPoint: draft.meetingPointAddress,
         meetingPointLat: draft.meetingPointLat,
         meetingPointLng: draft.meetingPointLng,
-        
+
         // Package
         weight: parseFloat(draft.weight) || 0,
         weightUnit: draft.weightUnit,
         content: draft.content,
         imageUrl: draft.packageImageUri, // In production, upload to storage first
-        
+
         // Dates
         dateStart: draft.dateStart?.toISOString(),
         dateEnd: draft.dateEnd?.toISOString(),
-        
+
         // Pricing
         price: draft.price,
         currency: draft.currency,
-        
+
         // Contact
         senderFullName: draft.senderFullName,
         senderPhone: draft.senderPhone,
         senderPhoneCode: draft.senderPhoneCode,
       };
-      
+
       const response = await fetch(`${API_URL}/shipments`, {
         method: 'POST',
         headers: {
@@ -145,22 +144,22 @@ export default function ReviewShipmentScreen() {
         },
         body: JSON.stringify(shipmentData),
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || 'Failed to create shipment');
       }
-      
+
       const createdShipment = await response.json();
-      
+
       // Reset draft
       resetDraft();
-      
+
       // Navigate to deliveries tab with success
       navigation.reset({
         index: 0,
         routes: [
-          { 
+          {
             name: 'MainTabs',
             state: {
               routes: [{ name: 'DeliveriesTab' }],
@@ -169,7 +168,7 @@ export default function ReviewShipmentScreen() {
           }
         ],
       });
-      
+
       // Show success message
       setTimeout(() => {
         Alert.alert(
@@ -178,7 +177,7 @@ export default function ReviewShipmentScreen() {
           [{ text: 'Great!' }]
         );
       }, 500);
-      
+
     } catch (error: any) {
       console.error('Error creating shipment:', error);
       Alert.alert('Error', error.message || 'Failed to publish shipment. Please try again.');
@@ -187,15 +186,19 @@ export default function ReviewShipmentScreen() {
       uploadProgress.setValue(0);
     }
   };
-  
+
   const handleBack = () => {
     navigation.goBack();
   };
-  
+
+  const handleClose = () => {
+    navigation.navigate('MainTabs');
+  };
+
   const navigateToStep = (screen: string) => {
     navigation.navigate(screen);
   };
-  
+
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
@@ -206,14 +209,14 @@ export default function ReviewShipmentScreen() {
               <Plane size={32} color={colors.textPrimary} strokeWidth={1.5} />
             </View>
           </View>
-          
+
           <Text style={styles.loadingTitle}>Publishing your shipment...</Text>
           <Text style={styles.loadingSubtitle}>
             Your delivery request is being posted
           </Text>
-          
+
           <View style={styles.progressContainer}>
-            <Animated.View 
+            <Animated.View
               style={[
                 styles.progressBar,
                 {
@@ -222,24 +225,25 @@ export default function ReviewShipmentScreen() {
                     outputRange: ['0%', '100%'],
                   }),
                 },
-              ]} 
+              ]}
             />
           </View>
         </View>
       </SafeAreaView>
     );
   }
-  
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StepHeader
         title="Review & Publish"
         currentStep={7}
         totalSteps={totalSteps}
-        onClose={handleBack}
+        onClose={handleClose}
+        onBack={handleBack}
       />
-      
-      <ScrollView 
+
+      <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
@@ -248,7 +252,7 @@ export default function ReviewShipmentScreen() {
         <Text style={styles.pageHint}>
           Make sure everything looks correct before publishing
         </Text>
-        
+
         {/* Route Section */}
         <ReviewSection
           icon={<MapPin size={20} color={colors.textPrimary} strokeWidth={2} />}
@@ -266,12 +270,8 @@ export default function ReviewShipmentScreen() {
             <Text style={styles.routeLabel}>To</Text>
             <Text style={styles.routeValue}>{draft.destCity}, {draft.destCountry}</Text>
           </View>
-          <View style={styles.airportBadge}>
-            <Plane size={14} color={colors.textSecondary} />
-            <Text style={styles.airportText}>{draft.destAirport}</Text>
-          </View>
         </ReviewSection>
-        
+
         {/* Meeting Point */}
         <ReviewSection
           icon={<Navigation size={20} color={colors.textPrimary} strokeWidth={2} />}
@@ -282,7 +282,7 @@ export default function ReviewShipmentScreen() {
             {draft.meetingPointAddress || 'Not set'}
           </Text>
         </ReviewSection>
-        
+
         {/* Package */}
         <ReviewSection
           icon={<Package size={20} color={colors.textPrimary} strokeWidth={2} />}
@@ -291,9 +291,9 @@ export default function ReviewShipmentScreen() {
         >
           <View style={styles.packageRow}>
             {draft.packageImageUri && (
-              <Image 
-                source={{ uri: draft.packageImageUri }} 
-                style={styles.packageImage} 
+              <Image
+                source={{ uri: draft.packageImageUri }}
+                style={styles.packageImage}
               />
             )}
             <View style={styles.packageInfo}>
@@ -306,7 +306,7 @@ export default function ReviewShipmentScreen() {
             </View>
           </View>
         </ReviewSection>
-        
+
         {/* Delivery Window */}
         <ReviewSection
           icon={<Calendar size={20} color={colors.textPrimary} strokeWidth={2} />}
@@ -325,7 +325,7 @@ export default function ReviewShipmentScreen() {
             </View>
           </View>
         </ReviewSection>
-        
+
         {/* Price */}
         <ReviewSection
           icon={<DollarSign size={20} color={colors.textPrimary} strokeWidth={2} />}
@@ -339,7 +339,7 @@ export default function ReviewShipmentScreen() {
             Traveler will receive {getCurrencySymbol()}{Math.round(draft.price * 0.85)} after platform fee
           </Text>
         </ReviewSection>
-        
+
         {/* Contact */}
         <ReviewSection
           icon={<User size={20} color={colors.textPrimary} strokeWidth={2} />}
@@ -360,7 +360,7 @@ export default function ReviewShipmentScreen() {
           </View>
         </ReviewSection>
       </ScrollView>
-      
+
       <View style={styles.bottomContainer}>
         <TouchableOpacity
           style={styles.publishButton}
