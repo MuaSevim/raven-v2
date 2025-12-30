@@ -10,10 +10,307 @@ datasource db {
 }
 
 model User {
-  id        String   @id // This MUST be the Firebase UID
-  email     String   @unique
-  name      String?
-  avatar    String?
-  role      String   @default("SENDER") // SENDER or COURIER
-  createdAt DateTime @default(now())
+  id          String    @id // Firebase UID
+  email       String    @unique
+  
+  // Personal Info
+  firstName   String?
+  lastName    String?
+  
+  // Birthday
+  birthDay    Int?
+  birthMonth  Int?
+  birthYear   Int?
+  
+  // Location
+  country     String?
+  countryCode String?
+  city        String?
+  
+  // Profile
+  avatar      String?
+  role        String    @default("SENDER") // SENDER or COURIER
+  
+  // Verification
+  isVerified  Boolean   @default(false)
+  
+  // Timestamps
+  joinedAt    DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  shipmentsAsSender   Shipment[] @relation("SenderShipments")
+  shipmentsAsCourier  Shipment[] @relation("CourierShipments")
+  offers              ShipmentOffer[]
+  travels             Travel[]   @relation("TravelerTrips")
+  
+  // Chat relations
+  conversationsAsUser1  Conversation[] @relation("ConversationUser1")
+  conversationsAsUser2  Conversation[] @relation("ConversationUser2")
+  messagesSent          Message[]
+  
+  // Payment relations
+  paymentMethods        PaymentMethod[]
+  transactionsAsPayer   Transaction[] @relation("PayerTransactions")
+  transactionsAsPayee   Transaction[] @relation("PayeeTransactions")
+}
+
+model Shipment {
+  id              String    @id @default(cuid())
+  
+  // Route - Origin
+  originCountry   String
+  originCity      String
+  originAddress   String?
+  meetingPoint    String?   // Meeting point address
+  meetingPointLat Float?    // Latitude
+  meetingPointLng Float?    // Longitude
+  
+  // Route - Destination
+  destCountry     String
+  destCity        String
+  destAddress     String?
+  destAirport     String?
+  destAirportCode String?
+  
+  // Package Details
+  weight          Float     // in kg
+  weightUnit      String    @default("kg")
+  content         String
+  packageType     String    @default("Package") // Package, Document, Envelope, Box
+  imageUrl        String?
+  
+  // Delivery Window
+  dateStart       DateTime
+  dateEnd         DateTime
+  
+  // Pricing
+  price           Float     // Amount in USD
+  currency        String    @default("USD")
+  paymentMethod   String?   // Mastercard, Amex, Paypal, Swish
+  
+  // Sender Details (for finalization)
+  senderFullName  String?
+  senderIdNumber  String?
+  senderAge       Int?
+  senderPhone     String?
+  senderPhoneCode String?
+  
+  // Status
+  status          String    @default("OPEN") // OPEN, MATCHED, IN_TRANSIT, DELIVERED, CANCELLED
+  
+  // Relations
+  senderId        String
+  sender          User      @relation("SenderShipments", fields: [senderId], references: [id])
+  
+  courierId       String?
+  courier         User?     @relation("CourierShipments", fields: [courierId], references: [id])
+  
+  offers          ShipmentOffer[]
+  conversations   Conversation[]
+  transaction     Transaction?
+  
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([senderId])
+  @@index([courierId])
+  @@index([status])
+  @@index([dateStart, dateEnd])
+}
+
+model ShipmentOffer {
+  id          String    @id @default(cuid())
+  
+  // Offer Details
+  message     String
+  
+  // Status
+  status      String    @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  
+  // Relations
+  shipmentId  String
+  shipment    Shipment  @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  
+  courierId   String
+  courier     User      @relation(fields: [courierId], references: [id])
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([shipmentId])
+  @@index([courierId])
+}
+
+// Travelers posting their upcoming trips
+model Travel {
+  id              String    @id @default(cuid())
+  
+  // Route - From
+  fromCountry     String
+  fromCity        String
+  fromAirport     String?
+  fromAirportCode String?
+  
+  // Route - To
+  toCountry       String
+  toCity          String
+  toAirport       String?
+  toAirportCode   String?
+  
+  // Travel Date
+  departureDate   DateTime
+  arrivalDate     DateTime?
+  
+  // Capacity
+  availableWeight Float     // in kg
+  weightUnit      String    @default("kg")
+  
+  // Pricing Expectation
+  pricePerKg      Float?    // Price per kg willing to carry
+  currency        String    @default("USD")
+  
+  // Flight details (optional)
+  flightNumber    String?
+  
+  // Status
+  status          String    @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
+  
+  // Relations
+  travelerId      String
+  traveler        User      @relation("TravelerTrips", fields: [travelerId], references: [id])
+  
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([travelerId])
+  @@index([status])
+  @@index([departureDate])
+  @@index([fromCity, toCity])
+}
+
+// Conversations between users about a shipment
+model Conversation {
+  id          String    @id @default(cuid())
+  
+  // Participants
+  user1Id     String    // Usually the sender (shipment owner)
+  user1       User      @relation("ConversationUser1", fields: [user1Id], references: [id])
+  
+  user2Id     String    // Usually the courier (interested party)
+  user2       User      @relation("ConversationUser2", fields: [user2Id], references: [id])
+  
+  // Related shipment
+  shipmentId  String
+  shipment    Shipment  @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  
+  // Last message preview
+  lastMessage String?
+  lastMessageAt DateTime?
+  
+  // Messages
+  messages    Message[]
+  
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([user1Id, user2Id, shipmentId])
+  @@index([user1Id])
+  @@index([user2Id])
+  @@index([shipmentId])
+}
+
+// Individual messages in a conversation
+model Message {
+  id              String    @id @default(cuid())
+  
+  // Content
+  content         String
+  
+  // Message type
+  type            String    @default("TEXT") // TEXT, SYSTEM, MATCH_REQUEST, MATCH_ACCEPTED
+  
+  // Read status
+  isRead          Boolean   @default(false)
+  
+  // Relations
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  
+  senderId        String
+  sender          User      @relation(fields: [senderId], references: [id])
+  
+  // Timestamps
+  createdAt       DateTime  @default(now())
+
+  @@index([conversationId])
+  @@index([senderId])
+}
+
+// Saved payment methods
+model PaymentMethod {
+  id            String    @id @default(cuid())
+  
+  // Card details (in production, use Stripe token instead)
+  cardType      String    // visa, mastercard, amex
+  lastFour      String    // Last 4 digits
+  cardHolder    String    // Name on card
+  expiryMonth   Int
+  expiryYear    Int
+  
+  // Is default
+  isDefault     Boolean   @default(false)
+  
+  // Relations
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  
+  transactions  Transaction[]
+  
+  // Timestamps
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([userId])
+}
+
+// Payment transactions
+model Transaction {
+  id              String    @id @default(cuid())
+  
+  // Amount
+  amount          Float
+  currency        String    @default("USD")
+  
+  // Status
+  status          String    @default("PENDING") // PENDING, HELD, RELEASED, REFUNDED, FAILED
+  
+  // Description
+  description     String?
+  
+  // Relations
+  payerId         String
+  payer           User      @relation("PayerTransactions", fields: [payerId], references: [id])
+  
+  payeeId         String?   // Courier (null until delivery complete)
+  payee           User?     @relation("PayeeTransactions", fields: [payeeId], references: [id])
+  
+  shipmentId      String    @unique
+  shipment        Shipment  @relation(fields: [shipmentId], references: [id])
+  
+  paymentMethodId String?
+  paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
+  
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([payerId])
+  @@index([payeeId])
+  @@index([shipmentId])
+  @@index([status])
 }

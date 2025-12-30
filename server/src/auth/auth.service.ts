@@ -1,6 +1,11 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { initializeFirebase, getFirebaseAdmin } from './firebase-admin';
+import { CreateUserDto, SyncUserDto, UpdateUserDto } from './dto/auth.dto';
+
+// Temporary in-memory store for verification codes
+// In production, use Redis or database
+const verificationCodes = new Map<string, { code: string; expiresAt: Date }>();
 
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -11,31 +16,190 @@ export class AuthService implements OnModuleInit {
     initializeFirebase();
   }
 
-  async syncUser(idToken: string) {
+  /**
+   * Register a new user with email/password via Firebase Auth
+   */
+  async registerUser(dto: CreateUserDto) {
     const firebaseAdmin = getFirebaseAdmin();
-    const decodedToken = await firebaseAdmin.auth().verifyIdToken(idToken);
+    const normalizedEmail = dto.email.toLowerCase().trim();
+
+    // Check if email already exists in our database
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+
+    if (existingUser) {
+      throw new BadRequestException('Email already registered');
+    }
+
+    // Create user in Firebase Auth
+    const firebaseUser = await firebaseAdmin.auth().createUser({
+      email: normalizedEmail,
+      password: dto.password,
+      displayName: `${dto.firstName} ${dto.lastName}`,
+    });
+
+    // Create user in our database
+    const user = await this.prisma.user.create({
+      data: {
+        id: firebaseUser.uid,
+        email: normalizedEmail,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        birthDay: dto.birthDay,
+        birthMonth: dto.birthMonth,
+        birthYear: dto.birthYear,
+        country: dto.country,
+        countryCode: dto.countryCode,
+        city: dto.city,
+        isVerified: false,
+        role: 'SENDER',
+      },
+    });
+
+    return user;
+  }
+
+  /**
+   * Sync user from Firebase Auth (for social logins or existing Firebase users)
+   */
+  async syncUser(dto: SyncUserDto) {
+    const firebaseAdmin = getFirebaseAdmin();
+    const decodedToken = await firebaseAdmin.auth().verifyIdToken(dto.idToken);
     const { uid, email, name, picture } = decodedToken;
 
-    // This saves the Google user into your Supabase table automatically
+    // Parse name into firstName/lastName if available
+    const nameParts = name?.split(' ') || [];
+    const firstName = dto.firstName || nameParts[0] || null;
+    const lastName = dto.lastName || nameParts.slice(1).join(' ') || null;
+
+    // Upsert user in database
     return await this.prisma.user.upsert({
       where: { id: uid },
-      update: { name: name || null, avatar: picture || null },
+      update: {
+        firstName: firstName,
+        lastName: lastName,
+        avatar: picture || null,
+        birthDay: dto.birthDay,
+        birthMonth: dto.birthMonth,
+        birthYear: dto.birthYear,
+        country: dto.country,
+        countryCode: dto.countryCode,
+        city: dto.city,
+      },
       create: {
         id: uid,
         email: email || '',
-        name: name || null,
+        firstName: firstName,
+        lastName: lastName,
         avatar: picture || null,
+        birthDay: dto.birthDay,
+        birthMonth: dto.birthMonth,
+        birthYear: dto.birthYear,
+        country: dto.country,
+        countryCode: dto.countryCode,
+        city: dto.city,
         role: 'SENDER',
+        isVerified: true, // Social login users are pre-verified
       },
     });
   }
 
+  /**
+   * Generate and store verification code for email
+   */
+  async generateVerificationCode(email: string): Promise<string> {
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    // Generate 4-digit code
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    
+    // Store with 10-minute expiry
+    verificationCodes.set(normalizedEmail, {
+      code,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+    });
+
+    // TODO: Send email with code
+    // For now, log it (in production, use email service)
+    console.log(`Verification code for ${normalizedEmail}: ${code}`);
+
+    return code;
+  }
+
+  /**
+   * Verify email with code
+   */
+  async verifyEmail(email: string, code: string): Promise<boolean> {
+    const normalizedEmail = email.toLowerCase().trim();
+    const stored = verificationCodes.get(normalizedEmail);
+
+    if (!stored) {
+      throw new BadRequestException('No verification code found for this email');
+    }
+
+    if (new Date() > stored.expiresAt) {
+      verificationCodes.delete(normalizedEmail);
+      throw new BadRequestException('Verification code has expired');
+    }
+
+    // For testing: accept "0000" as valid code
+    if (code === '0000' || stored.code === code) {
+      verificationCodes.delete(normalizedEmail);
+      
+      // Note: isVerified will be set true through a separate verification flow
+      // (e.g., ID verification, phone verification, admin approval)
+      // Email code verification just confirms they have access to the email
+
+      return true;
+    }
+
+    throw new BadRequestException('Invalid verification code');
+  }
+
+  /**
+   * Check if email is already registered
+   */
+  async checkEmailExists(email: string): Promise<boolean> {
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+    return !!user;
+  }
+
+  /**
+   * Get user by Firebase UID
+   */
   async getUserById(uid: string) {
     return this.prisma.user.findUnique({
       where: { id: uid },
     });
   }
 
+  /**
+   * Get user by email
+   */
+  async getUserByEmail(email: string) {
+    const normalizedEmail = email.toLowerCase().trim();
+    return this.prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    });
+  }
+
+  /**
+   * Update user profile
+   */
+  async updateUser(uid: string, dto: UpdateUserDto) {
+    return this.prisma.user.update({
+      where: { id: uid },
+      data: dto,
+    });
+  }
+
+  /**
+   * Update user role
+   */
   async updateUserRole(uid: string, role: 'SENDER' | 'COURIER') {
     return this.prisma.user.update({
       where: { id: uid },

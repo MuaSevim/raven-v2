@@ -31,7 +31,41 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     await this.pool.end();
   }
 
+  // Model accessors
   get user() {
     return this.prisma.user;
+  }
+
+  get shipment() {
+    return this.prisma.shipment;
+  }
+
+  get shipmentOffer() {
+    return this.prisma.shipmentOffer;
+  }
+
+  get travel() {
+    return this.prisma.travel;
+  }
+
+  get conversation() {
+    return this.prisma.conversation;
+  }
+
+  get message() {
+    return this.prisma.message;
+  }
+
+  get paymentMethod() {
+    return this.prisma.paymentMethod;
+  }
+
+  get transaction() {
+    return this.prisma.transaction;
+  }
+
+  // Transaction support
+  get $transaction() {
+    return this.prisma.$transaction.bind(this.prisma);
   }
 }

@@ -8,12 +8,10 @@ import {
 import { auth } from "./firebaseConfig";
 import { useState, useCallback } from "react";
 import axios from "axios";
+import { API_URL } from "../config";
 
 // Complete any pending auth sessions
 WebBrowser.maybeCompleteAuthSession();
-
-// Your backend server URL
-const API_URL = "http://192.168.1.105:3000";
 
 // Google OAuth configuration
 const GOOGLE_CLIENT_ID = "728915617614-cvqm9ttt8a6n8bb4q3j75nh4ia3nhi5a.apps.googleusercontent.com";

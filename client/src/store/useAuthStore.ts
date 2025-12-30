@@ -1,11 +1,13 @@
 import { create } from "zustand";
-import { User } from "firebase/auth";
+import { User, signOut as firebaseSignOut } from "firebase/auth";
+import { auth } from "../services/firebaseConfig";
 
 interface AuthState {
   user: User | null;
   loading: boolean;
   setUser: (user: User | null) => void;
   setLoading: (loading: boolean) => void;
+  signOut: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -13,4 +15,14 @@ export const useAuthStore = create<AuthState>((set) => ({
   loading: true,
   setUser: (user) => set({ user }),
   setLoading: (loading) => set({ loading }),
+  signOut: async () => {
+    try {
+      await firebaseSignOut(auth);
+      set({ user: null });
+    } catch (error) {
+      console.error('Sign out error:', error);
+      // Still clear the user even if Firebase sign out fails
+      set({ user: null });
+    }
+  },
 }));

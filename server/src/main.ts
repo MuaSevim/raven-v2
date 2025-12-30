@@ -1,9 +1,19 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  
+
+  // Enable global validation pipe
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true, // Strip properties not in DTO
+      forbidNonWhitelisted: true, // Throw error for extra properties
+      transform: true, // Auto-transform payloads to DTO instances
+    }),
+  );
+
   // Enable CORS for mobile app
   app.enableCors({
     origin: true,
@@ -11,7 +21,10 @@ async function bootstrap() {
   });
 
   const port = process.env.PORT ?? 3000;
-  await app.listen(port);
-  console.log(`🚀 Server running on http://localhost:${port}`);
+
+  // Listen on 0.0.0.0 to accept connections from external devices (mobile phones)
+  await app.listen(port, '0.0.0.0');
+  console.log(`🚀 Server running on http://0.0.0.0:${port}`);
+  console.log(`📱 Access from mobile: http://192.168.1.108:${port}`);
 }
 bootstrap();
