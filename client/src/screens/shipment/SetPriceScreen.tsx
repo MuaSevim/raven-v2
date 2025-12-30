@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
+  PanResponder,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Minus, Plus, DollarSign, Info } from 'lucide-react-native';
@@ -28,21 +29,41 @@ const STEP = 5;
 export default function SetPriceScreen() {
   const navigation = useNavigation<any>();
   const { draft, setDraft, totalSteps } = useShipmentStore();
-  
+
   const [price, setPrice] = useState(draft.price || 50);
   const [currency, setCurrency] = useState(draft.currency || 'USD');
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
-  
+
+  const lastPriceRef = React.useRef(price);
+
+  const panResponder = React.useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: () => {
+        lastPriceRef.current = price;
+      },
+      onPanResponderMove: (_, gestureState) => {
+        const diff = Math.round(gestureState.dx / 10) * 5; // Sensitivity: 10px = $5
+        const newPrice = lastPriceRef.current + diff;
+        setPrice(Math.min(Math.max(newPrice, MIN_PRICE), MAX_PRICE));
+      },
+      onPanResponderRelease: () => {
+        lastPriceRef.current = price;
+      },
+    })
+  ).current;
+
   const canProceed = price >= MIN_PRICE;
-  
+
   const incrementPrice = () => {
     setPrice(prev => Math.min(prev + STEP, MAX_PRICE));
   };
-  
+
   const decrementPrice = () => {
     setPrice(prev => Math.max(prev - STEP, MIN_PRICE));
   };
-  
+
   const handlePriceInput = (value: string) => {
     const numValue = parseInt(value.replace(/[^0-9]/g, ''), 10);
     if (!isNaN(numValue)) {
@@ -51,7 +72,7 @@ export default function SetPriceScreen() {
       setPrice(MIN_PRICE);
     }
   };
-  
+
   const handleNext = () => {
     setDraft({
       price,
@@ -59,43 +80,48 @@ export default function SetPriceScreen() {
     });
     navigation.navigate('ContactDetails');
   };
-  
+
   const handleBack = () => {
     navigation.goBack();
   };
-  
+
+  const handleClose = () => {
+    navigation.navigate('MainTabs');
+  };
+
   const getCurrencySymbol = () => {
     return CURRENCIES.find(c => c.code === currency)?.symbol || '$';
   };
-  
+
   // Calculate progress percentage for the visual bar
   const progressPercent = ((price - MIN_PRICE) / (MAX_PRICE - MIN_PRICE)) * 100;
-  
+
   // Platform fee calculation (15%)
   const platformFee = Math.round(price * 0.15);
   const travelerReceives = price - platformFee;
-  
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StepHeader
         title="Set Your Price"
         currentStep={5}
         totalSteps={totalSteps}
-        onClose={handleBack}
+        onClose={handleClose}
+        onBack={handleBack}
       />
-      
+
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.sectionHeader}>
           <DollarSign size={20} color={colors.textPrimary} strokeWidth={2} />
           <Text style={styles.sectionTitle}>How much will you pay?</Text>
         </View>
-        
+
         <Text style={styles.hint}>
           Set the amount you're willing to pay for this delivery
         </Text>
-        
+
         {/* Currency Selector */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.currencySelector}
           onPress={() => setShowCurrencyPicker(!showCurrencyPicker)}
         >
@@ -104,7 +130,7 @@ export default function SetPriceScreen() {
             <Text style={styles.currencyText}>{currency}</Text>
           </View>
         </TouchableOpacity>
-        
+
         {showCurrencyPicker && (
           <View style={styles.currencyPicker}>
             {CURRENCIES.map((c) => (
@@ -125,9 +151,12 @@ export default function SetPriceScreen() {
             ))}
           </View>
         )}
-        
+
         {/* Price Display */}
-        <View style={styles.priceDisplay}>
+        <View
+          style={styles.priceDisplay}
+          {...panResponder.panHandlers}
+        >
           <Text style={styles.priceSymbol}>{getCurrencySymbol()}</Text>
           <TextInput
             style={styles.priceInput}
@@ -135,38 +164,40 @@ export default function SetPriceScreen() {
             onChangeText={handlePriceInput}
             keyboardType="number-pad"
             selectTextOnFocus
+            editable={false} // Disable direct editing when swipe is active to prevent conflicts, or keep it true but be careful
+            pointerEvents="none" // To ensure swipe works smoothly over the input
           />
         </View>
-        
+
         {/* Price Slider */}
         <View style={styles.sliderContainer}>
-          <TouchableOpacity 
-            onPress={decrementPrice} 
+          <TouchableOpacity
+            onPress={decrementPrice}
             style={styles.sliderButton}
             disabled={price <= MIN_PRICE}
           >
             <Minus size={20} color={price <= MIN_PRICE ? colors.textDisabled : colors.textPrimary} strokeWidth={2} />
           </TouchableOpacity>
-          
+
           <View style={styles.sliderTrack}>
             <View style={[styles.sliderFill, { width: `${progressPercent}%` }]} />
             <View style={[styles.sliderThumb, { left: `${progressPercent}%` }]} />
           </View>
-          
-          <TouchableOpacity 
-            onPress={incrementPrice} 
+
+          <TouchableOpacity
+            onPress={incrementPrice}
             style={styles.sliderButton}
             disabled={price >= MAX_PRICE}
           >
             <Plus size={20} color={price >= MAX_PRICE ? colors.textDisabled : colors.textPrimary} strokeWidth={2} />
           </TouchableOpacity>
         </View>
-        
+
         <View style={styles.rangeLabels}>
           <Text style={styles.rangeLabel}>{getCurrencySymbol()}{MIN_PRICE}</Text>
           <Text style={styles.rangeLabel}>{getCurrencySymbol()}{MAX_PRICE}</Text>
         </View>
-        
+
         {/* Fee Breakdown */}
         <View style={styles.feeBreakdown}>
           <View style={styles.feeRow}>
@@ -186,16 +217,16 @@ export default function SetPriceScreen() {
             <Text style={styles.feeTotalValue}>{getCurrencySymbol()}{travelerReceives}</Text>
           </View>
         </View>
-        
+
         <View style={styles.infoBox}>
           <Info size={16} color={colors.accent} />
           <Text style={styles.infoText}>
-            The traveler will receive {getCurrencySymbol()}{travelerReceives} for delivering your package. 
+            The traveler will receive {getCurrencySymbol()}{travelerReceives} for delivering your package.
             Higher offers get matched faster!
           </Text>
         </View>
       </ScrollView>
-      
+
       <BottomButton
         label="Next"
         onPress={handleNext}

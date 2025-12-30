@@ -28,15 +28,15 @@ const WEIGHT_UNITS: { value: WeightUnit; label: string }[] = [
 export default function PackageDetailsScreen() {
   const navigation = useNavigation<any>();
   const { draft, setDraft, totalSteps } = useShipmentStore();
-  
+
   const [weight, setWeight] = useState(draft.weight);
   const [weightUnit, setWeightUnit] = useState<WeightUnit>(draft.weightUnit);
   const [content, setContent] = useState(draft.content);
   const [imageUri, setImageUri] = useState<string | null>(draft.packageImageUri);
   const [showUnitPicker, setShowUnitPicker] = useState(false);
-  
+
   const canProceed = weight.length > 0 && parseFloat(weight) > 0 && content.length > 0 && imageUri !== null;
-  
+
   const handleWeightChange = (value: string) => {
     // Allow only numbers and one decimal point
     const sanitized = value.replace(/[^0-9.,]/g, '').replace(',', '.');
@@ -45,44 +45,44 @@ export default function PackageDetailsScreen() {
     if (parts.length > 2) return;
     setWeight(sanitized);
   };
-  
+
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission needed', 'Please grant camera roll permissions to upload images.');
       return;
     }
-    
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
     });
-    
+
     if (!result.canceled && result.assets[0]) {
       setImageUri(result.assets[0].uri);
     }
   };
-  
+
   const takePhoto = async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission needed', 'Please grant camera permissions to take photos.');
       return;
     }
-    
+
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: [4, 3],
       quality: 0.8,
     });
-    
+
     if (!result.canceled && result.assets[0]) {
       setImageUri(result.assets[0].uri);
     }
   };
-  
+
   const showImageOptions = () => {
     Alert.alert(
       'Add Package Photo',
@@ -94,11 +94,11 @@ export default function PackageDetailsScreen() {
       ]
     );
   };
-  
+
   const removeImage = () => {
     setImageUri(null);
   };
-  
+
   const handleNext = () => {
     setDraft({
       weight,
@@ -108,25 +108,30 @@ export default function PackageDetailsScreen() {
     });
     navigation.navigate('DeliveryWindow');
   };
-  
+
   const handleBack = () => {
     navigation.goBack();
   };
-  
+
+  const handleClose = () => {
+    navigation.navigate('MainTabs');
+  };
+
   const getUnitLabel = () => {
     return WEIGHT_UNITS.find(u => u.value === weightUnit)?.label || 'kg';
   };
-  
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StepHeader
         title="Package Details"
         currentStep={3}
         totalSteps={totalSteps}
-        onClose={handleBack}
+        onClose={handleClose}
+        onBack={handleBack}
       />
-      
-      <ScrollView 
+
+      <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
@@ -137,7 +142,7 @@ export default function PackageDetailsScreen() {
           <Package size={20} color={colors.textPrimary} strokeWidth={2} />
           <Text style={styles.sectionTitle}>Package Weight</Text>
         </View>
-        
+
         <View style={styles.weightRow}>
           <View style={styles.weightInputContainer}>
             <TextInput
@@ -149,8 +154,8 @@ export default function PackageDetailsScreen() {
               placeholderTextColor={colors.placeholder}
             />
           </View>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.unitSelector}
             onPress={() => setShowUnitPicker(!showUnitPicker)}
           >
@@ -158,7 +163,7 @@ export default function PackageDetailsScreen() {
             <ChevronDown size={18} color={colors.textSecondary} />
           </TouchableOpacity>
         </View>
-        
+
         {showUnitPicker && (
           <View style={styles.unitPicker}>
             {WEIGHT_UNITS.map((unit) => (
@@ -183,11 +188,11 @@ export default function PackageDetailsScreen() {
             ))}
           </View>
         )}
-        
+
         {/* Content Section */}
         <Text style={styles.label}>Package Contents</Text>
         <Text style={styles.labelHint}>Describe what's inside the package</Text>
-        
+
         <TextInput
           style={styles.contentInput}
           value={content}
@@ -198,16 +203,16 @@ export default function PackageDetailsScreen() {
           numberOfLines={4}
           textAlignVertical="top"
         />
-        
+
         <Text style={styles.disclaimer}>
-          ⚠️ Raven is not responsible for illegal items. Please review airport and 
+          ⚠️ Raven is not responsible for illegal items. Please review airport and
           international shipping <Text style={styles.link}>policies</Text>.
         </Text>
-        
+
         {/* Image Upload Section */}
         <Text style={styles.label}>Package Photo</Text>
         <Text style={styles.labelHint}>Required - helps travelers identify your package</Text>
-        
+
         {imageUri ? (
           <View style={styles.imagePreviewContainer}>
             <Image source={{ uri: imageUri }} style={styles.imagePreview} />
@@ -231,7 +236,7 @@ export default function PackageDetailsScreen() {
           </TouchableOpacity>
         )}
       </ScrollView>
-      
+
       <BottomButton
         label="Next"
         onPress={handleNext}

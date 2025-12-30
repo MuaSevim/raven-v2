@@ -15,21 +15,19 @@ import { ChevronDown, Search, X, Plane, MapPin, Check } from 'lucide-react-nativ
 import { useNavigation } from '@react-navigation/native';
 import { StepHeader, BottomButton } from '../../components/shipment/StepComponents';
 import { useShipmentStore } from '../../store/useShipmentStore';
-import { 
-  getAllCountries, 
-  getCitiesByCountry, 
-  searchAirports,
+import {
+  getAllCountries,
+  getCitiesByCountry,
   Country,
-  Airport,
 } from '../../services/locationApi';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 
-type ModalType = 'originCountry' | 'originCity' | 'destCountry' | 'destCity' | 'destAirport' | null;
+type ModalType = 'originCountry' | 'originCity' | 'destCountry' | 'destCity' | null;
 
 export default function SetRouteScreen() {
   const navigation = useNavigation<any>();
   const { draft, setDraft, totalSteps } = useShipmentStore();
-  
+
   // Local state
   const [originCountry, setOriginCountry] = useState(draft.originCountry);
   const [originCountryCode, setOriginCountryCode] = useState(draft.originCountryCode);
@@ -37,24 +35,21 @@ export default function SetRouteScreen() {
   const [destCountry, setDestCountry] = useState(draft.destCountry);
   const [destCountryCode, setDestCountryCode] = useState(draft.destCountryCode);
   const [destCity, setDestCity] = useState(draft.destCity);
-  const [destAirport, setDestAirport] = useState(draft.destAirport);
-  const [destAirportCode, setDestAirportCode] = useState(draft.destAirportCode);
-  
+
   // Modal state
   const [modalType, setModalType] = useState<ModalType>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Data state
   const [countries, setCountries] = useState<Country[]>([]);
   const [cities, setCities] = useState<string[]>([]);
-  const [airports, setAirports] = useState<Airport[]>([]);
   const [loading, setLoading] = useState(false);
-  
+
   // Load countries on mount
   useEffect(() => {
     loadCountries();
   }, []);
-  
+
   const loadCountries = async () => {
     setLoading(true);
     try {
@@ -66,7 +61,7 @@ export default function SetRouteScreen() {
       setLoading(false);
     }
   };
-  
+
   const loadCities = async (country: string) => {
     setLoading(true);
     setCities([]);
@@ -79,51 +74,23 @@ export default function SetRouteScreen() {
       setLoading(false);
     }
   };
-  
-  const loadAirports = useCallback(async (query: string) => {
-    if (query.length < 2) {
-      setAirports([]);
-      return;
-    }
-    setLoading(true);
-    try {
-      const data = await searchAirports(query);
-      setAirports(data);
-    } catch (error) {
-      console.error('Failed to load airports:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-  
-  // Debounced airport search
-  useEffect(() => {
-    if (modalType === 'destAirport') {
-      const timer = setTimeout(() => {
-        loadAirports(searchQuery || destCity || destCountry);
-      }, 300);
-      return () => clearTimeout(timer);
-    }
-  }, [searchQuery, modalType, destCity, destCountry, loadAirports]);
-  
+
   const openModal = (type: ModalType) => {
     setModalType(type);
     setSearchQuery('');
-    
+
     if (type === 'originCity' && originCountry) {
       loadCities(originCountry);
     } else if (type === 'destCity' && destCountry) {
       loadCities(destCountry);
-    } else if (type === 'destAirport') {
-      loadAirports(destCity || destCountry || '');
     }
   };
-  
+
   const closeModal = () => {
     setModalType(null);
     setSearchQuery('');
   };
-  
+
   const handleSelectCountry = (country: Country, isOrigin: boolean) => {
     if (isOrigin) {
       setOriginCountry(country.country);
@@ -132,36 +99,22 @@ export default function SetRouteScreen() {
     } else {
       setDestCountry(country.country);
       setDestCountryCode(country.iso2);
-      setDestCity(''); // Reset city and airport when country changes
-      setDestAirport('');
-      setDestAirportCode('');
+      setDestCity(''); // Reset city when country changes
     }
     closeModal();
   };
-  
+
   const handleSelectCity = (city: string, isOrigin: boolean) => {
     if (isOrigin) {
       setOriginCity(city);
     } else {
       setDestCity(city);
-      setDestAirport(''); // Reset airport when city changes
-      setDestAirportCode('');
     }
     closeModal();
   };
-  
-  const handleSelectAirport = (airport: Airport) => {
-    setDestAirport(airport.name);
-    setDestAirportCode(airport.iata);
-    // Also set city if not already set
-    if (!destCity && airport.city) {
-      setDestCity(airport.city);
-    }
-    closeModal();
-  };
-  
-  const canProceed = originCountry && originCity && destCountry && destCity && destAirport;
-  
+
+  const canProceed = originCountry && originCity && destCountry && destCity;
+
   const handleNext = () => {
     setDraft({
       originCountry,
@@ -170,45 +123,42 @@ export default function SetRouteScreen() {
       destCountry,
       destCountryCode,
       destCity,
-      destAirport,
-      destAirportCode,
     });
     navigation.navigate('MeetingPoint');
   };
-  
+
   const handleClose = () => {
     navigation.goBack();
   };
-  
+
   // Filter data based on search query
   const getFilteredData = () => {
     const query = searchQuery.toLowerCase();
-    
+
     switch (modalType) {
       case 'originCountry':
       case 'destCountry':
-        return countries.filter(c => 
+        return countries.filter(c =>
           c.country.toLowerCase().includes(query)
         );
       case 'originCity':
       case 'destCity':
-        return cities.filter(c => 
+        return cities.filter(c =>
           c.toLowerCase().includes(query)
         );
-      case 'destAirport':
-        return airports;
+
       default:
         return [];
     }
   };
-  
+
   const renderModalItem = ({ item }: { item: any }) => {
     if (modalType === 'originCountry' || modalType === 'destCountry') {
       const country = item as Country;
-      const isSelected = modalType === 'originCountry' 
-        ? country.country === originCountry 
+      const isSelected = modalType === 'originCountry'
+        ? country.country === originCountry
         : country.country === destCountry;
-      
+
       return (
         <TouchableOpacity
           style={[styles.modalItem, isSelected && styles.modalItemSelected]}
@@ -219,13 +169,13 @@ export default function SetRouteScreen() {
         </TouchableOpacity>
       );
     }
-    
+
     if (modalType === 'originCity' || modalType === 'destCity') {
       const city = item as string;
-      const isSelected = modalType === 'originCity' 
-        ? city === originCity 
+      const isSelected = modalType === 'originCity'
+        ? city === originCity
         : city === destCity;
-      
+
       return (
         <TouchableOpacity
           style={[styles.modalItem, isSelected && styles.modalItemSelected]}
@@ -236,44 +186,22 @@ export default function SetRouteScreen() {
         </TouchableOpacity>
       );
     }
-    
-    if (modalType === 'destAirport') {
-      const airport = item as Airport;
-      const isSelected = airport.iata === destAirportCode;
-      
-      return (
-        <TouchableOpacity
-          style={[styles.modalItem, isSelected && styles.modalItemSelected]}
-          onPress={() => handleSelectAirport(airport)}
-        >
-          <View style={styles.airportItem}>
-            <Plane size={18} color={colors.textSecondary} strokeWidth={1.5} />
-            <View style={styles.airportInfo}>
-              <Text style={styles.airportName}>{airport.name}</Text>
-              <Text style={styles.airportCode}>
-                {airport.iata} • {airport.city}, {airport.country}
-              </Text>
-            </View>
-          </View>
-          {isSelected && <Check size={20} color={colors.textPrimary} />}
-        </TouchableOpacity>
-      );
-    }
-    
+
+
     return null;
   };
-  
+
   const getModalTitle = () => {
     switch (modalType) {
       case 'originCountry': return 'Select Origin Country';
       case 'originCity': return 'Select Origin City';
       case 'destCountry': return 'Select Destination Country';
       case 'destCity': return 'Select Destination City';
-      case 'destAirport': return 'Select Destination Airport';
+
       default: return '';
     }
   };
-  
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StepHeader
@@ -281,9 +209,10 @@ export default function SetRouteScreen() {
         currentStep={1}
         totalSteps={totalSteps}
         onClose={handleClose}
+        onBack={handleClose}
       />
-      
-      <ScrollView 
+
+      <ScrollView
         style={styles.content}
         contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
@@ -294,8 +223,8 @@ export default function SetRouteScreen() {
             <MapPin size={20} color={colors.textPrimary} strokeWidth={2} />
             <Text style={styles.sectionTitle}>From (Origin)</Text>
           </View>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.selectField}
             onPress={() => openModal('originCountry')}
           >
@@ -304,8 +233,8 @@ export default function SetRouteScreen() {
             </Text>
             <ChevronDown size={20} color={colors.textTertiary} />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[styles.selectField, !originCountry && styles.selectFieldDisabled]}
             onPress={() => originCountry && openModal('originCity')}
             disabled={!originCountry}
@@ -316,15 +245,15 @@ export default function SetRouteScreen() {
             <ChevronDown size={20} color={colors.textTertiary} />
           </TouchableOpacity>
         </View>
-        
+
         {/* Destination Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Plane size={20} color={colors.textPrimary} strokeWidth={2} />
             <Text style={styles.sectionTitle}>To (Destination)</Text>
           </View>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={styles.selectField}
             onPress={() => openModal('destCountry')}
           >
@@ -333,8 +262,8 @@ export default function SetRouteScreen() {
             </Text>
             <ChevronDown size={20} color={colors.textTertiary} />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[styles.selectField, !destCountry && styles.selectFieldDisabled]}
             onPress={() => destCountry && openModal('destCity')}
             disabled={!destCountry}
@@ -344,32 +273,17 @@ export default function SetRouteScreen() {
             </Text>
             <ChevronDown size={20} color={colors.textTertiary} />
           </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[styles.selectField, styles.airportField, !destCity && styles.selectFieldDisabled]}
-            onPress={() => destCity && openModal('destAirport')}
-            disabled={!destCity}
-          >
-            <View style={styles.airportFieldContent}>
-              <Plane size={18} color={destAirport ? colors.textPrimary : colors.textTertiary} strokeWidth={1.5} />
-              <Text style={destAirport ? styles.selectText : styles.selectPlaceholder}>
-                {destAirport 
-                  ? `${destAirport}${destAirportCode ? ` (${destAirportCode})` : ''}`
-                  : 'Select airport'
-                }
-              </Text>
-            </View>
-            <ChevronDown size={20} color={colors.textTertiary} />
-          </TouchableOpacity>
+
+
         </View>
       </ScrollView>
-      
+
       <BottomButton
         label="Next"
         onPress={handleNext}
         disabled={!canProceed}
       />
-      
+
       {/* Selection Modal */}
       <Modal
         visible={modalType !== null}
@@ -384,7 +298,7 @@ export default function SetRouteScreen() {
               <X size={24} color={colors.textPrimary} />
             </TouchableOpacity>
           </View>
-          
+
           <View style={styles.searchContainer}>
             <Search size={20} color={colors.textTertiary} />
             <TextInput
@@ -401,7 +315,7 @@ export default function SetRouteScreen() {
               </TouchableOpacity>
             )}
           </View>
-          
+
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={colors.textPrimary} />
@@ -409,7 +323,7 @@ export default function SetRouteScreen() {
           ) : (
             <FlatList
               data={getFilteredData()}
-              keyExtractor={(item, index) => 
+              keyExtractor={(item, index) =>
                 typeof item === 'string' ? item : (item as any).iata || (item as any).country || index.toString()
               }
               renderItem={renderModalItem}
@@ -417,10 +331,7 @@ export default function SetRouteScreen() {
               ListEmptyComponent={
                 <View style={styles.emptyContainer}>
                   <Text style={styles.emptyText}>
-                    {modalType === 'destAirport' && searchQuery.length < 2
-                      ? 'Type to search airports'
-                      : 'No results found'
-                    }
+                    {'No results found'}
                   </Text>
                 </View>
               }
@@ -471,15 +382,6 @@ const styles = StyleSheet.create({
   },
   selectFieldDisabled: {
     opacity: 0.5,
-  },
-  airportField: {
-    marginTop: spacing.xs,
-  },
-  airportFieldContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    flex: 1,
   },
   selectText: {
     fontFamily: typography.fontFamily.medium,
@@ -553,26 +455,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.regular,
     fontSize: typography.fontSize.base,
     color: colors.textPrimary,
-  },
-  airportItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    flex: 1,
-  },
-  airportInfo: {
-    flex: 1,
-  },
-  airportName: {
-    fontFamily: typography.fontFamily.medium,
-    fontSize: typography.fontSize.base,
-    color: colors.textPrimary,
-  },
-  airportCode: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-    marginTop: 2,
   },
   loadingContainer: {
     flex: 1,

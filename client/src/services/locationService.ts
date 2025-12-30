@@ -29,7 +29,7 @@ export const fetchCountries = async (): Promise<Country[]> => {
   try {
     const response = await axios.get(
       `${REST_COUNTRIES_API}/all?fields=name,cca2,flags`,
-      { timeout: 10000 }
+      { timeout: 30000 }
     );
 
     if (response.data && Array.isArray(response.data)) {
@@ -38,8 +38,8 @@ export const fetchCountries = async (): Promise<Country[]> => {
           name: country.name?.common || '',
           code: country.cca2 || '',
           flag: country.flags?.emoji || getFlagEmoji(country.cca2 || ''),
-          nativeName: country.name?.nativeName 
-            ? (Object.values(country.name.nativeName)[0] as any)?.common 
+          nativeName: country.name?.nativeName
+            ? (Object.values(country.name.nativeName)[0] as any)?.common
             : undefined,
         }))
         .filter((c: Country) => c.name && c.code)
@@ -62,7 +62,7 @@ export const fetchCountries = async (): Promise<Country[]> => {
  */
 export const fetchCities = async (countryName: string): Promise<string[]> => {
   const cacheKey = countryName.toLowerCase();
-  
+
   // Return cached data if available
   if (citiesCache[cacheKey]) {
     return citiesCache[cacheKey];
@@ -72,14 +72,14 @@ export const fetchCities = async (countryName: string): Promise<string[]> => {
     const response = await axios.post(
       `${COUNTRIES_NOW_API}/countries/cities`,
       { country: countryName },
-      { timeout: 10000 }
+      { timeout: 30000 }
     );
 
     if (response.data?.error === false && Array.isArray(response.data?.data)) {
       const cities = response.data.data
         .filter((city: string) => city && city.trim())
         .sort((a: string, b: string) => a.localeCompare(b));
-      
+
       citiesCache[cacheKey] = cities;
       return cities;
     }
@@ -97,19 +97,19 @@ export const fetchCities = async (countryName: string): Promise<string[]> => {
  */
 export const searchCountries = (countries: Country[], query: string): Country[] => {
   if (!query.trim()) return countries;
-  
+
   const normalizedQuery = query.toLowerCase().trim();
-  
+
   return countries.filter(country => {
     // Check main name
     if (country.name.toLowerCase().includes(normalizedQuery)) return true;
-    
+
     // Check native name
     if (country.nativeName?.toLowerCase().includes(normalizedQuery)) return true;
-    
+
     // Check country code
     if (country.code.toLowerCase() === normalizedQuery) return true;
-    
+
     return false;
   });
 };
@@ -119,12 +119,12 @@ export const searchCountries = (countries: Country[], query: string): Country[] 
  */
 const getFlagEmoji = (countryCode: string): string => {
   if (!countryCode || countryCode.length !== 2) return '🏳️';
-  
+
   const codePoints = countryCode
     .toUpperCase()
     .split('')
     .map(char => 127397 + char.charCodeAt(0));
-  
+
   return String.fromCodePoint(...codePoints);
 };
 

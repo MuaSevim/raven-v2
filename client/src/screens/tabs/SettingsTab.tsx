@@ -17,8 +17,8 @@ interface SettingsItemProps {
 
 function SettingsItem({ label, onPress, showBorder = true, icon, badge }: SettingsItemProps) {
   return (
-    <TouchableOpacity 
-      style={[styles.settingsItem, !showBorder && styles.settingsItemNoBorder]} 
+    <TouchableOpacity
+      style={[styles.settingsItem, !showBorder && styles.settingsItemNoBorder]}
       onPress={onPress}
       activeOpacity={0.7}
     >
@@ -93,8 +93,8 @@ export default function SettingsTab() {
       'Are you sure you want to sign out?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Sign Out', 
+        {
+          text: 'Sign Out',
           style: 'destructive',
           onPress: async () => {
             try {
@@ -132,7 +132,7 @@ export default function SettingsTab() {
         <View style={styles.settingsGroup}>
           <SettingsItem
             label="Profile Information"
-            onPress={() => {}}
+            onPress={() => navigation.navigate('Profile')}
           />
           <SettingsItem
             label="Payment Methods"
@@ -146,11 +146,11 @@ export default function SettingsTab() {
         <View style={styles.settingsGroup}>
           <SettingsItem
             label="Notifications"
-            onPress={() => {}}
+            onPress={() => { }}
           />
           <SettingsItem
             label="Privacy"
-            onPress={() => {}}
+            onPress={() => { }}
             showBorder={false}
           />
         </View>
@@ -168,17 +168,17 @@ export default function SettingsTab() {
         <View style={styles.settingsGroup}>
           <SettingsItem
             label="Help & Support"
-            onPress={() => {}}
+            onPress={() => { }}
           />
           <SettingsItem
             label="About Raven"
-            onPress={() => {}}
+            onPress={() => { }}
             showBorder={false}
           />
         </View>
 
         {/* Sign Out */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.signOutButton}
           onPress={handleSignOut}
           activeOpacity={0.7}

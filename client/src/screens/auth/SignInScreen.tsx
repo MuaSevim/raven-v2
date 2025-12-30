@@ -65,43 +65,52 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
       await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
       // Navigation will automatically switch to Home screen via onAuthStateChanged
     } catch (error: any) {
-      // Handle Firebase errors with user-friendly messages
-      let errorMessage = 'Sign in failed. Please try again.';
-      
+      // Handle Firebase errors with field-specific feedback
+      let emailError: string | undefined;
+      let passwordError: string | undefined;
+      let clearPassword = false;
+
       switch (error.code) {
         case 'auth/user-not-found':
-          errorMessage = 'No account found with this email';
-          break;
-        case 'auth/wrong-password':
-          errorMessage = 'Incorrect password';
+          emailError = 'No account found with this email';
           break;
         case 'auth/invalid-email':
-          errorMessage = 'Invalid email address';
+          emailError = 'Invalid email address format';
+          break;
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential':
+          passwordError = 'Incorrect password';
+          clearPassword = true;
           break;
         case 'auth/user-disabled':
-          errorMessage = 'This account has been disabled';
+          emailError = 'This account has been disabled';
           break;
         case 'auth/too-many-requests':
-          errorMessage = 'Too many failed attempts. Please try again later.';
-          break;
-        case 'auth/invalid-credential':
-          errorMessage = 'Invalid email or password';
+          passwordError = 'Too many failed attempts. Please try again later.';
           break;
         case 'auth/network-request-failed':
-          errorMessage = 'Network error. Please check your connection.';
+          emailError = 'Network error. Please check your connection.';
           break;
         case 'auth/operation-not-allowed':
-          errorMessage = 'Email/password sign-in is not enabled. Please contact support.';
+          emailError = 'Email/password sign-in is not enabled. Please contact support.';
           console.error('FIREBASE ERROR: Email/Password provider is not enabled in Firebase Console!');
           console.error('Enable it at: https://console.firebase.google.com/project/raven-app-e21c2/authentication/providers');
           break;
         default:
           // Log unexpected errors for debugging
           console.error('Sign in error:', error.code, error.message);
-          errorMessage = 'An unexpected error occurred. Please try again.';
+          emailError = 'An unexpected error occurred. Please try again.';
       }
-      
-      setErrors({ email: errorMessage });
+
+      // Clear password if it was a password error
+      if (clearPassword) {
+        setPassword('');
+      }
+
+      setErrors({
+        email: emailError,
+        password: passwordError,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -122,7 +131,7 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
           <View style={styles.logoSection}>
             <View style={styles.logoContainer}>
               <Image
-                source={require('../../../assets/images/raven-logo-black.png')}
+                source={require('../../../assets/images/logo.png')}
                 style={styles.logoImage}
                 resizeMode="contain"
               />

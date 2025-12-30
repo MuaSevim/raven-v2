@@ -17,7 +17,7 @@ import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 @Controller('shipments')
 @UseGuards(FirebaseAuthGuard)
 export class ShipmentsController {
-  constructor(private readonly shipmentsService: ShipmentsService) {}
+  constructor(private readonly shipmentsService: ShipmentsService) { }
 
   @Post()
   create(@Request() req, @Body() createShipmentDto: CreateShipmentDto) {
@@ -34,6 +34,15 @@ export class ShipmentsController {
     @Query('minPrice') minPrice?: string,
     @Query('maxPrice') maxPrice?: string,
   ) {
+    console.log('GET /shipments findAll called with params:', {
+      status,
+      originCountry,
+      destCountry,
+      minWeight,
+      maxWeight,
+      minPrice,
+      maxPrice,
+    });
     return this.shipmentsService.findAll({
       status,
       originCountry,

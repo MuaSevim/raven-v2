@@ -9,36 +9,30 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Box, Plane, ShoppingCart, Package, MapPin, ArrowRight, CheckCircle, Clock, Truck } from 'lucide-react-native';
+import { Box, Plane, ShoppingCart, Package, MapPin, ArrowRight, CheckCircle, Clock } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { API_URL } from '../../config';
 
-interface OngoingDelivery {
+interface ActiveItem {
   id: string;
-  shipment: {
-    id: string;
-    title: string;
-    originCity: string;
-    destCity: string;
-    price: number;
-    currency: string;
-    status: string;
-  };
+  type: 'shipment' | 'offer' | 'transaction';
+  title: string;
   status: string;
-  createdAt: string;
-  role: 'sender' | 'courier';
-  otherUser: {
-    firstName: string | null;
-    lastName: string | null;
-  };
+  price: number;
+  currency: string;
+  origin: string;
+  destination: string;
+  date: string;
+  meta?: any;
 }
 
 function getCurrencySymbol(currency: string) {
   switch (currency) {
     case 'EUR': return '€';
     case 'GBP': return '£';
+    case 'SEK': return 'kr';
     default: return '$';
   }
 }
@@ -46,40 +40,84 @@ function getCurrencySymbol(currency: string) {
 export default function HomeTab() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
-  const [ongoingDeliveries, setOngoingDeliveries] = useState<OngoingDelivery[]>([]);
-  const [loadingDeliveries, setLoadingDeliveries] = useState(true);
+  const [activeItems, setActiveItems] = useState<ActiveItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Fetch ongoing deliveries
+  // Fetch all active items
   useFocusEffect(
     useCallback(() => {
-      const fetchOngoingDeliveries = async () => {
+      const fetchData = async () => {
         if (!user) {
-          setLoadingDeliveries(false);
+          setLoading(false);
           return;
         }
-        
+
         try {
           const token = await user.getIdToken();
-          const response = await fetch(`${API_URL}/payments/transactions`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          });
-          
-          if (response.ok) {
-            const transactions = await response.json();
-            // Filter to only show held/in-progress transactions
-            const ongoing = transactions.filter((t: any) => 
-              t.status === 'HELD' && t.shipment?.status === 'MATCHED'
-            );
-            setOngoingDeliveries(ongoing);
-          }
+          const headers = { 'Authorization': `Bearer ${token}` };
+
+          // 1. Fetch my shipments (Shipments I posted)
+          const shipmentsRes = await fetch(`${API_URL}/shipments?userId=${user.uid}`, { headers });
+          const shipments = shipmentsRes.ok ? await shipmentsRes.json() : [];
+
+          // 2. Fetch my offers (Offers I sent) - Assuming an endpoint exists or filter from shipments? 
+          // For now, let's look at shipments I've engaged with or fetch offers directly if possible.
+          // Since there isn't a direct "my offers" endpoint documented easily, we might skip or rely on Store.
+          // However, user.offers might be available if we synced it.
+          // Let's assume we can use the user store for offers if updated, or fetch from a hypothetical endpoint.
+          // Actually, let's check shipments where I am NOT the sender but have an interaction? 
+          // Simpler: Just rely on Shipments I posted + Transactions for now as "Active".
+
+          // 3. Fetch Transactions (Ongoing deliveries)
+          const transactionsRes = await fetch(`${API_URL}/payments/transactions`, { headers });
+          const transactions = transactionsRes.ok ? await transactionsRes.json() : [];
+
+          // Process Shipments
+          const myActiveShipments = shipments
+            .filter((s: any) => s.status !== 'DELIVERED' && s.status !== 'CANCELLED')
+            .map((s: any) => ({
+              id: s.id,
+              type: 'shipment',
+              title: s.title || `Shipment to ${s.destCity}`,
+              status: s.status,
+              price: s.price,
+              currency: s.currency,
+              origin: s.originCity,
+              destination: s.destCity,
+              date: s.createdAt,
+              meta: { offersCount: s._count?.offers || 0 }
+            }));
+
+          // Process Transactions (My travels or my shipment being delivered)
+          const myTransactions = transactions
+            .filter((t: any) => t.status !== 'COMPLETED' && t.status !== 'FAILED')
+            .map((t: any) => ({
+              id: t.id,
+              type: 'transaction',
+              title: t.shipment?.title || 'Delivery in progress',
+              status: 'IN_TRANSIT',
+              price: t.amount,
+              currency: t.currency,
+              origin: t.shipment?.originCity,
+              destination: t.shipment?.destCity,
+              date: t.createdAt,
+              meta: { role: t.senderId === user.uid ? 'sender' : 'courier' }
+            }));
+
+          // Merge and sort
+          const allItems = [...myActiveShipments, ...myTransactions].sort((a, b) =>
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+          );
+
+          setActiveItems(allItems);
         } catch (err) {
-          console.error('Error fetching ongoing deliveries:', err);
+          console.error('Error fetching dashboard data:', err);
         } finally {
-          setLoadingDeliveries(false);
+          setLoading(false);
         }
       };
-      
-      fetchOngoingDeliveries();
+
+      fetchData();
     }, [user])
   );
 
@@ -87,47 +125,71 @@ export default function HomeTab() {
     navigation.navigate(tabName);
   };
 
-  const renderOngoingDelivery = (delivery: OngoingDelivery) => {
-    const otherName = delivery.otherUser 
-      ? `${delivery.otherUser.firstName || ''} ${delivery.otherUser.lastName || ''}`.trim() || 'User'
-      : 'User';
-    
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'OPEN': return colors.success;
+      case 'MATCHED': return colors.primary;
+      case 'IN_TRANSIT': return colors.warning;
+      default: return colors.textSecondary;
+    }
+  };
+
+  const getStatusText = (item: ActiveItem) => {
+    if (item.type === 'transaction') return 'In Transit';
+    if (item.type === 'shipment') {
+      if (item.status === 'OPEN') return `${item.meta.offersCount} Offers`;
+      return item.status;
+    }
+    return item.status;
+  };
+
+  const handleItemPress = (item: ActiveItem) => {
+    if (item.type === 'shipment') {
+      navigation.navigate('ShipmentDetail', { shipmentId: item.id });
+    } else if (item.type === 'transaction') {
+      navigation.navigate('DeliveryTracking', { transactionId: item.id });
+    }
+  };
+
+  const renderActiveItem = (item: ActiveItem, index: number) => {
     return (
-      <TouchableOpacity 
-        key={delivery.id}
+      <TouchableOpacity
+        key={`${item.type}-${item.id}-${index}`}
         style={styles.deliveryCard}
         activeOpacity={0.8}
-        onPress={() => navigation.navigate('DeliveryTracking', { transactionId: delivery.id })}
+        onPress={() => handleItemPress(item)}
       >
         <View style={styles.deliveryHeader}>
-          <View style={styles.deliveryStatus}>
-            <Truck size={14} color="#22C55E" />
-            <Text style={styles.deliveryStatusText}>In Transit</Text>
+          <View style={[styles.deliveryStatus, { backgroundColor: getStatusColor(item.status) + '20' }]}>
+            <Clock size={12} color={getStatusColor(item.status)} />
+            <Text style={[styles.deliveryStatusText, { color: getStatusColor(item.status) }]}>
+              {getStatusText(item)}
+            </Text>
           </View>
           <Text style={styles.deliveryPrice}>
-            {getCurrencySymbol(delivery.shipment.currency)}{delivery.shipment.price}
+            {getCurrencySymbol(item.currency)}{item.price}
           </Text>
         </View>
-        
+
         <Text style={styles.deliveryTitle} numberOfLines={1}>
-          {delivery.shipment.title}
+          {item.title}
         </Text>
-        
+
         <View style={styles.deliveryRoute}>
           <View style={styles.deliveryLocation}>
             <MapPin size={12} color={colors.textTertiary} />
-            <Text style={styles.deliveryCity}>{delivery.shipment.originCity}</Text>
+            <Text style={styles.deliveryCity}>{item.origin}</Text>
           </View>
           <ArrowRight size={14} color={colors.textTertiary} />
           <View style={styles.deliveryLocation}>
             <MapPin size={12} color={colors.textTertiary} />
-            <Text style={styles.deliveryCity}>{delivery.shipment.destCity}</Text>
+            <Text style={styles.deliveryCity}>{item.destination}</Text>
           </View>
         </View>
-        
+
         <View style={styles.deliveryFooter}>
           <Text style={styles.deliveryPerson}>
-            {delivery.role === 'sender' ? 'Courier: ' : 'Sender: '}{otherName}
+            {item.type === 'shipment' ? 'Posted by You' : 'Ongoing Delivery'}
           </Text>
         </View>
       </TouchableOpacity>
@@ -136,27 +198,44 @@ export default function HomeTab() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header with Raven Logo */}
+        {/* Header with Status Banner */}
         <View style={styles.header}>
-          <Image
-            source={require('../../../assets/images/logo.png')}
-            style={styles.logoImage}
-            resizeMode="contain"
-          />
           <Text style={styles.title}>Explore the Raven</Text>
           <Text style={styles.subtitle}>
             Safe Delivery & Free Travelling!
           </Text>
         </View>
 
+        {/* Status Banner */}
+        {loading ? (
+          <View style={styles.statusBanner}>
+            <ActivityIndicator size="small" color={colors.primary} />
+            <Text style={styles.statusText}>Loading your activity...</Text>
+          </View>
+        ) : activeItems.length > 0 ? (
+          <View style={[styles.statusBanner, styles.statusBannerActive]}>
+            <CheckCircle size={18} color="#22C55E" />
+            <Text style={styles.statusTextActive}>
+              You have {activeItems.length} active {activeItems.length === 1 ? 'item' : 'items'}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.statusBanner}>
+            <Package size={18} color={colors.textSecondary} />
+            <Text style={styles.statusText}>
+              No active shipments or offers
+            </Text>
+          </View>
+        )}
+
         {/* Main Card - Send a Package */}
-        <TouchableOpacity 
-          style={styles.mainCard} 
+        <TouchableOpacity
+          style={styles.mainCard}
           activeOpacity={0.8}
           onPress={() => navigateToTab('DeliveriesTab')}
         >
@@ -174,8 +253,8 @@ export default function HomeTab() {
         {/* Two Column Cards */}
         <View style={styles.cardsRow}>
           {/* Travel & Earn Card */}
-          <TouchableOpacity 
-            style={styles.smallCard} 
+          <TouchableOpacity
+            style={styles.smallCard}
             activeOpacity={0.8}
             onPress={() => navigateToTab('TravelersTab')}
           >
@@ -191,8 +270,8 @@ export default function HomeTab() {
           </TouchableOpacity>
 
           {/* Shop Globally Card */}
-          <TouchableOpacity 
-            style={styles.smallCard} 
+          <TouchableOpacity
+            style={styles.smallCard}
             activeOpacity={0.8}
             onPress={() => navigateToTab('ShopTab')}
           >
@@ -208,16 +287,16 @@ export default function HomeTab() {
           </TouchableOpacity>
         </View>
 
-        {/* Ongoing Deliveries Section */}
-        {ongoingDeliveries.length > 0 && (
+        {/* Active Items Section */}
+        {activeItems.length > 0 && (
           <View style={styles.ongoingSection}>
             <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Ongoing Deliveries</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Inbox')}>
+              <Text style={styles.sectionTitle}>Your Activities</Text>
+              {/* <TouchableOpacity onPress={() => navigation.navigate('Inbox')}>
                 <Text style={styles.seeAllText}>See all</Text>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
             </View>
-            {ongoingDeliveries.slice(0, 3).map(renderOngoingDelivery)}
+            {activeItems.slice(0, 5).map((item, index) => renderActiveItem(item, index))}
           </View>
         )}
       </ScrollView>
@@ -258,6 +337,33 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     color: colors.textSecondary,
     textAlign: 'center',
+  },
+  // Status Banner
+  statusBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.backgroundSecondary,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.lg,
+  },
+  statusBannerActive: {
+    backgroundColor: '#22C55E15',
+    borderWidth: 1,
+    borderColor: '#22C55E30',
+  },
+  statusText: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+  },
+  statusTextActive: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.fontSize.sm,
+    color: '#22C55E',
   },
   // Main Card
   mainCard: {
@@ -356,7 +462,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: '#22C55E20',
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     borderRadius: borderRadius.full,
@@ -364,7 +469,6 @@ const styles = StyleSheet.create({
   deliveryStatusText: {
     fontFamily: typography.fontFamily.medium,
     fontSize: typography.fontSize.xs,
-    color: '#22C55E',
   },
   deliveryPrice: {
     fontFamily: typography.fontFamily.bold,

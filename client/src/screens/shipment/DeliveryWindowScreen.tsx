@@ -35,20 +35,20 @@ function formatDate(date: Date | null): string {
 export default function DeliveryWindowScreen() {
   const navigation = useNavigation<any>();
   const { draft, setDraft, totalSteps } = useShipmentStore();
-  
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
+
   const [currentMonth, setCurrentMonth] = useState(today.getMonth());
   const [currentYear, setCurrentYear] = useState(today.getFullYear());
   const [startDate, setStartDate] = useState<Date | null>(draft.dateStart);
   const [endDate, setEndDate] = useState<Date | null>(draft.dateEnd);
-  
+
   const daysInMonth = getDaysInMonth(currentYear, currentMonth);
   const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
-  
+
   const canProceed = startDate && endDate;
-  
+
   const handlePrevMonth = () => {
     if (currentMonth === 0) {
       setCurrentMonth(11);
@@ -57,7 +57,7 @@ export default function DeliveryWindowScreen() {
       setCurrentMonth(currentMonth - 1);
     }
   };
-  
+
   const handleNextMonth = () => {
     if (currentMonth === 11) {
       setCurrentMonth(0);
@@ -66,14 +66,14 @@ export default function DeliveryWindowScreen() {
       setCurrentMonth(currentMonth + 1);
     }
   };
-  
+
   const handleDatePress = (day: number) => {
     const selectedDate = new Date(currentYear, currentMonth, day);
     selectedDate.setHours(0, 0, 0, 0);
-    
+
     // Don't allow past dates
     if (selectedDate < today) return;
-    
+
     if (!startDate || (startDate && endDate)) {
       // Start fresh selection
       setStartDate(selectedDate);
@@ -90,36 +90,36 @@ export default function DeliveryWindowScreen() {
       setEndDate(selectedDate);
     }
   };
-  
+
   const isInRange = (day: number) => {
     if (!startDate || !endDate) return false;
     const date = new Date(currentYear, currentMonth, day);
     return date > startDate && date < endDate;
   };
-  
+
   const isStart = (day: number) => {
     if (!startDate) return false;
     const date = new Date(currentYear, currentMonth, day);
     return date.toDateString() === startDate.toDateString();
   };
-  
+
   const isEnd = (day: number) => {
     if (!endDate) return false;
     const date = new Date(currentYear, currentMonth, day);
     return date.toDateString() === endDate.toDateString();
   };
-  
+
   const isPast = (day: number) => {
     const date = new Date(currentYear, currentMonth, day);
     date.setHours(0, 0, 0, 0);
     return date < today;
   };
-  
+
   const isToday = (day: number) => {
     const date = new Date(currentYear, currentMonth, day);
     return date.toDateString() === today.toDateString();
   };
-  
+
   const handleNext = () => {
     setDraft({
       dateStart: startDate,
@@ -127,11 +127,15 @@ export default function DeliveryWindowScreen() {
     });
     navigation.navigate('SetPrice');
   };
-  
+
   const handleBack = () => {
     navigation.goBack();
   };
-  
+
+  const handleClose = () => {
+    navigation.navigate('MainTabs');
+  };
+
   // Generate calendar days
   const calendarDays: (number | null)[] = [];
   for (let i = 0; i < firstDay; i++) {
@@ -140,21 +144,22 @@ export default function DeliveryWindowScreen() {
   for (let i = 1; i <= daysInMonth; i++) {
     calendarDays.push(i);
   }
-  
+
   // Calculate days between
-  const daysBetween = startDate && endDate 
+  const daysBetween = startDate && endDate
     ? Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
     : 0;
-  
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StepHeader
         title="Delivery Window"
         currentStep={4}
         totalSteps={totalSteps}
-        onClose={handleBack}
+        onClose={handleClose}
+        onBack={handleBack}
       />
-      
+
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.questionContainer}>
           <Calendar size={24} color={colors.textPrimary} strokeWidth={2} />
@@ -162,11 +167,11 @@ export default function DeliveryWindowScreen() {
             When do you want your package to be delivered?
           </Text>
         </View>
-        
+
         <Text style={styles.hint}>
           Select a start date and end date for the delivery window
         </Text>
-        
+
         {/* Selected Range Display */}
         {(startDate || endDate) && (
           <View style={styles.rangeDisplay}>
@@ -185,13 +190,13 @@ export default function DeliveryWindowScreen() {
             </View>
           </View>
         )}
-        
+
         {daysBetween > 0 && (
           <Text style={styles.daysCount}>
             {daysBetween} day{daysBetween > 1 ? 's' : ''} delivery window
           </Text>
         )}
-        
+
         {/* Month Navigation */}
         <View style={styles.monthNav}>
           <TouchableOpacity onPress={handlePrevMonth} style={styles.navButton}>
@@ -204,14 +209,14 @@ export default function DeliveryWindowScreen() {
             <ChevronRight size={24} color={colors.textPrimary} />
           </TouchableOpacity>
         </View>
-        
+
         {/* Day Headers */}
         <View style={styles.daysHeader}>
           {DAYS.map((day, index) => (
             <Text key={index} style={styles.dayHeader}>{day}</Text>
           ))}
         </View>
-        
+
         {/* Calendar Grid */}
         <View style={styles.calendarGrid}>
           {calendarDays.map((day, index) => {
@@ -220,7 +225,7 @@ export default function DeliveryWindowScreen() {
             const end = day !== null && isEnd(day);
             const inRange = day !== null && isInRange(day);
             const todayDay = day !== null && isToday(day);
-            
+
             return (
               <TouchableOpacity
                 key={index}
@@ -258,7 +263,7 @@ export default function DeliveryWindowScreen() {
           })}
         </View>
       </ScrollView>
-      
+
       <BottomButton
         label="Next"
         onPress={handleNext}

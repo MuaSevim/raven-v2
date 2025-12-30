@@ -23,28 +23,28 @@ export default function MeetingPointScreen() {
   const navigation = useNavigation<any>();
   const { draft, setDraft, totalSteps } = useShipmentStore();
   const webViewRef = useRef<WebView>(null);
-  
+
   // Location state
   const [address, setAddress] = useState(draft.meetingPointAddress);
   const [lat, setLat] = useState<number | null>(draft.meetingPointLat);
   const [lng, setLng] = useState<number | null>(draft.meetingPointLng);
-  
+
   // Search state
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<GeoLocation[]>([]);
   const [searching, setSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
-  
+
   // Map state
   const [mapLoaded, setMapLoaded] = useState(false);
   const [centerLat, setCenterLat] = useState<number>(51.5074); // Default: London
   const [centerLng, setCenterLng] = useState<number>(-0.1278);
-  
+
   // Load city center on mount
   useEffect(() => {
     loadCityCenter();
   }, []);
-  
+
   const loadCityCenter = async () => {
     if (draft.originCity && draft.originCountry) {
       const center = await getCityCenter(draft.originCity, draft.originCountry);
@@ -61,7 +61,7 @@ export default function MeetingPointScreen() {
       }
     }
   };
-  
+
   // Debounced search
   useEffect(() => {
     if (searchQuery.length < 3) {
@@ -69,7 +69,7 @@ export default function MeetingPointScreen() {
       setShowResults(false);
       return;
     }
-    
+
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
@@ -84,10 +84,10 @@ export default function MeetingPointScreen() {
         setSearching(false);
       }
     }, 500);
-    
+
     return () => clearTimeout(timer);
   }, [searchQuery, draft.originCity, draft.originCountry]);
-  
+
   const handleSelectLocation = (location: GeoLocation) => {
     setAddress(location.displayName);
     setLat(location.lat);
@@ -95,7 +95,7 @@ export default function MeetingPointScreen() {
     setSearchQuery('');
     setShowResults(false);
     Keyboard.dismiss();
-    
+
     // Update map marker
     if (webViewRef.current) {
       webViewRef.current.injectJavaScript(`
@@ -107,7 +107,7 @@ export default function MeetingPointScreen() {
       `);
     }
   };
-  
+
   const handleMapMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
@@ -122,9 +122,9 @@ export default function MeetingPointScreen() {
       console.error('Map message error:', error);
     }
   };
-  
+
   const canProceed = address && lat !== null && lng !== null;
-  
+
   const handleNext = () => {
     setDraft({
       meetingPointAddress: address,
@@ -133,11 +133,15 @@ export default function MeetingPointScreen() {
     });
     navigation.navigate('PackageDetails');
   };
-  
+
   const handleBack = () => {
     navigation.goBack();
   };
-  
+
+  const handleClose = () => {
+    navigation.navigate('MainTabs');
+  };
+
   // Leaflet map HTML
   const mapHtml = `
     <!DOCTYPE html>
@@ -204,21 +208,22 @@ export default function MeetingPointScreen() {
     </body>
     </html>
   `;
-  
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <StepHeader
         title="Meeting Point"
         currentStep={2}
         totalSteps={totalSteps}
-        onClose={handleBack}
+        onClose={handleClose}
+        onBack={handleBack}
       />
-      
+
       <View style={styles.content}>
         <Text style={styles.questionText}>
           Where do you want to meet the traveler?
         </Text>
-        
+
         {/* Search Bar */}
         <View style={styles.searchContainer}>
           <Search size={20} color={colors.textTertiary} />
@@ -243,7 +248,7 @@ export default function MeetingPointScreen() {
             )
           )}
         </View>
-        
+
         {/* Search Results */}
         {showResults && searchResults.length > 0 && (
           <View style={styles.resultsContainer}>
@@ -266,7 +271,7 @@ export default function MeetingPointScreen() {
             />
           </View>
         )}
-        
+
         {/* Selected Location */}
         {address && (
           <View style={styles.selectedLocation}>
@@ -276,7 +281,7 @@ export default function MeetingPointScreen() {
             </Text>
           </View>
         )}
-        
+
         {/* Map */}
         <View style={styles.mapContainer}>
           <WebView
@@ -296,12 +301,12 @@ export default function MeetingPointScreen() {
             )}
           />
         </View>
-        
+
         <Text style={styles.hint}>
           Tap on the map or search to select a meeting point
         </Text>
       </View>
-      
+
       <BottomButton
         label="Next"
         onPress={handleNext}

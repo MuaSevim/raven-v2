@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { X } from 'lucide-react-native';
+import { X, ArrowLeft } from 'lucide-react-native';
 import { colors, typography, spacing } from '../../theme';
 
 interface StepHeaderProps {
@@ -8,25 +8,38 @@ interface StepHeaderProps {
   currentStep: number;
   totalSteps: number;
   onClose: () => void;
+  onBack?: () => void;
 }
 
-export function StepHeader({ title, currentStep, totalSteps, onClose }: StepHeaderProps) {
+export function StepHeader({ title, currentStep, totalSteps, onClose, onBack }: StepHeaderProps) {
   const progress = currentStep / totalSteps;
-  
+
   return (
     <View style={styles.container}>
       <View style={styles.topRow}>
-        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-          <X size={24} color={colors.textPrimary} strokeWidth={2} />
-        </TouchableOpacity>
+        <View style={styles.leftContainer}>
+          {onBack ? (
+            <TouchableOpacity onPress={onBack} style={styles.iconButton}>
+              <ArrowLeft size={24} color={colors.textPrimary} strokeWidth={2} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.placeholder} />
+          )}
+        </View>
+
         <Text style={styles.title}>{title}</Text>
-        <View style={styles.placeholder} />
+
+        <View style={styles.rightContainer}>
+          <TouchableOpacity onPress={onClose} style={styles.iconButton}>
+            <X size={24} color={colors.textPrimary} strokeWidth={2} />
+          </TouchableOpacity>
+        </View>
       </View>
-      
+
       <View style={styles.stepInfo}>
         <Text style={styles.stepText}>Step {currentStep} of {totalSteps}</Text>
       </View>
-      
+
       <View style={styles.progressContainer}>
         <View style={[styles.progressBar, { width: `${progress * 100}%` }]} />
       </View>
@@ -69,7 +82,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing.lg,
   },
-  closeButton: {
+  leftContainer: {
+    width: 40,
+    alignItems: 'flex-start',
+  },
+  rightContainer: {
+    width: 40,
+    alignItems: 'flex-end',
+  },
+  iconButton: {
     padding: spacing.xs,
   },
   title: {
@@ -77,9 +98,10 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.lg,
     color: colors.textPrimary,
     textAlign: 'center',
+    flex: 1,
   },
   placeholder: {
-    width: 32,
+    width: 40,
   },
   stepInfo: {
     marginBottom: spacing.sm,

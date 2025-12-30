@@ -9,7 +9,7 @@ const verificationCodes = new Map<string, { code: string; expiresAt: Date }>();
 
 @Injectable()
 export class AuthService implements OnModuleInit {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   onModuleInit() {
     // Initialize Firebase Admin when the module starts
@@ -32,12 +32,34 @@ export class AuthService implements OnModuleInit {
       throw new BadRequestException('Email already registered');
     }
 
-    // Create user in Firebase Auth
-    const firebaseUser = await firebaseAdmin.auth().createUser({
-      email: normalizedEmail,
-      password: dto.password,
-      displayName: `${dto.firstName} ${dto.lastName}`,
-    });
+    let firebaseUser;
+
+    try {
+      // Create user in Firebase Auth
+      firebaseUser = await firebaseAdmin.auth().createUser({
+        email: normalizedEmail,
+        password: dto.password,
+        displayName: `${dto.firstName} ${dto.lastName}`,
+      });
+    } catch (error) {
+      // Handle Firebase-specific errors
+      if (error.errorInfo?.code) {
+        switch (error.errorInfo.code) {
+          case 'auth/email-already-exists':
+            throw new BadRequestException('This email address is already registered. Please sign in instead.');
+          case 'auth/invalid-email':
+            throw new BadRequestException('Invalid email address format.');
+          case 'auth/invalid-password':
+            throw new BadRequestException('Password must be at least 6 characters long.');
+          case 'auth/weak-password':
+            throw new BadRequestException('Password is too weak. Please use a stronger password.');
+          default:
+            throw new BadRequestException(`Registration failed: ${error.errorInfo.message}`);
+        }
+      }
+      // Re-throw if it's not a Firebase error
+      throw new BadRequestException('Failed to create user account. Please try again.');
+    }
 
     // Create user in our database
     const user = await this.prisma.user.create({
@@ -65,7 +87,27 @@ export class AuthService implements OnModuleInit {
    */
   async syncUser(dto: SyncUserDto) {
     const firebaseAdmin = getFirebaseAdmin();
-    const decodedToken = await firebaseAdmin.auth().verifyIdToken(dto.idToken);
+
+    let decodedToken;
+    try {
+      decodedToken = await firebaseAdmin.auth().verifyIdToken(dto.idToken);
+    } catch (error) {
+      // Handle Firebase token verification errors
+      if (error.errorInfo?.code) {
+        switch (error.errorInfo.code) {
+          case 'auth/id-token-expired':
+            throw new BadRequestException('Authentication token has expired. Please sign in again.');
+          case 'auth/invalid-id-token':
+            throw new BadRequestException('Invalid authentication token.');
+          case 'auth/user-disabled':
+            throw new BadRequestException('This account has been disabled.');
+          default:
+            throw new BadRequestException(`Authentication failed: ${error.errorInfo.message}`);
+        }
+      }
+      throw new BadRequestException('Failed to verify authentication. Please try again.');
+    }
+
     const { uid, email, name, picture } = decodedToken;
 
     // Parse name into firstName/lastName if available
@@ -110,10 +152,10 @@ export class AuthService implements OnModuleInit {
    */
   async generateVerificationCode(email: string): Promise<string> {
     const normalizedEmail = email.toLowerCase().trim();
-    
+
     // Generate 4-digit code
     const code = Math.floor(1000 + Math.random() * 9000).toString();
-    
+
     // Store with 10-minute expiry
     verificationCodes.set(normalizedEmail, {
       code,
@@ -146,7 +188,7 @@ export class AuthService implements OnModuleInit {
     // For testing: accept "0000" as valid code
     if (code === '0000' || stored.code === code) {
       verificationCodes.delete(normalizedEmail);
-      
+
       // Note: isVerified will be set true through a separate verification flow
       // (e.g., ID verification, phone verification, admin approval)
       // Email code verification just confirms they have access to the email

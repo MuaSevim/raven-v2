@@ -51,9 +51,9 @@ interface PickerModalProps {
 
 function PickerModal({ visible, onClose, title, items, selectedValue, onSelect }: PickerModalProps) {
   const selectedIndex = selectedValue ? items.findIndex(i => i.value === selectedValue) : -1;
-  
+
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+    <Modal visible={visible} animationType="slide" presentationStyle="formSheet">
       <SafeAreaView style={modalStyles.container}>
         <View style={modalStyles.header}>
           <Text style={modalStyles.title}>{title}</Text>
@@ -145,7 +145,7 @@ const modalStyles = StyleSheet.create({
 
 export default function SignUpStep2Screen({ navigation }: Props) {
   const { data, updateData } = useSignupStore();
-  
+
   const [selectedDay, setSelectedDay] = useState<number | null>(data.birthDay || null);
   const [selectedMonth, setSelectedMonth] = useState<number | null>(data.birthMonth || null);
   const [selectedYear, setSelectedYear] = useState<number | null>(data.birthYear || null);
@@ -165,16 +165,16 @@ export default function SignUpStep2Screen({ navigation }: Props) {
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    
+
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
       age--;
     }
-    
+
     if (age < 16) {
       setError('You must be at least 16 years old to sign up');
       return false;
     }
-    
+
     return true;
   };
 
@@ -213,7 +213,7 @@ export default function SignUpStep2Screen({ navigation }: Props) {
 
   const handleNext = () => {
     if (!validateAge()) return;
-    
+
     updateData({
       birthDay: selectedDay!,
       birthMonth: selectedMonth!,
@@ -232,7 +232,7 @@ export default function SignUpStep2Screen({ navigation }: Props) {
         showBack
         onBack={() => navigation.goBack()}
       />
-      
+
       <View style={styles.content}>
         <View style={styles.progressContainer}>
           <ProgressIndicator totalSteps={5} currentStep={2} />
@@ -304,7 +304,7 @@ export default function SignUpStep2Screen({ navigation }: Props) {
 
         {error && <Text style={styles.errorText}>{error}</Text>}
       </View>
-      
+
       <View style={styles.footer}>
         <Button title="Next" onPress={handleNext} disabled={!isFormValid} />
       </View>

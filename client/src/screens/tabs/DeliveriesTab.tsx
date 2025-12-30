@@ -8,6 +8,7 @@ import {
   FlatList,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -120,7 +121,7 @@ interface ShipmentCardProps {
 function ShipmentCard({ shipment, onPress }: ShipmentCardProps) {
   const senderName = `${shipment.sender?.firstName || ''} ${shipment.sender?.lastName || ''}`.trim() || 'Unknown';
   const currencySymbol = getCurrencySymbol(shipment.currency);
-  
+
   return (
     <TouchableOpacity
       style={styles.shipmentCard}
@@ -168,7 +169,7 @@ function ShipmentCard({ shipment, onPress }: ShipmentCardProps) {
           <Text style={styles.weightText}>{shipment.weight} {shipment.weightUnit}</Text>
         </View>
       </View>
-      
+
       {/* Status badge */}
       <View style={[styles.statusBadge, { backgroundColor: getStatusColor(shipment.status) + '20' }]}>
         <Text style={[styles.statusText, { color: getStatusColor(shipment.status) }]}>
@@ -193,7 +194,7 @@ function getStatusColor(status: string) {
 export default function DeliveriesTab() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
-  
+
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -202,12 +203,12 @@ export default function DeliveriesTab() {
 
   const fetchShipments = async (showRefresh = false) => {
     if (!user) return;
-    
+
     if (showRefresh) setRefreshing(true);
     else setLoading(true);
-    
+
     setError(null);
-    
+
     try {
       const token = await user.getIdToken();
       const response = await fetch(`${API_URL}/shipments`, {
@@ -215,16 +216,22 @@ export default function DeliveriesTab() {
           'Authorization': `Bearer ${token}`,
         },
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch shipments');
       }
-      
+
       const data = await response.json();
       setShipments(data);
     } catch (err: any) {
       console.error('Error fetching shipments:', err);
-      setError(err.message || 'Failed to load shipments');
+      if (err.response) {
+        console.error('Response data:', err.response.data);
+        console.error('Response status:', err.response.status);
+      }
+      const errorMessage = err.message || 'Failed to load shipments';
+      setError(errorMessage);
+      Alert.alert('Error', `Could not load shipments: ${errorMessage}`);
     } finally {
       setLoading(false);
       setRefreshing(false);
