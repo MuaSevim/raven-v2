@@ -44,21 +44,31 @@ export class AuthService implements OnModuleInit {
     } catch (error) {
       // Handle Firebase-specific errors
       if (error.errorInfo?.code) {
-        switch (error.errorInfo.code) {
-          case 'auth/email-already-exists':
+        if (error.errorInfo.code === 'auth/email-already-exists') {
+          // If user exists in Firebase but not in our DB (which we checked above),
+          // we should proceed with creating the DB entry instead of failing.
+          try {
+            firebaseUser = await firebaseAdmin.auth().getUserByEmail(normalizedEmail);
+            console.log(`User ${normalizedEmail} exists in Firebase but not in DB. Syncing...`);
+          } catch (innerError) {
             throw new BadRequestException('This email address is already registered. Please sign in instead.');
-          case 'auth/invalid-email':
-            throw new BadRequestException('Invalid email address format.');
-          case 'auth/invalid-password':
-            throw new BadRequestException('Password must be at least 6 characters long.');
-          case 'auth/weak-password':
-            throw new BadRequestException('Password is too weak. Please use a stronger password.');
-          default:
-            throw new BadRequestException(`Registration failed: ${error.errorInfo.message}`);
+          }
+        } else {
+          switch (error.errorInfo.code) {
+            case 'auth/invalid-email':
+              throw new BadRequestException('Invalid email address format.');
+            case 'auth/invalid-password':
+              throw new BadRequestException('Password must be at least 6 characters long.');
+            case 'auth/weak-password':
+              throw new BadRequestException('Password is too weak. Please use a stronger password.');
+            default:
+              throw new BadRequestException(`Registration failed: ${error.errorInfo.message}`);
+          }
         }
+      } else {
+        // Re-throw if it's not a Firebase error
+        throw new BadRequestException('Failed to create user account. Please try again.');
       }
-      // Re-throw if it's not a Firebase error
-      throw new BadRequestException('Failed to create user account. Please try again.');
     }
 
     // Create user in our database

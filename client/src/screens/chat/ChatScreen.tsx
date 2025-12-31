@@ -13,14 +13,15 @@ import {
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { 
-  ArrowLeft, 
-  Send, 
-  BadgeCheck, 
-  Package, 
+import {
+  ArrowLeft,
+  Send,
+  BadgeCheck,
+  Package,
   CheckCircle,
   CreditCard,
   AlertCircle,
+  Clock,
 } from 'lucide-react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -43,6 +44,7 @@ interface Message {
 
 interface Conversation {
   id: string;
+  status: string; // PENDING, ACTIVE, MATCHED
   user1: { id: string; firstName: string | null; lastName: string | null };
   user2: { id: string; firstName: string | null; lastName: string | null };
   otherUser: { id: string; firstName: string | null; lastName: string | null; isVerified: boolean };
@@ -80,9 +82,9 @@ export default function ChatScreen() {
   const route = useRoute<any>();
   const { user } = useAuthStore();
   const flatListRef = useRef<FlatList>(null);
-  
+
   const params = route.params as ChatParams;
-  
+
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -92,10 +94,10 @@ export default function ChatScreen() {
 
   const fetchOrCreateConversation = async () => {
     if (!user) return;
-    
+
     try {
       const token = await user.getIdToken();
-      
+
       // If we have a conversationId, fetch it directly
       if (params.conversationId) {
         const response = await fetch(`${API_URL}/conversations/${params.conversationId}`, {
@@ -138,21 +140,21 @@ export default function ChatScreen() {
   // Auto-refresh messages every 5 seconds
   useEffect(() => {
     if (!conversation) return;
-    
+
     const interval = setInterval(() => {
       fetchOrCreateConversation();
     }, 5000);
-    
+
     return () => clearInterval(interval);
   }, [conversation?.id]);
 
   const handleSend = async () => {
     if (!message.trim() || !user || !conversation) return;
-    
+
     setSending(true);
     const messageText = message.trim();
     setMessage('');
-    
+
     try {
       const token = await user.getIdToken();
       const response = await fetch(`${API_URL}/conversations/${conversation.id}/messages`, {
@@ -163,12 +165,12 @@ export default function ChatScreen() {
         },
         body: JSON.stringify({ content: messageText }),
       });
-      
+
       if (!response.ok) throw new Error('Failed to send message');
-      
+
       // Refresh conversation
       await fetchOrCreateConversation();
-      
+
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
@@ -183,21 +185,21 @@ export default function ChatScreen() {
 
   const handleMatch = async () => {
     if (!user || !conversation) return;
-    
+
     setMatching(true);
-    
+
     try {
       const token = await user.getIdToken();
-      
+
       // Check if user has payment method
       const paymentResponse = await fetch(`${API_URL}/payments/methods`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      
+
       if (!paymentResponse.ok) throw new Error('Failed to check payment methods');
-      
+
       const paymentMethods = await paymentResponse.json();
-      
+
       if (paymentMethods.length === 0) {
         setShowMatchModal(false);
         setMatching(false);
@@ -211,7 +213,7 @@ export default function ChatScreen() {
         );
         return;
       }
-      
+
       // Hold payment and match
       const holdResponse = await fetch(`${API_URL}/payments/hold`, {
         method: 'POST',
@@ -224,14 +226,14 @@ export default function ChatScreen() {
           courierId: conversation.otherUser.id,
         }),
       });
-      
+
       if (!holdResponse.ok) {
         const error = await holdResponse.json();
         throw new Error(error.message || 'Failed to process payment');
       }
-      
+
       const result = await holdResponse.json();
-      
+
       // Send system message
       await fetch(`${API_URL}/conversations/${conversation.id}/messages`, {
         method: 'POST',
@@ -239,15 +241,15 @@ export default function ChatScreen() {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           content: `🎉 Match confirmed! Payment of ${getCurrencySymbol(conversation.shipment.currency)}${conversation.shipment.price} has been held securely.`,
           type: 'MATCH_ACCEPTED',
         }),
       });
-      
+
       setShowMatchModal(false);
       await fetchOrCreateConversation();
-      
+
       Alert.alert('Success', result.message);
     } catch (err: any) {
       console.error('Error matching:', err);
@@ -256,16 +258,16 @@ export default function ChatScreen() {
       setMatching(false);
     }
   };
-  
+
   const formatTime = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   };
-  
+
   const renderMessage = ({ item }: { item: Message }) => {
     const isMe = item.senderId === user?.uid;
     const isSystem = item.type === 'SYSTEM' || item.type === 'MATCH_ACCEPTED';
-    
+
     if (isSystem) {
       return (
         <View style={styles.systemMessage}>
@@ -273,7 +275,7 @@ export default function ChatScreen() {
         </View>
       );
     }
-    
+
     return (
       <View style={[styles.messageContainer, isMe && styles.myMessageContainer]}>
         <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.theirBubble]}>
@@ -288,7 +290,7 @@ export default function ChatScreen() {
     );
   };
 
-  const otherUserName = conversation 
+  const otherUserName = conversation
     ? `${conversation.otherUser.firstName || ''} ${conversation.otherUser.lastName || ''}`.trim() || 'User'
     : params.recipientName || 'User';
 
@@ -309,7 +311,7 @@ export default function ChatScreen() {
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <ArrowLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        
+
         <View style={styles.headerInfo}>
           <View style={styles.headerName}>
             <Text style={styles.recipientName} numberOfLines={1}>
@@ -337,7 +339,7 @@ export default function ChatScreen() {
 
         {/* Match Button - Only for sender when shipment is OPEN */}
         {conversation?.canMatch && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.matchButton}
             onPress={() => setShowMatchModal(true)}
           >
@@ -349,16 +351,27 @@ export default function ChatScreen() {
 
       {/* Price Banner for open shipments */}
       {conversation && conversation.shipment.status === 'OPEN' && (
-        <View style={styles.priceBanner}>
+        <TouchableOpacity
+          style={styles.priceBanner}
+          onPress={() => navigation.navigate('ShipmentDetail', { shipmentId: conversation.shipment.id })}
+        >
           <Text style={styles.priceLabel}>Delivery reward:</Text>
           <Text style={styles.priceValue}>
             {getCurrencySymbol(conversation.shipment.currency)}{conversation.shipment.price}
           </Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Pending status banner for couriers */}
+      {conversation && conversation.status === 'PENDING' && !conversation.isSender && (
+        <View style={styles.pendingBanner}>
+          <Clock size={16} color={colors.textSecondary} />
+          <Text style={styles.pendingText}>Waiting for owner's response...</Text>
         </View>
       )}
 
       {/* Messages */}
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
@@ -392,7 +405,7 @@ export default function ChatScreen() {
             multiline
             maxLength={1000}
           />
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.sendButton, (!message.trim() || sending) && styles.sendButtonDisabled]}
             onPress={handleSend}
             disabled={!message.trim() || sending}
@@ -422,7 +435,7 @@ export default function ChatScreen() {
             <Text style={styles.modalDescription}>
               You're about to match with {otherUserName} for this delivery.
             </Text>
-            
+
             <View style={styles.modalPriceBox}>
               <CreditCard size={20} color={colors.textSecondary} />
               <View>
@@ -433,20 +446,20 @@ export default function ChatScreen() {
                 </Text>
               </View>
             </View>
-            
+
             <Text style={styles.modalNote}>
               The courier will receive payment once you confirm delivery.
             </Text>
 
             <View style={styles.modalButtons}>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.modalCancelButton}
                 onPress={() => setShowMatchModal(false)}
                 disabled={matching}
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.modalConfirmButton}
                 onPress={handleMatch}
                 disabled={matching}
@@ -556,6 +569,20 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.bold,
     fontSize: typography.fontSize.base,
     color: colors.textPrimary,
+  },
+  pendingBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    backgroundColor: '#FEF3C7',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  pendingText: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.fontSize.sm,
+    color: '#92400E',
   },
   keyboardView: {
     flex: 1,

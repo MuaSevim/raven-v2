@@ -62,9 +62,6 @@ model Shipment {
   originCountry   String
   originCity      String
   originAddress   String?
-  meetingPoint    String?   // Meeting point address
-  meetingPointLat Float?    // Latitude
-  meetingPointLng Float?    // Longitude
   
   // Route - Destination
   destCountry     String
@@ -205,6 +202,9 @@ model Conversation {
   // Related shipment
   shipmentId  String
   shipment    Shipment  @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+  
+  // Conversation status: PENDING (courier waiting for owner), ACTIVE (owner responded), MATCHED (deal confirmed)
+  status      String    @default("PENDING")
   
   // Last message preview
   lastMessage String?

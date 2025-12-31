@@ -137,7 +137,7 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
               />
             </View>
             <Text style={styles.brandName}>RAVEN</Text>
-            <Text style={styles.tagline}>"Travel for free"</Text>
+            <Text style={styles.tagline}>"International delivery has never been easier!"</Text>
           </View>
 
           {/* Form Section */}

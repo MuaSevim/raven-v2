@@ -111,11 +111,6 @@ export default function ReviewShipmentScreen() {
         destCountry: draft.destCountry,
         destCity: draft.destCity,
 
-        // Meeting Point
-        meetingPoint: draft.meetingPointAddress,
-        meetingPointLat: draft.meetingPointLat,
-        meetingPointLng: draft.meetingPointLng,
-
         // Package
         weight: parseFloat(draft.weight) || 0,
         weightUnit: draft.weightUnit,
@@ -237,7 +232,7 @@ export default function ReviewShipmentScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <StepHeader
         title="Review & Publish"
-        currentStep={7}
+        currentStep={6}
         totalSteps={totalSteps}
         onClose={handleClose}
         onBack={handleBack}
@@ -270,17 +265,6 @@ export default function ReviewShipmentScreen() {
             <Text style={styles.routeLabel}>To</Text>
             <Text style={styles.routeValue}>{draft.destCity}, {draft.destCountry}</Text>
           </View>
-        </ReviewSection>
-
-        {/* Meeting Point */}
-        <ReviewSection
-          icon={<Navigation size={20} color={colors.textPrimary} strokeWidth={2} />}
-          title="Meeting Point"
-          onEdit={() => navigateToStep('MeetingPoint')}
-        >
-          <Text style={styles.detailText} numberOfLines={2}>
-            {draft.meetingPointAddress || 'Not set'}
-          </Text>
         </ReviewSection>
 
         {/* Package */}

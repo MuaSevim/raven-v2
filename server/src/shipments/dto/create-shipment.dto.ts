@@ -12,18 +12,6 @@ export class CreateShipmentDto {
   @IsString()
   originAddress?: string;
 
-  @IsOptional()
-  @IsString()
-  meetingPoint?: string;
-
-  @IsOptional()
-  @IsNumber()
-  meetingPointLat?: number;
-
-  @IsOptional()
-  @IsNumber()
-  meetingPointLng?: number;
-
   // Route - Destination
   @IsString()
   destCountry: string;

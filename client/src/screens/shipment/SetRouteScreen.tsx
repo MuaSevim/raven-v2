@@ -45,10 +45,43 @@ export default function SetRouteScreen() {
   const [cities, setCities] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Load countries on mount
+  // Load countries and pre-fill with user's location on mount
   useEffect(() => {
     loadCountries();
+    prefillUserLocation();
   }, []);
+
+  const prefillUserLocation = async () => {
+    // Only pre-fill if origin is empty (new shipment)
+    if (originCountry || originCity) return;
+
+    try {
+      const { API_URL } = await import('../../config');
+      const { useAuthStore } = await import('../../store/useAuthStore');
+      const user = useAuthStore.getState().user;
+
+      if (!user) return;
+
+      const token = await user.getIdToken();
+      const response = await fetch(`${API_URL}/auth/me`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        if (userData.country) {
+          setOriginCountry(userData.country);
+          setOriginCountryCode(userData.countryCode || '');
+        }
+        if (userData.city) {
+          setOriginCity(userData.city);
+        }
+      }
+    } catch (err) {
+      // Silently fail - pre-fill is a nice-to-have
+      console.log('Could not pre-fill user location');
+    }
+  };
 
   const loadCountries = async () => {
     setLoading(true);
@@ -124,7 +157,7 @@ export default function SetRouteScreen() {
       destCountryCode,
       destCity,
     });
-    navigation.navigate('MeetingPoint');
+    navigation.navigate('PackageDetails');
   };
 
   const handleClose = () => {

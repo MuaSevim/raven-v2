@@ -154,7 +154,7 @@ export default function DeliveryWindowScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <StepHeader
         title="Delivery Window"
-        currentStep={4}
+        currentStep={3}
         totalSteps={totalSteps}
         onClose={handleClose}
         onBack={handleBack}

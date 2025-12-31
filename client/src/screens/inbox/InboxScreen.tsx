@@ -22,6 +22,8 @@ import { colors, typography, spacing, borderRadius } from '../../theme';
 
 interface Conversation {
   id: string;
+  status: string; // PENDING, ACTIVE, MATCHED
+  user1Id: string; // Owner of the shipment
   otherUser: {
     id: string;
     firstName: string | null;
@@ -36,6 +38,7 @@ interface Conversation {
     price: number;
     currency: string;
     status: string;
+    senderId?: string;
   };
   lastMessage: {
     content: string;
@@ -51,7 +54,7 @@ function formatTime(dateString: string) {
   const now = new Date();
   const diff = now.getTime() - date.getTime();
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  
+
   if (days === 0) {
     return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   } else if (days === 1) {
@@ -63,12 +66,12 @@ function formatTime(dateString: string) {
   }
 }
 
-function ConversationItem({ 
-  conversation, 
+function ConversationItem({
+  conversation,
   currentUserId,
-  onPress 
-}: { 
-  conversation: Conversation; 
+  onPress
+}: {
+  conversation: Conversation;
   currentUserId: string;
   onPress: () => void;
 }) {
@@ -77,8 +80,29 @@ function ConversationItem({
   const lastMessagePreview = conversation.lastMessage?.content || 'Start a conversation';
   const isMyMessage = conversation.lastMessage?.sender.id === currentUserId;
 
+  // Determine if current user is the shipment owner
+  const isOwner = conversation.user1Id === currentUserId;
+
+  // Get status indicator
+  const getStatusInfo = () => {
+    if (conversation.shipment.status === 'MATCHED') {
+      return { label: 'Matched', color: '#22C55E' };
+    }
+    if (conversation.status === 'PENDING') {
+      return isOwner
+        ? { label: 'New Offer', color: '#F59E0B' }
+        : { label: 'Pending', color: '#F59E0B' };
+    }
+    if (conversation.status === 'ACTIVE') {
+      return { label: 'Active', color: '#3B82F6' };
+    }
+    return null;
+  };
+
+  const statusInfo = getStatusInfo();
+
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={[styles.conversationItem, isUnread && styles.conversationItemUnread]}
       onPress={onPress}
       activeOpacity={0.7}
@@ -90,34 +114,46 @@ function ConversationItem({
             {otherName.charAt(0).toUpperCase()}
           </Text>
         </View>
-        {conversation.shipment.status === 'MATCHED' && (
-          <View style={styles.matchedBadge}>
-            <CheckCircle size={12} color="#22C55E" fill={colors.background} />
-          </View>
+        {statusInfo && (
+          <View style={[styles.statusDot, { backgroundColor: statusInfo.color }]} />
         )}
       </View>
 
       {/* Content */}
       <View style={styles.conversationContent}>
         <View style={styles.conversationHeader}>
-          <Text style={[styles.userName, isUnread && styles.userNameUnread]} numberOfLines={1}>
-            {otherName}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flex: 1 }}>
+            <Text style={[styles.userName, isUnread && styles.userNameUnread]} numberOfLines={1}>
+              {otherName}
+            </Text>
+            <View style={[styles.roleBadge, { backgroundColor: isOwner ? '#EFF6FF' : '#F0FDF4' }]}>
+              <Text style={[styles.roleText, { color: isOwner ? '#3B82F6' : '#22C55E' }]}>
+                {isOwner ? 'Your Shipment' : 'Your Offer'}
+              </Text>
+            </View>
+          </View>
           <Text style={styles.timeText}>
             {conversation.lastMessage ? formatTime(conversation.lastMessage.createdAt) : ''}
           </Text>
         </View>
-        
+
         <View style={styles.routeBadge}>
           <Package size={10} color={colors.textTertiary} />
           <Text style={styles.routeText}>
             {conversation.shipment.originCity} → {conversation.shipment.destCity}
           </Text>
+          {statusInfo && (
+            <View style={[styles.statusBadgeSmall, { backgroundColor: statusInfo.color + '20' }]}>
+              <Text style={[styles.statusTextSmall, { color: statusInfo.color }]}>
+                {statusInfo.label}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.messageRow}>
-          <Text 
-            style={[styles.lastMessage, isUnread && styles.lastMessageUnread]} 
+          <Text
+            style={[styles.lastMessage, isUnread && styles.lastMessageUnread]}
             numberOfLines={1}
           >
             {isMyMessage ? 'You: ' : ''}{lastMessagePreview}
@@ -136,7 +172,7 @@ function ConversationItem({
 export default function InboxScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
-  
+
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -144,12 +180,12 @@ export default function InboxScreen() {
 
   const fetchConversations = async (showRefresh = false) => {
     if (!user) return;
-    
+
     if (showRefresh) setRefreshing(true);
     else setLoading(true);
-    
+
     setError(null);
-    
+
     try {
       const token = await user.getIdToken();
       const response = await fetch(`${API_URL}/conversations`, {
@@ -157,9 +193,9 @@ export default function InboxScreen() {
           'Authorization': `Bearer ${token}`,
         },
       });
-      
+
       if (!response.ok) throw new Error('Failed to fetch conversations');
-      
+
       const data = await response.json();
       setConversations(data);
     } catch (err: any) {
@@ -178,7 +214,7 @@ export default function InboxScreen() {
   );
 
   const handleConversationPress = (conversation: Conversation) => {
-    navigation.navigate('Chat', { 
+    navigation.navigate('Chat', {
       conversationId: conversation.id,
       shipmentId: conversation.shipment.id,
       recipientId: conversation.otherUser.id,
@@ -190,7 +226,7 @@ export default function InboxScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
@@ -399,5 +435,34 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.semiBold,
     fontSize: typography.fontSize.xs,
     color: colors.textInverse,
+  },
+  statusDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: colors.background,
+  },
+  roleBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  roleText: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: 9,
+  },
+  statusBadgeSmall: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+    marginLeft: spacing.sm,
+  },
+  statusTextSmall: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: 9,
   },
 });

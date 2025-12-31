@@ -8,6 +8,8 @@ import {
   TextInput,
   Modal,
   FlatList,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { User, Phone, Mail, ChevronDown, Search, X, Check } from 'lucide-react-native';
@@ -88,89 +90,95 @@ export default function ContactDetailsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <StepHeader
         title="Contact Details"
-        currentStep={6}
+        currentStep={5}
         totalSteps={totalSteps}
         onClose={handleClose}
         onBack={handleBack}
       />
 
-      <ScrollView
-        style={styles.content}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
-        <View style={styles.sectionHeader}>
-          <User size={20} color={colors.textPrimary} strokeWidth={2} />
-          <Text style={styles.sectionTitle}>Your Contact Information</Text>
-        </View>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.sectionHeader}>
+            <User size={20} color={colors.textPrimary} strokeWidth={2} />
+            <Text style={styles.sectionTitle}>Your Contact Information</Text>
+          </View>
 
-        <Text style={styles.hint}>
-          This information will be shared with the traveler for coordination
-        </Text>
+          <Text style={styles.hint}>
+            This information will be shared with the traveler for coordination
+          </Text>
 
-        {/* Full Name */}
-        <Text style={styles.label}>Full Name</Text>
-        <View style={styles.inputContainer}>
-          <User size={20} color={colors.textTertiary} strokeWidth={1.5} />
-          <TextInput
-            style={styles.input}
-            value={fullName}
-            onChangeText={setFullName}
-            placeholder="Enter your full name"
-            placeholderTextColor={colors.placeholder}
-            autoCapitalize="words"
-          />
-        </View>
-
-        {/* Email */}
-        <Text style={styles.label}>Email Address</Text>
-        <View style={styles.inputContainer}>
-          <Mail size={20} color={colors.textTertiary} strokeWidth={1.5} />
-          <TextInput
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="your@email.com"
-            placeholderTextColor={colors.placeholder}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-        </View>
-
-        {/* Phone Number */}
-        <Text style={styles.label}>Phone Number</Text>
-        <View style={styles.phoneRow}>
-          <TouchableOpacity
-            style={styles.countrySelector}
-            onPress={() => setShowCountryPicker(true)}
-          >
-            <Text style={styles.flag}>{selectedCountry.flag}</Text>
-            <Text style={styles.dialCode}>{phoneCode}</Text>
-            <ChevronDown size={16} color={colors.textTertiary} />
-          </TouchableOpacity>
-
-          <View style={styles.phoneInputContainer}>
-            <Phone size={20} color={colors.textTertiary} strokeWidth={1.5} />
+          {/* Full Name */}
+          <Text style={styles.label}>Full Name</Text>
+          <View style={styles.inputContainer}>
+            <User size={20} color={colors.textTertiary} strokeWidth={1.5} />
             <TextInput
-              style={styles.phoneInput}
-              value={formatPhoneNumber(phone)}
-              onChangeText={handlePhoneChange}
-              placeholder="(000) 000-0000"
+              style={styles.input}
+              value={fullName}
+              onChangeText={setFullName}
+              placeholder="Enter your full name"
               placeholderTextColor={colors.placeholder}
-              keyboardType="number-pad"
-              maxLength={20}
+              autoCapitalize="words"
             />
           </View>
-        </View>
 
-        <View style={styles.privacyNote}>
-          <Text style={styles.privacyText}>
-            🔒 Your contact details are secure and will only be shared with matched travelers.
-          </Text>
-        </View>
-      </ScrollView>
+          {/* Email */}
+          <Text style={styles.label}>Email Address</Text>
+          <View style={styles.inputContainer}>
+            <Mail size={20} color={colors.textTertiary} strokeWidth={1.5} />
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="your@email.com"
+              placeholderTextColor={colors.placeholder}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+          </View>
+
+          {/* Phone Number */}
+          <Text style={styles.label}>Phone Number</Text>
+          <View style={styles.phoneRow}>
+            <TouchableOpacity
+              style={styles.countrySelector}
+              onPress={() => setShowCountryPicker(true)}
+            >
+              <Text style={styles.flag}>{selectedCountry.flag}</Text>
+              <Text style={styles.dialCode}>{phoneCode}</Text>
+              <ChevronDown size={16} color={colors.textTertiary} />
+            </TouchableOpacity>
+
+            <View style={styles.phoneInputContainer}>
+              <Phone size={20} color={colors.textTertiary} strokeWidth={1.5} />
+              <TextInput
+                style={styles.phoneInput}
+                value={formatPhoneNumber(phone)}
+                onChangeText={handlePhoneChange}
+                placeholder="(000) 000-0000"
+                placeholderTextColor={colors.placeholder}
+                keyboardType="number-pad"
+                maxLength={20}
+              />
+            </View>
+          </View>
+
+          <View style={styles.privacyNote}>
+            <Text style={styles.privacyText}>
+              🔒 Your contact details are secure and will only be shared with matched travelers.
+            </Text>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       <BottomButton
         label="Review Shipment"

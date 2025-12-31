@@ -1,20 +1,52 @@
-import React from 'react';
-import { StyleSheet, Platform, View } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { StyleSheet, Platform, View, Text } from 'react-native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { 
-  Home, 
-  Package, 
-  Plane, 
-  ShoppingBag, 
-  Settings 
+import { useFocusEffect } from '@react-navigation/native';
+import {
+  Home,
+  Package,
+  Plane,
+  ShoppingBag,
+  Settings
 } from 'lucide-react-native';
 
 import { HomeTab, DeliveriesTab, TravelersTab, ShopTab, SettingsTab } from '../screens/tabs';
-import { colors, typography } from '../theme';
+import { colors, typography, borderRadius } from '../theme';
+import { useAuthStore } from '../store/useAuthStore';
+import { API_URL } from '../config';
 
 const Tab = createBottomTabNavigator();
 
 export default function MainTabNavigator() {
+  const { user } = useAuthStore();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // Fetch unread count
+  useFocusEffect(
+    useCallback(() => {
+      const fetchUnreadCount = async () => {
+        if (!user) return;
+        try {
+          const token = await user.getIdToken();
+          const response = await fetch(`${API_URL}/conversations/unread`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+          });
+          if (response.ok) {
+            const data = await response.json();
+            setUnreadCount(data.unreadCount || 0);
+          }
+        } catch (err) {
+          console.error('Error fetching unread count:', err);
+        }
+      };
+      fetchUnreadCount();
+
+      // Refresh every 30 seconds
+      const interval = setInterval(fetchUnreadCount, 30000);
+      return () => clearInterval(interval);
+    }, [user])
+  );
+
   return (
     <Tab.Navigator
       screenOptions={{
@@ -32,9 +64,9 @@ export default function MainTabNavigator() {
         options={{
           tabBarLabel: 'Home',
           tabBarIcon: ({ color, focused }) => (
-            <Home 
-              size={26} 
-              color={color} 
+            <Home
+              size={26}
+              color={color}
               strokeWidth={focused ? 2.5 : 1.5}
             />
           ),
@@ -46,9 +78,9 @@ export default function MainTabNavigator() {
         options={{
           tabBarLabel: 'Deliveries',
           tabBarIcon: ({ color, focused }) => (
-            <Package 
-              size={26} 
-              color={color} 
+            <Package
+              size={26}
+              color={color}
               strokeWidth={focused ? 2.5 : 1.5}
             />
           ),
@@ -60,9 +92,9 @@ export default function MainTabNavigator() {
         options={{
           tabBarLabel: 'Travelers',
           tabBarIcon: ({ color, focused }) => (
-            <Plane 
-              size={26} 
-              color={color} 
+            <Plane
+              size={26}
+              color={color}
               strokeWidth={focused ? 2.5 : 1.5}
             />
           ),
@@ -74,9 +106,9 @@ export default function MainTabNavigator() {
         options={{
           tabBarLabel: 'Shop',
           tabBarIcon: ({ color, focused }) => (
-            <ShoppingBag 
-              size={26} 
-              color={color} 
+            <ShoppingBag
+              size={26}
+              color={color}
               strokeWidth={focused ? 2.5 : 1.5}
             />
           ),
@@ -88,11 +120,20 @@ export default function MainTabNavigator() {
         options={{
           tabBarLabel: 'Settings',
           tabBarIcon: ({ color, focused }) => (
-            <Settings 
-              size={26} 
-              color={color} 
-              strokeWidth={focused ? 2.5 : 1.5}
-            />
+            <View style={styles.iconContainer}>
+              <Settings
+                size={26}
+                color={color}
+                strokeWidth={focused ? 2.5 : 1.5}
+              />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </View>
           ),
         }}
       />
@@ -121,5 +162,25 @@ const styles = StyleSheet.create({
   },
   tabBarItem: {
     paddingVertical: 4,
+  },
+  iconContainer: {
+    position: 'relative',
+  },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -8,
+    backgroundColor: colors.textPrimary,
+    borderRadius: borderRadius.full,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badgeText: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: 10,
+    color: colors.textInverse,
   },
 });
