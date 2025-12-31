@@ -5,16 +5,28 @@ import { CreateOfferDto } from './dto/create-offer.dto';
 
 @Injectable()
 export class ShipmentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(senderId: string, senderEmail: string, createShipmentDto: CreateShipmentDto) {
+    // Split the full name into firstName and lastName
+    const fullName = createShipmentDto.senderFullName || '';
+    const nameParts = fullName.trim().split(' ');
+    const firstName = nameParts[0] || '';
+    const lastName = nameParts.slice(1).join(' ') || '';
+
     // Ensure user exists in database (upsert if not)
     await this.prisma.user.upsert({
       where: { id: senderId },
-      update: {},
+      update: {
+        // Update the user's name if provided and not already set
+        ...(firstName && { firstName }),
+        ...(lastName && { lastName }),
+      },
       create: {
         id: senderId,
         email: senderEmail || `${senderId}@placeholder.com`,
+        firstName: firstName || null,
+        lastName: lastName || null,
         role: 'SENDER',
       },
     });
@@ -140,7 +152,7 @@ export class ShipmentsService {
   }
 
   async findByUser(userId: string, role: 'sender' | 'courier') {
-    const where = role === 'sender' 
+    const where = role === 'sender'
       ? { senderId: userId }
       : { courierId: userId };
 
@@ -163,6 +175,33 @@ export class ShipmentsService {
             lastName: true,
             avatar: true,
             isVerified: true,
+          },
+        },
+        _count: {
+          select: { offers: true },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /**
+   * Get all offers made by a user
+   */
+  async findOffersByUser(userId: string) {
+    return this.prisma.shipmentOffer.findMany({
+      where: { courierId: userId },
+      include: {
+        shipment: {
+          select: {
+            id: true,
+            originCity: true,
+            destCity: true,
+            price: true,
+            currency: true,
+            status: true,
+            content: true,
+            senderId: true,
           },
         },
       },
@@ -274,7 +313,7 @@ export class ShipmentsService {
       // Update shipment with courier
       this.prisma.shipment.update({
         where: { id: offer.shipmentId },
-        data: { 
+        data: {
           courierId: offer.courierId,
           status: 'MATCHED',
         },

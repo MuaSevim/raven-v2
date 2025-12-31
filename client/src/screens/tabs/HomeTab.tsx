@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Box, Plane, ShoppingCart, Package, MapPin, ArrowRight, CheckCircle, Clock } from 'lucide-react-native';
+import { Box, Plane, ShoppingCart, Package, MapPin, ArrowRight, CheckCircle, Clock, MessageCircle } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -42,6 +42,7 @@ export default function HomeTab() {
   const { user } = useAuthStore();
   const [activeItems, setActiveItems] = useState<ActiveItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Fetch all active items
   useFocusEffect(
@@ -56,29 +57,21 @@ export default function HomeTab() {
           const token = await user.getIdToken();
           const headers = { 'Authorization': `Bearer ${token}` };
 
-          // 1. Fetch my shipments (Shipments I posted)
-          const shipmentsRes = await fetch(`${API_URL}/shipments?userId=${user.uid}`, { headers });
+          // 1. Fetch my posted shipments
+          const shipmentsRes = await fetch(`${API_URL}/shipments/my/sent`, { headers });
           const shipments = shipmentsRes.ok ? await shipmentsRes.json() : [];
 
-          // 2. Fetch my offers (Offers I sent) - Assuming an endpoint exists or filter from shipments? 
-          // For now, let's look at shipments I've engaged with or fetch offers directly if possible.
-          // Since there isn't a direct "my offers" endpoint documented easily, we might skip or rely on Store.
-          // However, user.offers might be available if we synced it.
-          // Let's assume we can use the user store for offers if updated, or fetch from a hypothetical endpoint.
-          // Actually, let's check shipments where I am NOT the sender but have an interaction? 
-          // Simpler: Just rely on Shipments I posted + Transactions for now as "Active".
-
-          // 3. Fetch Transactions (Ongoing deliveries)
+          // 2. Fetch Transactions (Ongoing deliveries)
           const transactionsRes = await fetch(`${API_URL}/payments/transactions`, { headers });
           const transactions = transactionsRes.ok ? await transactionsRes.json() : [];
 
-          // Process Shipments
+          // Process Shipments - Include ALL my posted shipments (not just non-completed)
           const myActiveShipments = shipments
             .filter((s: any) => s.status !== 'DELIVERED' && s.status !== 'CANCELLED')
             .map((s: any) => ({
               id: s.id,
               type: 'shipment',
-              title: s.title || `Shipment to ${s.destCity}`,
+              title: `Package to ${s.destCity}`,
               status: s.status,
               price: s.price,
               currency: s.currency,
@@ -88,28 +81,37 @@ export default function HomeTab() {
               meta: { offersCount: s._count?.offers || 0 }
             }));
 
-          // Process Transactions (My travels or my shipment being delivered)
+          // Process Transactions (My shipments being delivered or deliveries I'm making)
           const myTransactions = transactions
             .filter((t: any) => t.status !== 'COMPLETED' && t.status !== 'FAILED')
             .map((t: any) => ({
               id: t.id,
               type: 'transaction',
-              title: t.shipment?.title || 'Delivery in progress',
+              title: 'Delivery in progress',
               status: 'IN_TRANSIT',
               price: t.amount,
               currency: t.currency,
-              origin: t.shipment?.originCity,
-              destination: t.shipment?.destCity,
+              origin: t.shipment?.originCity || 'Unknown',
+              destination: t.shipment?.destCity || 'Unknown',
               date: t.createdAt,
-              meta: { role: t.senderId === user.uid ? 'sender' : 'courier' }
+              meta: { role: t.payerId === user.uid ? 'sender' : 'courier' }
             }));
 
-          // Merge and sort
+          // Merge and sort by date (most recent first)
           const allItems = [...myActiveShipments, ...myTransactions].sort((a, b) =>
             new Date(b.date).getTime() - new Date(a.date).getTime()
           );
 
           setActiveItems(allItems);
+
+          // Fetch unread count
+          try {
+            const unreadRes = await fetch(`${API_URL}/conversations/unread`, { headers });
+            if (unreadRes.ok) {
+              const unreadData = await unreadRes.json();
+              setUnreadCount(unreadData.unreadCount || 0);
+            }
+          } catch { }
         } catch (err) {
           console.error('Error fetching dashboard data:', err);
         } finally {
@@ -203,35 +205,73 @@ export default function HomeTab() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header with Status Banner */}
-        <View style={styles.header}>
-          <Text style={styles.title}>Explore the Raven</Text>
-          <Text style={styles.subtitle}>
-            Safe Delivery & Free Travelling!
-          </Text>
+
+        {/* Activities Section - Always Visible Header */}
+        <View style={styles.ongoingSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Your Activities</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              {!loading && activeItems.length > 3 && (
+                <TouchableOpacity onPress={() => navigation.navigate('Activities')}>
+                  <Text style={styles.seeAllText}>See all</Text>
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                style={styles.chatButton}
+                onPress={() => navigation.navigate('Inbox')}
+              >
+                <MessageCircle size={24} color={colors.textPrimary} strokeWidth={1.5} />
+                {unreadCount > 0 && (
+                  <View style={styles.chatBadge}>
+                    <Text style={styles.chatBadgeText}>
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Content Based on State */}
+          {loading ? (
+            <View style={styles.statusBanner}>
+              <ActivityIndicator size="small" color={colors.primary} />
+              <Text style={styles.statusText}>Loading your activity...</Text>
+            </View>
+          ) : activeItems.length > 0 ? (
+            <>
+              {activeItems.slice(0, 3).map((item, index) => renderActiveItem(item, index))}
+              {activeItems.length > 3 && (
+                <TouchableOpacity
+                  style={styles.showAllButton}
+                  onPress={() => navigation.navigate('Activities')}
+                >
+                  <Text style={styles.showAllText}>
+                    Show all activities ({activeItems.length})
+                  </Text>
+                  <ArrowRight size={16} color={colors.textSecondary} />
+                </TouchableOpacity>
+              )}
+            </>
+          ) : (
+            <View style={styles.statusBanner}>
+              <Package size={18} color={colors.textSecondary} />
+              <Text style={styles.statusText}>
+                No active shipments or offers
+              </Text>
+            </View>
+          )}
         </View>
 
-        {/* Status Banner */}
-        {loading ? (
-          <View style={styles.statusBanner}>
-            <ActivityIndicator size="small" color={colors.primary} />
-            <Text style={styles.statusText}>Loading your activity...</Text>
-          </View>
-        ) : activeItems.length > 0 ? (
-          <View style={[styles.statusBanner, styles.statusBannerActive]}>
-            <CheckCircle size={18} color="#22C55E" />
-            <Text style={styles.statusTextActive}>
-              You have {activeItems.length} active {activeItems.length === 1 ? 'item' : 'items'}
+        {/* Header 'Explore the Raven' */}
+        <View style={styles.header}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.sectionTitle}>Explore the Raven</Text>
+            <Text style={styles.subtitle}>
+              Safe Delivery & Free Travelling!
             </Text>
           </View>
-        ) : (
-          <View style={styles.statusBanner}>
-            <Package size={18} color={colors.textSecondary} />
-            <Text style={styles.statusText}>
-              No active shipments or offers
-            </Text>
-          </View>
-        )}
+        </View>
 
         {/* Main Card - Send a Package */}
         <TouchableOpacity
@@ -287,18 +327,7 @@ export default function HomeTab() {
           </TouchableOpacity>
         </View>
 
-        {/* Active Items Section */}
-        {activeItems.length > 0 && (
-          <View style={styles.ongoingSection}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Your Activities</Text>
-              {/* <TouchableOpacity onPress={() => navigation.navigate('Inbox')}>
-                <Text style={styles.seeAllText}>See all</Text>
-              </TouchableOpacity> */}
-            </View>
-            {activeItems.slice(0, 5).map((item, index) => renderActiveItem(item, index))}
-          </View>
-        )}
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -317,9 +346,31 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
   },
   header: {
-    alignItems: 'center',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     paddingTop: spacing.xl,
     paddingBottom: spacing.xl,
+  },
+  chatButton: {
+    position: 'relative',
+    padding: spacing.sm,
+  },
+  chatBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: colors.textPrimary,
+    borderRadius: borderRadius.full,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chatBadgeText: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: 10,
+    color: colors.textInverse,
   },
   logoImage: {
     width: 64,
@@ -336,7 +387,6 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.regular,
     fontSize: typography.fontSize.base,
     color: colors.textSecondary,
-    textAlign: 'center',
   },
   // Status Banner
   statusBanner: {
@@ -506,5 +556,20 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.regular,
     fontSize: typography.fontSize.xs,
     color: colors.textTertiary,
+  },
+  showAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+    marginTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  showAllText: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
   },
 });

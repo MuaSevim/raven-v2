@@ -64,6 +64,11 @@ export class ShipmentsController {
     return this.shipmentsService.findByUser(req.user.uid, 'courier');
   }
 
+  @Get('my/offers')
+  findMyOffers(@Request() req) {
+    return this.shipmentsService.findOffersByUser(req.user.uid);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.shipmentsService.findOne(id);

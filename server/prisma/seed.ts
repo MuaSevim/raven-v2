@@ -16,7 +16,7 @@ const adapter = new PrismaPg(pool);
 const prisma = new PrismaClient({ adapter });
 
 // Sample avatar URLs (using UI Avatars service)
-const getAvatar = (name: string) => 
+const getAvatar = (name: string) =>
   `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random&size=200`;
 
 // Test users data
@@ -259,24 +259,18 @@ async function main() {
   for (let i = 0; i < 20; i++) {
     const sender = randomFrom(senderUsers);
     const route = randomFrom(routes);
-    const meeting = randomFrom(meetingPoints);
     const startDays = randomBetween(3, 30);
     const endDays = startDays + randomBetween(3, 14);
-    
+
     const statuses = ['OPEN', 'OPEN', 'OPEN', 'OPEN', 'MATCHED', 'IN_TRANSIT', 'DELIVERED'];
     const currencies = ['USD', 'EUR', 'GBP', 'SEK'];
-    
+
     const shipment = await prisma.shipment.create({
       data: {
         originCountry: route.originCountry,
         originCity: route.originCity,
         destCountry: route.destCountry,
         destCity: route.destCity,
-        destAirport: route.destAirport,
-        destAirportCode: route.destAirportCode,
-        meetingPoint: meeting.address,
-        meetingPointLat: meeting.lat,
-        meetingPointLng: meeting.lng,
         weight: randomBetween(1, 15) + randomBetween(0, 9) / 10,
         weightUnit: 'kg',
         content: randomFrom(packageContents),
@@ -292,7 +286,7 @@ async function main() {
         senderId: sender.id,
       },
     });
-    
+
     shipments.push(shipment);
     console.log(`   ✓ Shipment: ${route.originCity} → ${route.destCity} (${shipment.status})`);
   }
@@ -318,12 +312,12 @@ async function main() {
     // Each open shipment gets 1-3 offers
     const numOffers = randomBetween(1, 3);
     const offeringCouriers = [...courierUsers].sort(() => Math.random() - 0.5).slice(0, numOffers);
-    
+
     for (const courier of offeringCouriers) {
-      const offerStatuses = shipment.status === 'MATCHED' 
-        ? ['ACCEPTED', 'REJECTED', 'REJECTED'] 
+      const offerStatuses = shipment.status === 'MATCHED'
+        ? ['ACCEPTED', 'REJECTED', 'REJECTED']
         : ['PENDING', 'PENDING', 'PENDING'];
-      
+
       await prisma.shipmentOffer.create({
         data: {
           message: randomFrom(offerMessages),
@@ -358,11 +352,11 @@ async function main() {
     // Each courier posts 1-3 upcoming trips
     const numTrips = randomBetween(1, 3);
     const selectedRoutes = [...travelRoutes].sort(() => Math.random() - 0.5).slice(0, numTrips);
-    
+
     for (const route of selectedRoutes) {
       const departureDays = randomBetween(5, 45);
       const flightNumbers = ['BA123', 'LH456', 'AF789', 'EK321', 'QF654', 'SQ987', 'AA111', 'DL222'];
-      
+
       await prisma.travel.create({
         data: {
           fromCountry: route.fromCountry,
@@ -399,7 +393,7 @@ async function main() {
   console.log(`   💬 Offers:    ${offerCount}`);
   console.log(`   ✈️  Travels:   ${travelCount}`);
   console.log('═'.repeat(50));
-  
+
   // Print test credentials
   console.log('\n📋 Test User IDs (for Firebase):');
   users.forEach(u => {

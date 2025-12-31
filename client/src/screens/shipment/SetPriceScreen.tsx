@@ -104,7 +104,7 @@ export default function SetPriceScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <StepHeader
         title="Set Your Price"
-        currentStep={5}
+        currentStep={4}
         totalSteps={totalSteps}
         onClose={handleClose}
         onBack={handleBack}

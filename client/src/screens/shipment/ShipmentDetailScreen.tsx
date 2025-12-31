@@ -41,9 +41,6 @@ interface ShipmentDetails {
   originCountry: string;
   destCity: string;
   destCountry: string;
-  meetingPoint: string | null;
-  meetingPointLat: number | null;
-  meetingPointLng: number | null;
   dateStart: string;
   dateEnd: string;
   price: number;
@@ -343,25 +340,17 @@ export default function ShipmentDetailScreen() {
               <Text style={styles.detailValue}>{formatDateRange(shipment.dateStart, shipment.dateEnd)}</Text>
             </View>
           </View>
-
-          {shipment.meetingPoint && (
-            <View style={styles.detailRow}>
-              <View style={styles.detailIcon}>
-                <Navigation size={18} color={colors.textSecondary} />
-              </View>
-              <View style={styles.detailContent}>
-                <Text style={styles.detailLabel}>Meeting Point</Text>
-                <Text style={styles.detailValue}>{shipment.meetingPoint}</Text>
-              </View>
-            </View>
-          )}
         </View>
 
         {/* Sender Card */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Posted by</Text>
 
-          <TouchableOpacity style={styles.senderRow} activeOpacity={0.7}>
+          <TouchableOpacity
+            style={styles.senderRow}
+            activeOpacity={0.7}
+            onPress={() => navigation.navigate('PublicProfile', { userId: shipment.sender.id })}
+          >
             <View style={styles.senderAvatar}>
               {shipment.sender.avatar ? (
                 <Image source={{ uri: shipment.sender.avatar }} style={styles.avatarImage} />
@@ -387,22 +376,6 @@ export default function ShipmentDetailScreen() {
             <ChevronRight size={20} color={colors.textTertiary} />
           </TouchableOpacity>
 
-          {/* Contact Options */}
-          {!isMySender && (
-            <View style={styles.contactOptions}>
-              <TouchableOpacity
-                style={styles.chatButton}
-                onPress={() => navigation.navigate('Chat', {
-                  shipmentId: shipment.id,
-                  recipientId: shipment.sender.id,
-                  recipientName: senderName,
-                })}
-              >
-                <MessageCircle size={18} color={colors.textInverse} />
-                <Text style={styles.chatButtonText}>Chat with {senderName.split(' ')[0]}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
         </View>
 
         {/* Offers Count */}
@@ -425,17 +398,28 @@ export default function ShipmentDetailScreen() {
       {!isMySender && shipment.status === 'OPEN' && (
         <View style={styles.bottomContainer}>
           {shipment.offers?.some((o: any) => o.courierId === user?.uid) ? (
-            <TouchableOpacity
-              style={[styles.offerButton, { backgroundColor: '#22C55E20' }]}
-              onPress={() => navigation.navigate('Chat', {
-                shipmentId: shipment.id,
-                recipientId: shipment.sender.id,
-                recipientName: senderName,
-              })}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.offerButtonText, { color: '#22C55E' }]}>You already made an offer</Text>
-            </TouchableOpacity>
+            <View style={{ alignItems: 'center' }}>
+              <View
+                style={[styles.offerButton, { backgroundColor: '#22C55E20' }]}
+              >
+                <Text style={[styles.offerButtonText, { color: '#22C55E' }]}>You already made an offer</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('Chat', {
+                  shipmentId: shipment.id,
+                  recipientId: shipment.sender.id,
+                  recipientName: senderName,
+                })}
+                style={{ marginTop: spacing.sm }}
+              >
+                <Text style={{
+                  fontFamily: typography.fontFamily.medium,
+                  fontSize: typography.fontSize.sm,
+                  color: colors.textSecondary,
+                  marginTop: spacing.xs,
+                }}>Go to chat →</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <TouchableOpacity
               style={styles.offerButton}
@@ -860,12 +844,12 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.xl,
     borderTopWidth: 1,
     borderTopColor: colors.border,
-    backgroundColor: colors.background,
   },
   offerButton: {
     backgroundColor: colors.textPrimary,
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     alignItems: 'center',
   },
   offerButtonText: {

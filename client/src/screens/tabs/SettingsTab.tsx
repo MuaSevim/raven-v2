@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Switch, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronRight, MessageSquare, CreditCard, Inbox } from 'lucide-react-native';
+import { ChevronRight, MessageSquare, CreditCard, Inbox, User } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -77,7 +77,7 @@ export default function SettingsTab() {
           });
           if (response.ok) {
             const data = await response.json();
-            setUnreadCount(data.count || 0);
+            setUnreadCount(data.unreadCount || 0);
           }
         } catch (err) {
           console.error('Error fetching unread count:', err);
@@ -132,6 +132,7 @@ export default function SettingsTab() {
         <View style={styles.settingsGroup}>
           <SettingsItem
             label="Profile Information"
+            icon={<User size={20} color={colors.textPrimary} />}
             onPress={() => navigation.navigate('Profile')}
           />
           <SettingsItem

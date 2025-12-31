@@ -25,12 +25,12 @@ const CODE_LENGTH = 4;
 
 export default function SignUpStep5Screen({ navigation }: Props) {
   const { data, reset: resetSignup } = useSignupStore();
-  
+
   const [code, setCode] = useState<string[]>(Array(CODE_LENGTH).fill(''));
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  
+
   const inputRefs = useRef<(TextInput | null)[]>([]);
 
   // Countdown timer for resend
@@ -46,7 +46,7 @@ export default function SignUpStep5Screen({ navigation }: Props) {
     if (value && !/^\d+$/.test(value)) return;
 
     const newCode = [...code];
-    
+
     // Handle paste (multiple characters)
     if (value.length > 1) {
       const chars = value.split('').slice(0, CODE_LENGTH);
@@ -66,7 +66,7 @@ export default function SignUpStep5Screen({ navigation }: Props) {
     } else {
       newCode[index] = value;
       setCode(newCode);
-      
+
       // Auto-focus next input or dismiss keyboard if complete
       if (value && index < CODE_LENGTH - 1) {
         inputRefs.current[index + 1]?.focus();
@@ -92,7 +92,7 @@ export default function SignUpStep5Screen({ navigation }: Props) {
 
   const handleVerify = async () => {
     const enteredCode = code.join('');
-    
+
     if (enteredCode.length !== CODE_LENGTH) {
       setError('Please enter the complete code');
       return;
@@ -104,6 +104,11 @@ export default function SignUpStep5Screen({ navigation }: Props) {
     try {
       // Call backend to verify code
       await authApi.verify(data.email, enteredCode);
+
+      // Sign in the user with Firebase Auth after successful verification
+      const { signInWithEmailAndPassword } = await import('firebase/auth');
+      const { auth } = await import('../../services/firebaseConfig');
+      await signInWithEmailAndPassword(auth, data.email, data.password);
 
       // Success! Navigate to Welcome screen
       resetSignup();
@@ -123,7 +128,7 @@ export default function SignUpStep5Screen({ navigation }: Props) {
     if (resendCooldown > 0) return;
 
     setResendCooldown(60);
-    
+
     try {
       await authApi.sendCode(data.email);
       Alert.alert(
@@ -145,7 +150,7 @@ export default function SignUpStep5Screen({ navigation }: Props) {
             showBack
             onBack={() => navigation.goBack()}
           />
-          
+
           <View style={styles.content}>
             <View style={styles.progressContainer}>
               <ProgressIndicator totalSteps={5} currentStep={5} />

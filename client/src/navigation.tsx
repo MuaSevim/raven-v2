@@ -16,6 +16,8 @@ import { colors, spacing } from "./theme";
 // Screens
 import WelcomeScreen from "./screens/WelcomeScreen";
 import ProfileScreen from "./screens/ProfileScreen";
+import PublicProfileScreen from "./screens/PublicProfileScreen";
+import ActivitiesScreen from "./screens/ActivitiesScreen";
 import {
   SignInScreen,
   SignUpStep1Screen,
@@ -28,7 +30,6 @@ import {
 // Shipment Screens
 import {
   SetRouteScreen,
-  MeetingPointScreen,
   PackageDetailsScreen,
   DeliveryWindowScreen,
   SetPriceScreen,
@@ -63,9 +64,8 @@ export type RootStackParamList = {
   SignUpStep5: undefined;
   Welcome: undefined;
   MainTabs: undefined;
-  // Shipment Flow (7 steps)
+  // Shipment Flow (6 steps)
   SetRoute: undefined;
-  MeetingPoint: undefined;
   PackageDetails: undefined;
   DeliveryWindow: undefined;
   SetPrice: undefined;
@@ -85,6 +85,8 @@ export type RootStackParamList = {
   PaymentMethods: undefined;
   DeliveryTracking: { transactionId: string };
   Profile: undefined;
+  PublicProfile: { userId: string };
+  Activities: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -130,9 +132,8 @@ export default function Navigation() {
           // Authenticated Stack
           <>
             <Stack.Screen name="MainTabs" component={MainTabNavigator} />
-            {/* Shipment Flow - 7 Steps */}
+            {/* Shipment Flow - 6 Steps */}
             <Stack.Screen name="SetRoute" component={SetRouteScreen} />
-            <Stack.Screen name="MeetingPoint" component={MeetingPointScreen} />
             <Stack.Screen name="PackageDetails" component={PackageDetailsScreen} />
             <Stack.Screen name="DeliveryWindow" component={DeliveryWindowScreen} />
             <Stack.Screen name="SetPrice" component={SetPriceScreen} />
@@ -147,6 +148,8 @@ export default function Navigation() {
             <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
             <Stack.Screen name="DeliveryTracking" component={DeliveryTrackingScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="PublicProfile" component={PublicProfileScreen} />
+            <Stack.Screen name="Activities" component={ActivitiesScreen} />
           </>
         ) : (
           // Auth Stack

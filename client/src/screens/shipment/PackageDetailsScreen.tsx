@@ -125,7 +125,7 @@ export default function PackageDetailsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <StepHeader
         title="Package Details"
-        currentStep={3}
+        currentStep={2}
         totalSteps={totalSteps}
         onClose={handleClose}
         onBack={handleBack}
@@ -150,7 +150,7 @@ export default function PackageDetailsScreen() {
               value={weight}
               onChangeText={handleWeightChange}
               keyboardType="decimal-pad"
-              placeholder="00.00"
+              placeholder="1.25"
               placeholderTextColor={colors.placeholder}
             />
           </View>

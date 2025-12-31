@@ -3,6 +3,7 @@ import {
   Post,
   Get,
   Put,
+  Patch,
   Body,
   UseGuards,
   Req,
@@ -20,7 +21,7 @@ import {
 
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(private authService: AuthService) { }
 
   /**
    * Register a new user with email/password
@@ -29,7 +30,7 @@ export class AuthController {
   @Post('register')
   async register(@Body() dto: CreateUserDto) {
     const user = await this.authService.registerUser(dto);
-    
+
     // Generate verification code
     await this.authService.generateVerificationCode(dto.email);
 
@@ -96,7 +97,7 @@ export class AuthController {
   @UseGuards(FirebaseAuthGuard)
   async getMe(@Req() req: any) {
     const user = await this.authService.getUserById(req.user.uid);
-    return { user };
+    return user;
   }
 
   /**
@@ -109,4 +110,16 @@ export class AuthController {
     const user = await this.authService.updateUser(req.user.uid, dto);
     return { user };
   }
+
+  /**
+   * Update current user profile (PATCH)
+   * PATCH /auth/profile
+   */
+  @Patch('profile')
+  @UseGuards(FirebaseAuthGuard)
+  async updateProfile(@Req() req: any, @Body() dto: UpdateUserDto) {
+    const user = await this.authService.updateUser(req.user.uid, dto);
+    return user;
+  }
 }
+

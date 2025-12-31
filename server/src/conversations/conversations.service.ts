@@ -4,7 +4,7 @@ import { CreateConversationDto, SendMessageDto } from './dto/conversation.dto';
 
 @Injectable()
 export class ConversationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * Get or create a conversation between two users about a shipment
@@ -175,12 +175,12 @@ export class ConversationsService {
           select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
         },
         shipment: {
-          select: { 
-            id: true, 
-            originCity: true, 
-            destCity: true, 
-            price: true, 
-            currency: true, 
+          select: {
+            id: true,
+            originCity: true,
+            destCity: true,
+            price: true,
+            currency: true,
             status: true,
             senderId: true,
             courierId: true,
@@ -234,6 +234,9 @@ export class ConversationsService {
   async sendMessage(userId: string, conversationId: string, dto: SendMessageDto) {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: conversationId },
+      include: {
+        shipment: { select: { senderId: true } },
+      },
     });
 
     if (!conversation) {
@@ -244,6 +247,10 @@ export class ConversationsService {
     if (conversation.user1Id !== userId && conversation.user2Id !== userId) {
       throw new ForbiddenException('You do not have access to this conversation');
     }
+
+    // Check if owner is responding - if so, activate the conversation
+    const isOwner = conversation.shipment.senderId === userId;
+    const shouldActivate = isOwner && conversation.status === 'PENDING';
 
     // Create message
     const message = await this.prisma.message.create({
@@ -260,12 +267,13 @@ export class ConversationsService {
       },
     });
 
-    // Update conversation
+    // Update conversation - status and last message
     await this.prisma.conversation.update({
       where: { id: conversationId },
       data: {
         lastMessage: dto.content,
         lastMessageAt: new Date(),
+        ...(shouldActivate && { status: 'ACTIVE' }),
       },
     });
 

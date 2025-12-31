@@ -189,9 +189,7 @@ export default function SignUpStep4Screen({ navigation }: Props) {
         city: data.city,
       });
 
-      // Sign in the user on the client side with Firebase Auth
-      // This ensures the client has a valid session after registration
-      await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
+      // Note: We don't sign in here - user will sign in after email verification in Step 5
 
       // Send verification code
       await authApi.sendCode(email.trim().toLowerCase());

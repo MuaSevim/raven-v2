@@ -1,5 +1,4 @@
 export { default as SetRouteScreen } from './SetRouteScreen';
-export { default as MeetingPointScreen } from './MeetingPointScreen';
 export { default as PackageDetailsScreen } from './PackageDetailsScreen';
 export { default as DeliveryWindowScreen } from './DeliveryWindowScreen';
 export { default as SetPriceScreen } from './SetPriceScreen';
