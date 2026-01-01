@@ -149,11 +149,6 @@ function ShipmentCard({ shipment, onPress }: ShipmentCardProps) {
             strokeWidth={2}
           />
         )}
-        {shipment._count && shipment._count.offers > 0 && (
-          <View style={styles.offersBadge}>
-            <Text style={styles.offersBadgeText}>{shipment._count.offers} offers</Text>
-          </View>
-        )}
       </View>
 
       {/* Bottom Row: Date Range and Weight */}
@@ -280,21 +275,23 @@ export default function DeliveriesTab() {
     },
   ];
 
-  // Filter shipments based on active filter
-  const filteredShipments = [...shipments].sort((a, b) => {
-    switch (activeFilter) {
-      case 'weight':
-        return b.weight - a.weight;
-      case 'date':
-        return new Date(a.dateStart).getTime() - new Date(b.dateStart).getTime();
-      case 'price':
-        return b.price - a.price;
-      case 'status':
-        return a.status.localeCompare(b.status);
-      default:
-        return 0;
-    }
-  });
+  // Filter shipments: hide delivered/cancelled and apply sorting
+  const filteredShipments = [...shipments]
+    .filter(s => s.status !== 'DELIVERED' && s.status !== 'CANCELLED')
+    .sort((a, b) => {
+      switch (activeFilter) {
+        case 'weight':
+          return b.weight - a.weight;
+        case 'date':
+          return new Date(a.dateStart).getTime() - new Date(b.dateStart).getTime();
+        case 'price':
+          return b.price - a.price;
+        case 'status':
+          return a.status.localeCompare(b.status);
+        default:
+          return 0;
+      }
+    });
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>

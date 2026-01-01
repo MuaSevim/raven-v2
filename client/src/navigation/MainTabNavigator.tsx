@@ -5,12 +5,12 @@ import { useFocusEffect } from '@react-navigation/native';
 import {
   Home,
   Package,
-  Plane,
-  ShoppingBag,
-  Settings
+  Settings,
+  User
 } from 'lucide-react-native';
 
-import { HomeTab, DeliveriesTab, TravelersTab, ShopTab, SettingsTab } from '../screens/tabs';
+import { HomeTab, DeliveriesTab, SettingsTab } from '../screens/tabs';
+import ProfileScreen from '../screens/ProfileScreen';
 import { colors, typography, borderRadius } from '../theme';
 import { useAuthStore } from '../store/useAuthStore';
 import { API_URL } from '../config';
@@ -64,11 +64,20 @@ export default function MainTabNavigator() {
         options={{
           tabBarLabel: 'Home',
           tabBarIcon: ({ color, focused }) => (
-            <Home
-              size={26}
-              color={color}
-              strokeWidth={focused ? 2.5 : 1.5}
-            />
+            <View style={styles.iconContainer}>
+              <Home
+                size={26}
+                color={color}
+                strokeWidth={focused ? 2.5 : 1.5}
+              />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </View>
           ),
         }}
       />
@@ -87,53 +96,30 @@ export default function MainTabNavigator() {
         }}
       />
       <Tab.Screen
-        name="TravelersTab"
-        component={TravelersTab}
-        options={{
-          tabBarLabel: 'Travelers',
-          tabBarIcon: ({ color, focused }) => (
-            <Plane
-              size={26}
-              color={color}
-              strokeWidth={focused ? 2.5 : 1.5}
-            />
-          ),
-        }}
-      />
-      <Tab.Screen
-        name="ShopTab"
-        component={ShopTab}
-        options={{
-          tabBarLabel: 'Shop',
-          tabBarIcon: ({ color, focused }) => (
-            <ShoppingBag
-              size={26}
-              color={color}
-              strokeWidth={focused ? 2.5 : 1.5}
-            />
-          ),
-        }}
-      />
-      <Tab.Screen
         name="SettingsTab"
         component={SettingsTab}
         options={{
           tabBarLabel: 'Settings',
           tabBarIcon: ({ color, focused }) => (
-            <View style={styles.iconContainer}>
-              <Settings
-                size={26}
-                color={color}
-                strokeWidth={focused ? 2.5 : 1.5}
-              />
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </View>
+            <Settings
+              size={26}
+              color={color}
+              strokeWidth={focused ? 2.5 : 1.5}
+            />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="ProfileTab"
+        component={ProfileScreen}
+        options={{
+          tabBarLabel: 'Profile',
+          tabBarIcon: ({ color, focused }) => (
+            <User
+              size={26}
+              color={color}
+              strokeWidth={focused ? 2.5 : 1.5}
+            />
           ),
         }}
       />

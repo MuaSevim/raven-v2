@@ -18,6 +18,7 @@ import WelcomeScreen from "./screens/WelcomeScreen";
 import ProfileScreen from "./screens/ProfileScreen";
 import PublicProfileScreen from "./screens/PublicProfileScreen";
 import ActivitiesScreen from "./screens/ActivitiesScreen";
+import NetworkDiagnosticsScreen from "./screens/NetworkDiagnosticsScreen";
 import {
   SignInScreen,
   SignUpStep1Screen,
@@ -87,6 +88,7 @@ export type RootStackParamList = {
   Profile: undefined;
   PublicProfile: { userId: string };
   Activities: undefined;
+  NetworkDiagnostics: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -150,6 +152,7 @@ export default function Navigation() {
             <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen name="PublicProfile" component={PublicProfileScreen} />
             <Stack.Screen name="Activities" component={ActivitiesScreen} />
+            <Stack.Screen name="NetworkDiagnostics" component={NetworkDiagnosticsScreen} />
           </>
         ) : (
           // Auth Stack

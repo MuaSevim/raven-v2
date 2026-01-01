@@ -110,9 +110,11 @@ export default function SignUpStep5Screen({ navigation }: Props) {
       const { auth } = await import('../../services/firebaseConfig');
       await signInWithEmailAndPassword(auth, data.email, data.password);
 
-      // Success! Navigate to Welcome screen
+      // Success! Clear signup store
+      // Note: Don't navigate here - onAuthStateChanged will automatically
+      // switch us to the authenticated stack when Firebase auth succeeds
       resetSignup();
-      navigation.replace('Welcome');
+      // The navigation is handled automatically by the auth state listener
     } catch (err: any) {
       const message = err.response?.data?.message || 'Verification failed. Please try again.';
       setError(message);

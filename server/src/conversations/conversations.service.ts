@@ -301,4 +301,37 @@ export class ConversationsService {
 
     return { unreadCount: count };
   }
+
+  /**
+   * Mark all messages in a conversation as read by the current user
+   */
+  async markMessagesAsRead(userId: string, conversationId: string) {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+    });
+
+    if (!conversation) {
+      throw new NotFoundException('Conversation not found');
+    }
+
+    // Check access
+    if (conversation.user1Id !== userId && conversation.user2Id !== userId) {
+      throw new ForbiddenException('You do not have access to this conversation');
+    }
+
+    // Update all messages from the other user to READ
+    await this.prisma.message.updateMany({
+      where: {
+        conversationId,
+        senderId: { not: userId },
+        status: { not: 'READ' },
+      },
+      data: {
+        status: 'READ',
+        isRead: true,
+      },
+    });
+
+    return { success: true };
+  }
 }

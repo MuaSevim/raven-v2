@@ -34,6 +34,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { API_URL } from '../../config';
 import { colors, typography, spacing, borderRadius } from '../../theme';
+import { SuccessModal } from '../../components/ui';
 
 interface ShipmentDetails {
   id: string;
@@ -83,6 +84,7 @@ export default function ShipmentDetailScreen() {
   const [shipment, setShipment] = useState<ShipmentDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [showOfferModal, setShowOfferModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [offerMessage, setOfferMessage] = useState("Hi! I am traveling on this route and would be happy to deliver your package. Let me know if you have any questions!");
   const [submitting, setSubmitting] = useState(false);
 
@@ -139,7 +141,7 @@ export default function ShipmentDetailScreen() {
       }
 
       setShowOfferModal(false);
-      Alert.alert('Offer Sent!', 'The sender will be notified and can accept your offer.');
+      setShowSuccessModal(true);
       fetchShipment(); // Refresh to update offer count
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to send offer');
@@ -498,6 +500,24 @@ export default function ShipmentDetailScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Success Modal */}
+      <SuccessModal
+        visible={showSuccessModal}
+        title="Offer Sent!"
+        message="The sender will be notified and can accept your offer. You can start a conversation to discuss the delivery details."
+        buttonText="Go to Chat"
+        onClose={() => {
+          setShowSuccessModal(false);
+          if (shipment) {
+            navigation.navigate('Chat', {
+              shipmentId: shipment.id,
+              recipientId: shipment.sender.id,
+              recipientName: `${shipment.sender.firstName || ''} ${shipment.sender.lastName || ''}`.trim(),
+            });
+          }
+        }}
+      />
     </SafeAreaView>
   );
 }

@@ -5,7 +5,7 @@ import { UpdateTravelDto } from './dto/update-travel.dto';
 
 @Injectable()
 export class TravelsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(userId: string, userEmail: string, createTravelDto: CreateTravelDto) {
     // Ensure user exists in database (upsert if not)
@@ -15,7 +15,6 @@ export class TravelsService {
       create: {
         id: userId,
         email: userEmail || `${userId}@placeholder.com`,
-        role: 'COURIER',
       },
     });
 
@@ -23,8 +22,8 @@ export class TravelsService {
       data: {
         ...createTravelDto,
         departureDate: new Date(createTravelDto.departureDate),
-        arrivalDate: createTravelDto.arrivalDate 
-          ? new Date(createTravelDto.arrivalDate) 
+        arrivalDate: createTravelDto.arrivalDate
+          ? new Date(createTravelDto.arrivalDate)
           : null,
         travelerId: userId,
       },
@@ -159,11 +158,11 @@ export class TravelsService {
       where: { id },
       data: {
         ...updateTravelDto,
-        departureDate: dto.departureDate 
-          ? new Date(dto.departureDate) 
+        departureDate: dto.departureDate
+          ? new Date(dto.departureDate)
           : undefined,
-        arrivalDate: dto.arrivalDate 
-          ? new Date(dto.arrivalDate) 
+        arrivalDate: dto.arrivalDate
+          ? new Date(dto.arrivalDate)
           : undefined,
       },
       include: {

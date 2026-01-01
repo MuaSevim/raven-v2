@@ -152,12 +152,17 @@ function ConversationItem({
         </View>
 
         <View style={styles.messageRow}>
-          <Text
-            style={[styles.lastMessage, isUnread && styles.lastMessageUnread]}
-            numberOfLines={1}
-          >
-            {isMyMessage ? 'You: ' : ''}{lastMessagePreview}
-          </Text>
+          <View style={styles.messagePreviewContainer}>
+            {isMyMessage && (
+              <Text style={styles.messageTickPreview}>✓ </Text>
+            )}
+            <Text
+              style={[styles.lastMessage, isUnread && styles.lastMessageUnread]}
+              numberOfLines={1}
+            >
+              {isMyMessage ? 'You: ' : ''}{lastMessagePreview}
+            </Text>
+          </View>
           {isUnread && (
             <View style={styles.unreadBadge}>
               <Text style={styles.unreadText}>{conversation.unreadCount}</Text>
@@ -464,5 +469,14 @@ const styles = StyleSheet.create({
   statusTextSmall: {
     fontFamily: typography.fontFamily.medium,
     fontSize: 9,
+  },
+  messagePreviewContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  messageTickPreview: {
+    fontSize: 10,
+    color: colors.textTertiary,
   },
 });
