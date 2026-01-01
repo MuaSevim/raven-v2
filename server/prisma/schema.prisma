@@ -29,7 +29,6 @@ model User {
   
   // Profile
   avatar      String?
-  role        String    @default("SENDER") // SENDER or COURIER
   
   // Verification
   isVerified  Boolean   @default(false)
@@ -231,9 +230,13 @@ model Message {
   content         String
   
   // Message type
-  type            String    @default("TEXT") // TEXT, SYSTEM, MATCH_REQUEST, MATCH_ACCEPTED
+  type            String    @default("TEXT") // TEXT, SYSTEM, MATCH_REQUEST, MATCH_ACCEPTED, OFFER
   
-  // Read status
+  // Message delivery status for read receipts
+  // SENT = message created, DELIVERED = recipient notified, READ = recipient opened chat
+  status          String    @default("SENT")
+  
+  // Read status (legacy, use status instead)
   isRead          Boolean   @default(false)
   
   // Relations

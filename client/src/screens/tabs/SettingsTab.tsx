@@ -1,11 +1,11 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Switch, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronRight, MessageSquare, CreditCard, Inbox, User } from 'lucide-react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { ChevronRight, CreditCard, User, Wifi } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
-import { API_URL } from '../../config';
+
 
 interface SettingsItemProps {
   label: string;
@@ -63,29 +63,7 @@ export default function SettingsTab() {
   const navigation = useNavigation<any>();
   const { user, signOut } = useAuthStore();
   const [darkMode, setDarkMode] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
 
-  // Fetch unread message count
-  useFocusEffect(
-    useCallback(() => {
-      const fetchUnreadCount = async () => {
-        if (!user) return;
-        try {
-          const token = await user.getIdToken();
-          const response = await fetch(`${API_URL}/conversations/unread`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          });
-          if (response.ok) {
-            const data = await response.json();
-            setUnreadCount(data.unreadCount || 0);
-          }
-        } catch (err) {
-          console.error('Error fetching unread count:', err);
-        }
-      };
-      fetchUnreadCount();
-    }, [user])
-  );
 
   const handleSignOut = async () => {
     Alert.alert(
@@ -117,17 +95,6 @@ export default function SettingsTab() {
 
       {/* Settings Groups */}
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-        {/* Messages & Communication */}
-        <View style={styles.settingsGroup}>
-          <SettingsItem
-            label="Inbox"
-            icon={<Inbox size={20} color={colors.textPrimary} />}
-            badge={unreadCount}
-            onPress={() => navigation.navigate('Inbox')}
-            showBorder={false}
-          />
-        </View>
-
         {/* Profile & Payment */}
         <View style={styles.settingsGroup}>
           <SettingsItem
@@ -162,6 +129,16 @@ export default function SettingsTab() {
             label="Dark Mode"
             value={darkMode}
             onValueChange={setDarkMode}
+          />
+        </View>
+
+        {/* Developer Tools */}
+        <View style={styles.settingsGroup}>
+          <SettingsItem
+            label="Network Diagnostics"
+            icon={<Wifi size={20} color={colors.textPrimary} />}
+            onPress={() => navigation.navigate('NetworkDiagnostics')}
+            showBorder={false}
           />
         </View>
 

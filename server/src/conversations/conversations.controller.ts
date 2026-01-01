@@ -14,7 +14,7 @@ import { FirebaseAuthGuard } from '../auth/firebase-auth.guard';
 @Controller('conversations')
 @UseGuards(FirebaseAuthGuard)
 export class ConversationsController {
-  constructor(private readonly conversationsService: ConversationsService) {}
+  constructor(private readonly conversationsService: ConversationsService) { }
 
   /**
    * Get or create a conversation
@@ -62,5 +62,13 @@ export class ConversationsController {
     @Body() dto: SendMessageDto,
   ) {
     return this.conversationsService.sendMessage(req.user.uid, id, dto);
+  }
+
+  /**
+   * Mark all messages in a conversation as read
+   */
+  @Post(':id/read')
+  markAsRead(@Request() req, @Param('id') id: string) {
+    return this.conversationsService.markMessagesAsRead(req.user.uid, id);
   }
 }

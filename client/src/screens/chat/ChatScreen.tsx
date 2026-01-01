@@ -32,6 +32,7 @@ interface Message {
   id: string;
   content: string;
   type: string;
+  status: 'SENT' | 'DELIVERED' | 'READ';
   senderId: string;
   sender: {
     id: string;
@@ -136,6 +137,23 @@ export default function ChatScreen() {
       fetchOrCreateConversation();
     }, [user, params.conversationId, params.shipmentId])
   );
+
+  // Mark messages as read when entering the conversation
+  useEffect(() => {
+    const markAsRead = async () => {
+      if (!user || !conversation?.id) return;
+      try {
+        const token = await user.getIdToken();
+        await fetch(`${API_URL}/conversations/${conversation.id}/read`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+      } catch (err) {
+        console.error('Error marking messages as read:', err);
+      }
+    };
+    markAsRead();
+  }, [user, conversation?.id]);
 
   // Auto-refresh messages every 5 seconds
   useEffect(() => {
@@ -267,6 +285,7 @@ export default function ChatScreen() {
   const renderMessage = ({ item }: { item: Message }) => {
     const isMe = item.senderId === user?.uid;
     const isSystem = item.type === 'SYSTEM' || item.type === 'MATCH_ACCEPTED';
+    const isOffer = item.type === 'OFFER';
 
     if (isSystem) {
       return (
@@ -279,12 +298,24 @@ export default function ChatScreen() {
     return (
       <View style={[styles.messageContainer, isMe && styles.myMessageContainer]}>
         <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.theirBubble]}>
+          {isOffer && (
+            <Text style={[styles.offerLabel, isMe && styles.myOfferLabel]}>💼 Delivery Offer</Text>
+          )}
           <Text style={[styles.messageText, isMe && styles.myMessageText]}>
             {item.content}
           </Text>
-          <Text style={[styles.messageTime, isMe && styles.myMessageTime]}>
-            {formatTime(item.createdAt)}
-          </Text>
+          <View style={styles.messageFooter}>
+            <Text style={[styles.messageTime, isMe && styles.myMessageTime]}>
+              {formatTime(item.createdAt)}
+            </Text>
+            {isMe && (
+              <View style={styles.statusTicks}>
+                {item.status === 'SENT' && <Text style={styles.tickGrey}>✓</Text>}
+                {item.status === 'DELIVERED' && <Text style={styles.tickGrey}>✓✓</Text>}
+                {item.status === 'READ' && <Text style={styles.tickBlack}>✓✓</Text>}
+              </View>
+            )}
+          </View>
         </View>
       </View>
     );
@@ -312,20 +343,22 @@ export default function ChatScreen() {
           <ArrowLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
 
-        <View style={styles.headerInfo}>
+        <TouchableOpacity
+          style={styles.headerInfo}
+          onPress={() => conversation && navigation.navigate('ShipmentDetail', { shipmentId: conversation.shipment.id })}
+        >
           <View style={styles.headerName}>
             <Text style={styles.recipientName} numberOfLines={1}>
               {otherUserName}
             </Text>
-            {conversation?.otherUser.isVerified && (
+            {conversation?.otherUser?.isVerified && (
               <BadgeCheck size={16} color={colors.textPrimary} fill={colors.background} />
             )}
           </View>
           {conversation && (
             <View style={styles.routeRow}>
-              <Package size={12} color={colors.textSecondary} />
               <Text style={styles.routeText}>
-                {conversation.shipment.originCity} → {conversation.shipment.destCity}
+                {conversation.shipment.originCity} → {conversation.shipment.destCity} • {getCurrencySymbol(conversation.shipment.currency)}{conversation.shipment.price}
               </Text>
               {conversation.shipment.status === 'MATCHED' && (
                 <View style={styles.matchedBadge}>
@@ -335,7 +368,7 @@ export default function ChatScreen() {
               )}
             </View>
           )}
-        </View>
+        </TouchableOpacity>
 
         {/* Match Button - Only for sender when shipment is OPEN */}
         {conversation?.canMatch && (
@@ -780,5 +813,34 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.semiBold,
     fontSize: typography.fontSize.base,
     color: colors.textInverse,
+  },
+  // Message status ticks
+  messageFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  statusTicks: {
+    marginLeft: 4,
+  },
+  tickGrey: {
+    fontSize: 10,
+    color: colors.textTertiary,
+  },
+  tickBlack: {
+    fontSize: 10,
+    color: colors.textPrimary,
+  },
+  // Offer message styling
+  offerLabel: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize.xs,
+    color: colors.textSecondary,
+    marginBottom: 4,
+  },
+  myOfferLabel: {
+    color: colors.textInverse,
+    opacity: 0.8,
   },
 });

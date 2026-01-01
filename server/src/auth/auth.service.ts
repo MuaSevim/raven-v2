@@ -85,7 +85,6 @@ export class AuthService implements OnModuleInit {
         countryCode: dto.countryCode,
         city: dto.city,
         isVerified: false,
-        role: 'SENDER',
       },
     });
 
@@ -151,7 +150,6 @@ export class AuthService implements OnModuleInit {
         country: dto.country,
         countryCode: dto.countryCode,
         city: dto.city,
-        role: 'SENDER',
         isVerified: true, // Social login users are pre-verified
       },
     });
@@ -249,13 +247,4 @@ export class AuthService implements OnModuleInit {
     });
   }
 
-  /**
-   * Update user role
-   */
-  async updateUserRole(uid: string, role: 'SENDER' | 'COURIER') {
-    return this.prisma.user.update({
-      where: { id: uid },
-      data: { role },
-    });
-  }
 }

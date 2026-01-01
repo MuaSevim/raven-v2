@@ -27,7 +27,6 @@ export class ShipmentsService {
         email: senderEmail || `${senderId}@placeholder.com`,
         firstName: firstName || null,
         lastName: lastName || null,
-        role: 'SENDER',
       },
     });
 
@@ -260,7 +259,8 @@ export class ShipmentsService {
       throw new ForbiddenException('You have already made an offer on this shipment');
     }
 
-    return this.prisma.shipmentOffer.create({
+    // Create the offer
+    const offer = await this.prisma.shipmentOffer.create({
       data: {
         ...createOfferDto,
         shipmentId,
@@ -278,6 +278,45 @@ export class ShipmentsService {
         },
       },
     });
+
+    // Get or create conversation and inject offer message
+    const [user1Id, user2Id] = [courierId, shipment.senderId].sort();
+    let conversation = await this.prisma.conversation.findUnique({
+      where: {
+        user1Id_user2Id_shipmentId: { user1Id, user2Id, shipmentId },
+      },
+    });
+
+    if (!conversation) {
+      conversation = await this.prisma.conversation.create({
+        data: {
+          user1Id,
+          user2Id,
+          shipmentId,
+        },
+      });
+    }
+
+    // Create the offer message in the conversation
+    await this.prisma.message.create({
+      data: {
+        content: createOfferDto.message,
+        type: 'OFFER',
+        conversationId: conversation.id,
+        senderId: courierId,
+      },
+    });
+
+    // Update conversation with last message
+    await this.prisma.conversation.update({
+      where: { id: conversation.id },
+      data: {
+        lastMessage: createOfferDto.message,
+        lastMessageAt: new Date(),
+      },
+    });
+
+    return offer;
   }
 
   async acceptOffer(offerId: string, senderId: string) {
@@ -319,6 +358,19 @@ export class ShipmentsService {
         },
       }),
     ]);
+
+    // Update the conversation status to MATCHED
+    const [user1Id, user2Id] = [offer.courierId, senderId].sort();
+    await this.prisma.conversation.updateMany({
+      where: {
+        shipmentId: offer.shipmentId,
+        user1Id,
+        user2Id,
+      },
+      data: {
+        status: 'MATCHED',
+      },
+    });
 
     return this.findOne(offer.shipmentId);
   }
