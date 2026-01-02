@@ -201,6 +201,15 @@ export class ShipmentsService {
             status: true,
             content: true,
             senderId: true,
+            sender: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                avatar: true,
+                isVerified: true,
+              },
+            },
           },
         },
       },
@@ -217,12 +226,12 @@ export class ShipmentsService {
       throw new NotFoundException('Shipment not found');
     }
 
-    // Only sender can cancel, only courier can update to IN_TRANSIT or DELIVERED
+    // Only sender can cancel, only courier can update to ON_WAY or DELIVERED
     if (status === 'CANCELLED' && shipment.senderId !== userId) {
       throw new ForbiddenException('Only the sender can cancel this shipment');
     }
 
-    if (['IN_TRANSIT', 'DELIVERED'].includes(status) && shipment.courierId !== userId) {
+    if (['ON_WAY', 'DELIVERED'].includes(status) && shipment.courierId !== userId) {
       throw new ForbiddenException('Only the assigned courier can update delivery status');
     }
 
@@ -393,5 +402,40 @@ export class ShipmentsService {
       where: { id: offerId },
       data: { status: 'REJECTED' },
     });
+  }
+
+  async getUserOfferOnShipment(shipmentId: string, userId: string) {
+    const offer = await this.prisma.shipmentOffer.findFirst({
+      where: {
+        shipmentId,
+        courierId: userId,
+      },
+      include: {
+        shipment: {
+          select: {
+            senderId: true,
+          },
+        },
+      },
+    });
+
+    if (!offer) return null;
+
+    // Get or create conversation for this offer
+    const conversation = await this.prisma.conversation.findFirst({
+      where: {
+        shipmentId,
+        OR: [
+          { user1Id: userId },
+          { user2Id: userId },
+        ],
+      },
+    });
+
+    return {
+      id: offer.id,
+      status: offer.status,
+      conversationId: conversation?.id,
+    };
   }
 }

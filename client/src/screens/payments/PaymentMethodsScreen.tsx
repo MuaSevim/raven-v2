@@ -10,11 +10,11 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { 
-  ArrowLeft, 
-  CreditCard, 
-  Plus, 
-  Trash2, 
+import {
+  ArrowLeft,
+  CreditCard,
+  Plus,
+  Trash2,
   CheckCircle,
   Star,
 } from 'lucide-react-native';
@@ -45,7 +45,7 @@ const cardColors: Record<string, string> = {
 export default function PaymentMethodsScreen() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
-  
+
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -53,15 +53,15 @@ export default function PaymentMethodsScreen() {
 
   const fetchPaymentMethods = async () => {
     if (!user) return;
-    
+
     try {
       const token = await user.getIdToken();
       const response = await fetch(`${API_URL}/payments/methods`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      
+
       if (!response.ok) throw new Error('Failed to load payment methods');
-      
+
       const data = await response.json();
       setPaymentMethods(data);
     } catch (err: any) {
@@ -85,18 +85,18 @@ export default function PaymentMethodsScreen() {
 
   const handleSetDefault = async (id: string) => {
     if (!user) return;
-    
+
     setActionLoading(id);
-    
+
     try {
       const token = await user.getIdToken();
       const response = await fetch(`${API_URL}/payments/methods/${id}/default`, {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      
+
       if (!response.ok) throw new Error('Failed to set default');
-      
+
       await fetchPaymentMethods();
     } catch (err: any) {
       console.error('Error setting default:', err);
@@ -117,18 +117,18 @@ export default function PaymentMethodsScreen() {
           style: 'destructive',
           onPress: async () => {
             if (!user) return;
-            
+
             setActionLoading(id);
-            
+
             try {
               const token = await user.getIdToken();
               const response = await fetch(`${API_URL}/payments/methods/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` },
               });
-              
+
               if (!response.ok) throw new Error('Failed to delete card');
-              
+
               await fetchPaymentMethods();
             } catch (err: any) {
               console.error('Error deleting card:', err);
@@ -145,30 +145,36 @@ export default function PaymentMethodsScreen() {
   const renderCard = ({ item }: { item: PaymentMethod }) => {
     const cardColor = cardColors[item.cardType] || cardColors.unknown;
     const isActionLoading = actionLoading === item.id;
-    
+
     return (
       <View style={styles.cardItem}>
-        <View style={[styles.cardIcon, { backgroundColor: cardColor }]}>
-          <CreditCard size={24} color="#fff" />
-        </View>
-        
-        <View style={styles.cardInfo}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardType}>
-              {item.cardType.charAt(0).toUpperCase() + item.cardType.slice(1)}
-            </Text>
-            {item.isDefault && (
-              <View style={styles.defaultBadge}>
-                <Star size={10} color={colors.textInverse} fill={colors.textInverse} />
-                <Text style={styles.defaultText}>Default</Text>
-              </View>
-            )}
+        <TouchableOpacity
+          style={styles.cardContent}
+          onPress={() => navigation.navigate('AddCard', { card: item })}
+          activeOpacity={0.7}
+        >
+          <View style={[styles.cardIcon, { backgroundColor: cardColor }]}>
+            <CreditCard size={24} color="#fff" />
           </View>
-          <Text style={styles.cardNumber}>•••• {item.lastFour}</Text>
-          <Text style={styles.cardExpiry}>
-            Expires {item.expiryMonth.toString().padStart(2, '0')}/{item.expiryYear.toString().slice(-2)}
-          </Text>
-        </View>
+
+          <View style={styles.cardInfo}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardType}>
+                {item.cardType.charAt(0).toUpperCase() + item.cardType.slice(1)}
+              </Text>
+              {item.isDefault && (
+                <View style={styles.defaultBadge}>
+                  <Star size={10} color={colors.textInverse} fill={colors.textInverse} />
+                  <Text style={styles.defaultText}>Default</Text>
+                </View>
+              )}
+            </View>
+            <Text style={styles.cardNumber}>•••• {item.lastFour}</Text>
+            <Text style={styles.cardExpiry}>
+              Expires {item.expiryMonth.toString().padStart(2, '0')}/{item.expiryYear.toString().slice(-2)}
+            </Text>
+          </View>
+        </TouchableOpacity>
 
         <View style={styles.cardActions}>
           {isActionLoading ? (
@@ -176,14 +182,14 @@ export default function PaymentMethodsScreen() {
           ) : (
             <>
               {!item.isDefault && (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.actionButton}
                   onPress={() => handleSetDefault(item.id)}
                 >
                   <CheckCircle size={20} color={colors.textSecondary} />
                 </TouchableOpacity>
               )}
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.actionButton}
                 onPress={() => handleDelete(item.id)}
               >
@@ -221,7 +227,7 @@ export default function PaymentMethodsScreen() {
           <ArrowLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Payment Methods</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.addButton}
           onPress={() => navigation.navigate('AddCard')}
         >
@@ -248,7 +254,7 @@ export default function PaymentMethodsScreen() {
             <Text style={styles.emptyText}>
               Add a card to make payments for deliveries
             </Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.emptyButton}
               onPress={() => navigation.navigate('AddCard')}
             >
@@ -306,6 +312,12 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundSecondary,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
+    gap: spacing.md,
+  },
+  cardContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
     gap: spacing.md,
   },
   cardIcon: {

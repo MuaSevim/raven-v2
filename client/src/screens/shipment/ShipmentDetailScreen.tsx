@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,31 +10,29 @@ import {
   Modal,
   ActivityIndicator,
   Alert,
-  Linking,
+  KeyboardAvoidingView,
+  Platform,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   X,
   BadgeCheck,
-  MapPin,
-  Calendar,
   Package,
-  Scale,
-  DollarSign,
+  Calendar,
+  Shield,
   MessageCircle,
-  Navigation,
-  Plane,
-  User,
-  Phone,
-  Clock,
-  ChevronRight,
+  Scale,
 } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { API_URL } from '../../config';
 import { colors, typography, spacing, borderRadius } from '../../theme';
-import { SuccessModal } from '../../components/ui';
+
+// =============================================================================
+// TYPES
+// =============================================================================
 
 interface ShipmentDetails {
   id: string;
@@ -49,160 +47,136 @@ interface ShipmentDetails {
   content: string;
   weight: number;
   weightUnit: string;
+  packageType: string;
   imageUrl: string | null;
   status: string;
-  senderFullName: string | null;
-  senderPhone: string | null;
-  senderPhoneCode: string | null;
-  createdAt: string;
   sender: {
     id: string;
     firstName: string;
     lastName: string;
     avatar: string | null;
     isVerified: boolean;
-    country: string | null;
-    city: string | null;
   };
-  _count?: {
-    offers: number;
-  };
-  offers?: {
-    id: string;
-    courierId: string;
-    status: string;
-  }[];
 }
+
+interface UserOffer {
+  id: string;
+  status: string;
+  conversationId?: string;
+}
+
+const getCurrencySymbol = (c: string) => ({ EUR: '€', GBP: '£', SEK: 'kr' }[c] || '$');
+const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+// =============================================================================
+// MAIN COMPONENT
+// =============================================================================
 
 export default function ShipmentDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { user } = useAuthStore();
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const shipmentId = route.params?.shipmentId;
 
   const [shipment, setShipment] = useState<ShipmentDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [showOfferModal, setShowOfferModal] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [offerMessage, setOfferMessage] = useState("Hi! I am traveling on this route and would be happy to deliver your package. Let me know if you have any questions!");
+  const [offerMessage, setOfferMessage] = useState("Hi! I'm traveling on this route and can deliver your package.");
   const [submitting, setSubmitting] = useState(false);
+  const [userOffer, setUserOffer] = useState<UserOffer | null>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
     if (shipmentId) {
       fetchShipment();
+      fetchUserOffer();
     }
   }, [shipmentId]);
 
+  useEffect(() => {
+    const showSub = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+    const hideSub = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
   const fetchShipment = async () => {
-    if (!shipmentId || !user) {
-      setLoading(false);
-      return;
-    }
+    if (!shipmentId || !user) return setLoading(false);
 
     try {
       const token = await user.getIdToken();
-      const response = await fetch(`${API_URL}/shipments/${shipmentId}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+      const res = await fetch(`${API_URL}/shipments/${shipmentId}`, {
+        headers: { Authorization: `Bearer ${token}` },
       });
-
-      if (!response.ok) throw new Error('Failed to fetch shipment');
-
-      const data = await response.json();
-      setShipment(data);
-    } catch (error) {
-      console.error('Error fetching shipment:', error);
-      Alert.alert('Error', 'Failed to load shipment details');
+      if (res.ok) {
+        const data = await res.json();
+        setShipment(data);
+      }
+    } catch (err) {
+      console.error('Error fetching shipment:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleMakeOffer = async () => {
-    if (!shipment || !user || offerMessage.length < 10) return;
+  const fetchUserOffer = async () => {
+    if (!shipmentId || !user) return;
 
-    setSubmitting(true);
     try {
       const token = await user.getIdToken();
-      const response = await fetch(`${API_URL}/shipments/${shipment.id}/offers`, {
+      const res = await fetch(`${API_URL}/shipments/${shipmentId}/my-offer`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data) setUserOffer(data);
+      }
+    } catch (err) {
+      // No offer exists - that's fine
+    }
+  };
+
+  const handleMakeOffer = async () => {
+    if (!shipment || !user) return;
+    setSubmitting(true);
+
+    try {
+      const token = await user.getIdToken();
+      const res = await fetch(`${API_URL}/shipments/${shipment.id}/offers`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: offerMessage }),
       });
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to send offer');
-      }
+      if (!res.ok) throw new Error((await res.json()).message || 'Failed to send offer');
 
+      const offer = await res.json();
+      setUserOffer({ id: offer.id, status: 'PENDING', conversationId: offer.conversationId });
       setShowOfferModal(false);
-      setShowSuccessModal(true);
-      fetchShipment(); // Refresh to update offer count
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to send offer');
+      Alert.alert('Success', 'Your offer has been sent!');
+    } catch (err: any) {
+      Alert.alert('Error', err.message);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  const handleGoToChat = () => {
+    if (!shipment || !userOffer) return;
+    navigation.navigate('Chat', {
+      shipmentId: shipment.id,
+      recipientId: shipment.sender.id,
+    });
   };
-
-  const formatDateRange = (start: string, end: string) => {
-    const startDate = new Date(start);
-    const endDate = new Date(end);
-    const startStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    const endStr = endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    return `${startStr} - ${endStr}`;
-  };
-
-  const getCurrencySymbol = (currency: string) => {
-    switch (currency) {
-      case 'EUR': return '\u20AC';
-      case 'GBP': return '\u00A3';
-      case 'SEK': return 'kr';
-      default: return '$';
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'OPEN': return '#22C55E';
-      case 'MATCHED': return '#3B82F6';
-      case 'IN_TRANSIT': return '#F59E0B';
-      case 'DELIVERED': return '#8B5CF6';
-      case 'CANCELLED': return '#EF4444';
-      default: return colors.textSecondary;
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'OPEN': return 'Open for Offers';
-      case 'MATCHED': return 'Matched with Traveler';
-      case 'IN_TRANSIT': return 'In Transit';
-      case 'DELIVERED': return 'Delivered';
-      case 'CANCELLED': return 'Cancelled';
-      default: return status;
-    }
-  };
-
-  // Calculate earnings (price minus 15% Raven fee)
-  const ravenFee = shipment ? Math.round(shipment.price * 0.15) : 0;
-  const earnings = shipment ? shipment.price - ravenFee : 0;
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.textPrimary} />
-        <Text style={styles.loadingText}>Loading shipment...</Text>
       </View>
     );
   }
@@ -214,23 +188,22 @@ export default function ShipmentDetailScreen() {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
             <ArrowLeft size={24} color={colors.textPrimary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Shipment Details</Text>
+          <Text style={styles.headerTitle}>Shipment Detail</Text>
           <View style={{ width: 40 }} />
         </View>
         <View style={styles.errorContainer}>
           <Package size={48} color={colors.textTertiary} />
           <Text style={styles.errorText}>Shipment not found</Text>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.errorButton}>
-            <Text style={styles.errorButtonText}>Go Back</Text>
-          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
-  const senderName = `${shipment.sender.firstName || ''} ${shipment.sender.lastName || ''}`.trim() || 'Unknown';
   const isMySender = shipment.sender.id === user?.uid;
   const currencySymbol = getCurrencySymbol(shipment.currency);
+  const senderName = `${shipment.sender.firstName || ''} ${shipment.sender.lastName || ''}`.trim() || 'Unknown';
+  const platformFee = Math.round(shipment.price * 0.15);
+  const travelerReceives = shipment.price - platformFee;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -239,25 +212,20 @@ export default function ShipmentDetailScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
           <ArrowLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Shipment Details</Text>
+        <Text style={styles.headerTitle}>Shipment Detail</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView
-        style={styles.scrollView}
+        ref={scrollViewRef}
+        style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-        {/* Status Badge */}
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(shipment.status) + '20' }]}>
-          <View style={[styles.statusDot, { backgroundColor: getStatusColor(shipment.status) }]} />
-          <Text style={[styles.statusText, { color: getStatusColor(shipment.status) }]}>
-            {getStatusLabel(shipment.status)}
-          </Text>
-        </View>
-
-        {/* Route Card */}
+        {/* Route & Delivery Window Card */}
         <View style={styles.card}>
+          <Text style={styles.cardTitle}>Route</Text>
           <View style={styles.routeContainer}>
             <View style={styles.routePoint}>
               <View style={styles.routeDot} />
@@ -267,11 +235,9 @@ export default function ShipmentDetailScreen() {
                 <Text style={styles.routeCountry}>{shipment.originCountry}</Text>
               </View>
             </View>
-
             <View style={styles.routeLine} />
-
             <View style={styles.routePoint}>
-              <View style={[styles.routeDot, styles.routeDotDest]} />
+              <View style={[styles.routeDot, { backgroundColor: colors.textPrimary }]} />
               <View style={styles.routeInfo}>
                 <Text style={styles.routeLabel}>To</Text>
                 <Text style={styles.routeCity}>{shipment.destCity}</Text>
@@ -279,719 +245,293 @@ export default function ShipmentDetailScreen() {
               </View>
             </View>
           </View>
-        </View>
 
-        {/* Package Image */}
-        {shipment.imageUrl && (
-          <View style={styles.card}>
-            <Image source={{ uri: shipment.imageUrl }} style={styles.packageImage} />
-          </View>
-        )}
-
-        {/* Price Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Your Earnings</Text>
-          <View style={styles.priceRow}>
-            <Text style={styles.priceMain}>{currencySymbol}{earnings}</Text>
-            <View style={styles.priceBadge}>
-              <Text style={styles.priceBadgeText}>After fees</Text>
-            </View>
-          </View>
-          <View style={styles.priceBreakdown}>
-            <View style={styles.priceItem}>
-              <Text style={styles.priceLabel}>Sender offers</Text>
-              <Text style={styles.priceValue}>{currencySymbol}{shipment.price}</Text>
-            </View>
-            <View style={styles.priceItem}>
-              <Text style={styles.priceLabel}>Platform fee (15%)</Text>
-              <Text style={[styles.priceValue, { color: colors.error }]}>-{currencySymbol}{ravenFee}</Text>
+          {/* Delivery Window */}
+          <View style={styles.deliveryWindowContainer}>
+            <Text style={styles.cardTitle}>Timeline</Text>
+            <View style={styles.deliveryWindow}>
+              <Calendar size={16} color={colors.textSecondary} />
+              <Text style={styles.deliveryWindowText}>
+                {formatDate(shipment.dateStart)} - {formatDate(shipment.dateEnd)}
+              </Text>
             </View>
           </View>
         </View>
 
-        {/* Details Card */}
+        {/* Package Details */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Package Details</Text>
 
-          <View style={styles.detailRow}>
-            <View style={styles.detailIcon}>
-              <Package size={18} color={colors.textSecondary} />
-            </View>
-            <View style={styles.detailContent}>
-              <Text style={styles.detailLabel}>Contents</Text>
-              <Text style={styles.detailValue}>{shipment.content}</Text>
-            </View>
-          </View>
-
-          <View style={styles.detailRow}>
-            <View style={styles.detailIcon}>
-              <Scale size={18} color={colors.textSecondary} />
-            </View>
-            <View style={styles.detailContent}>
-              <Text style={styles.detailLabel}>Weight</Text>
-              <Text style={styles.detailValue}>{shipment.weight} {shipment.weightUnit}</Text>
-            </View>
-          </View>
-
-          <View style={styles.detailRow}>
-            <View style={styles.detailIcon}>
-              <Calendar size={18} color={colors.textSecondary} />
-            </View>
-            <View style={styles.detailContent}>
-              <Text style={styles.detailLabel}>Delivery Window</Text>
-              <Text style={styles.detailValue}>{formatDateRange(shipment.dateStart, shipment.dateEnd)}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Sender Card */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Posted by</Text>
-
-          <TouchableOpacity
-            style={styles.senderRow}
-            activeOpacity={0.7}
-            onPress={() => navigation.navigate('PublicProfile', { userId: shipment.sender.id })}
-          >
-            <View style={styles.senderAvatar}>
-              {shipment.sender.avatar ? (
-                <Image source={{ uri: shipment.sender.avatar }} style={styles.avatarImage} />
-              ) : (
-                <Text style={styles.avatarText}>
-                  {senderName.charAt(0).toUpperCase()}
-                </Text>
-              )}
-            </View>
-            <View style={styles.senderInfo}>
-              <View style={styles.senderNameRow}>
-                <Text style={styles.senderName}>{senderName}</Text>
-                {shipment.sender.isVerified && (
-                  <BadgeCheck size={16} color="#3B82F6" fill="#3B82F6" strokeWidth={0} />
-                )}
-              </View>
-              {shipment.sender.city && shipment.sender.country && (
-                <Text style={styles.senderLocation}>
-                  {shipment.sender.city}, {shipment.sender.country}
-                </Text>
-              )}
-            </View>
-            <ChevronRight size={20} color={colors.textTertiary} />
-          </TouchableOpacity>
-
-        </View>
-
-        {/* Offers Count */}
-        {shipment._count && shipment._count.offers > 0 && (
-          <View style={styles.offersInfo}>
-            <Clock size={14} color={colors.textSecondary} />
-            <Text style={styles.offersText}>
-              {shipment._count.offers} traveler{shipment._count.offers > 1 ? 's' : ''} already offered
-            </Text>
-          </View>
-        )}
-
-        {/* Posted Date */}
-        <Text style={styles.postedDate}>
-          Posted on {formatDate(shipment.createdAt)}
-        </Text>
-      </ScrollView>
-
-      {/* Bottom Action */}
-      {!isMySender && shipment.status === 'OPEN' && (
-        <View style={styles.bottomContainer}>
-          {shipment.offers?.some((o: any) => o.courierId === user?.uid) ? (
-            <View style={{ alignItems: 'center' }}>
-              <View
-                style={[styles.offerButton, { backgroundColor: '#22C55E20' }]}
-              >
-                <Text style={[styles.offerButtonText, { color: '#22C55E' }]}>You already made an offer</Text>
-              </View>
-              <TouchableOpacity
-                onPress={() => navigation.navigate('Chat', {
-                  shipmentId: shipment.id,
-                  recipientId: shipment.sender.id,
-                  recipientName: senderName,
-                })}
-                style={{ marginTop: spacing.sm }}
-              >
-                <Text style={{
-                  fontFamily: typography.fontFamily.medium,
-                  fontSize: typography.fontSize.sm,
-                  color: colors.textSecondary,
-                  marginTop: spacing.xs,
-                }}>Go to chat →</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <TouchableOpacity
-              style={styles.offerButton}
-              onPress={() => setShowOfferModal(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.offerButtonText}>Make an Offer</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
-
-      {/* Offer Modal */}
-      <Modal
-        visible={showOfferModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowOfferModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <TouchableOpacity
-                onPress={() => setShowOfferModal(false)}
-                style={styles.modalCloseBtn}
-              >
-                <X size={24} color={colors.textPrimary} />
-              </TouchableOpacity>
-              <Text style={styles.modalTitle}>Send Offer</Text>
-              <View style={{ width: 40 }} />
-            </View>
-
-            <View style={styles.modalSenderRow}>
-              <View style={styles.modalAvatar}>
-                {shipment.sender.avatar ? (
-                  <Image source={{ uri: shipment.sender.avatar }} style={styles.modalAvatarImage} />
-                ) : (
-                  <Text style={styles.modalAvatarText}>{senderName.charAt(0)}</Text>
-                )}
+          <View style={styles.packageDetailList}>
+            {/* Contents */}
+            <View style={styles.packageDetailItem}>
+              <View style={styles.packageIconContainer}>
+                <Package size={20} color={colors.textPrimary} strokeWidth={1.5} />
               </View>
               <View>
-                <Text style={styles.modalSenderName}>To: {senderName}</Text>
-                <Text style={styles.modalRoute}>
-                  {shipment.originCity}  {shipment.destCity}
-                </Text>
+                <Text style={styles.packageDetailLabel}>Contents</Text>
+                <Text style={styles.packageDetailValue}>{shipment.content}</Text>
               </View>
             </View>
 
-            <Text style={styles.modalLabel}>Your message</Text>
-            <TextInput
-              style={styles.messageInput}
-              value={offerMessage}
-              onChangeText={setOfferMessage}
-              placeholder="Introduce yourself and why you are a good fit..."
-              placeholderTextColor={colors.placeholder}
-              multiline
-              numberOfLines={5}
-              textAlignVertical="top"
-            />
-
-            <View style={styles.modalEarnings}>
-              <Text style={styles.modalEarningsLabel}>You will earn</Text>
-              <Text style={styles.modalEarningsValue}>{currencySymbol}{earnings}</Text>
+            {/* Weight */}
+            <View style={styles.packageDetailItem}>
+              <View style={styles.packageIconContainer}>
+                <Scale size={20} color={colors.textPrimary} strokeWidth={1.5} />
+              </View>
+              <View>
+                <Text style={styles.packageDetailLabel}>Weight</Text>
+                <Text style={styles.packageDetailValue}>{shipment.weight} {shipment.weightUnit}</Text>
+              </View>
             </View>
 
-            <TouchableOpacity
-              style={[styles.sendButton, (submitting || offerMessage.length < 10) && styles.sendButtonDisabled]}
-              onPress={handleMakeOffer}
-              disabled={submitting || offerMessage.length < 10}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.sendButtonText}>
-                {submitting ? 'Sending...' : 'Send Offer'}
-              </Text>
-            </TouchableOpacity>
+            {/* Type */}
+            <View style={styles.packageDetailItem}>
+              <View style={styles.packageIconContainer}>
+                <Package size={20} color={colors.textPrimary} strokeWidth={1.5} />
+              </View>
+              <View>
+                <Text style={styles.packageDetailLabel}>Type</Text>
+                <Text style={styles.packageDetailValue}>{shipment.packageType || 'Standard Package'}</Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Package Image at Bottom */}
+          {shipment.imageUrl && (
+            <Image source={{ uri: shipment.imageUrl }} style={styles.packageImageLarge} />
+          )}
+        </View>
+
+        {/* Your Earnings */}
+        <View style={styles.earningsCard}>
+          <Text style={styles.earningsTitle}>Your Earnings</Text>
+
+          <View style={styles.earningsMainRow}>
+            <Text style={styles.earningsAmount}>{currencySymbol}{travelerReceives}</Text>
+            <View style={styles.afterFeesBadge}>
+              <Text style={styles.afterFeesText}>After fees</Text>
+            </View>
+          </View>
+
+          <View style={styles.earningsDivider} />
+
+          <View style={styles.breakdownRow}>
+            <Text style={styles.breakdownLabel}>Sender offers</Text>
+            <Text style={styles.breakdownValue}>{currencySymbol}{shipment.price}</Text>
+          </View>
+
+          <View style={styles.breakdownRow}>
+            <Text style={styles.breakdownLabel}>Platform fee (15%)</Text>
+            <Text style={[styles.breakdownValue, styles.breakdownValueNegative]}>-{currencySymbol}{platformFee}</Text>
           </View>
         </View>
-      </Modal>
 
-      {/* Success Modal */}
-      <SuccessModal
-        visible={showSuccessModal}
-        title="Offer Sent!"
-        message="The sender will be notified and can accept your offer. You can start a conversation to discuss the delivery details."
-        buttonText="Go to Chat"
-        onClose={() => {
-          setShowSuccessModal(false);
-          if (shipment) {
-            navigation.navigate('Chat', {
-              shipmentId: shipment.id,
-              recipientId: shipment.sender.id,
-              recipientName: `${shipment.sender.firstName || ''} ${shipment.sender.lastName || ''}`.trim(),
-            });
-          }
-        }}
-      />
+        {/* Posted By */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Posted By</Text>
+          <TouchableOpacity
+            style={styles.senderRow}
+            onPress={() => navigation.navigate('PublicProfile', { userId: shipment.sender.id })}
+          >
+            {shipment.sender.avatar ? (
+              <Image source={{ uri: shipment.sender.avatar }} style={styles.avatar} />
+            ) : (
+              <View style={styles.avatarPlaceholder}>
+                <Text style={styles.avatarInitial}>{(shipment.sender.firstName || 'U')[0]}</Text>
+              </View>
+            )}
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <Text style={styles.senderName}>{senderName}</Text>
+                {shipment.sender.isVerified && <BadgeCheck size={14} color={colors.textPrimary} fill={colors.background} />}
+              </View>
+              <Text style={styles.senderRole}>Member since 2025</Text>
+            </View>
+          </TouchableOpacity>
+
+          {/* Make Offer / You Made an Offer */}
+          {!isMySender && (
+            <View style={styles.offerSection}>
+              {userOffer ? (
+                <>
+                  <View style={styles.offerMadeBadge}>
+                    <Text style={styles.offerMadeText}>✓ You made an offer</Text>
+                  </View>
+                  <TouchableOpacity style={styles.goToChatLink} onPress={handleGoToChat}>
+                    <MessageCircle size={16} color={colors.textSecondary} />
+                    <Text style={styles.goToChatText}>Go to chat</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity style={styles.primaryButton} onPress={() => setShowOfferModal(true)}>
+                  <Text style={styles.primaryButtonText}>Make Offer</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.bottomPadding} />
+      </ScrollView>
+
+      {/* Offer Modal */}
+      <Modal visible={showOfferModal} transparent animationType="slide" onRequestClose={() => setShowOfferModal(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <TouchableOpacity
+            style={styles.modalTouchable}
+            activeOpacity={1}
+            onPress={() => Keyboard.dismiss()}
+          >
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Make an Offer</Text>
+                <TouchableOpacity onPress={() => { Keyboard.dismiss(); setShowOfferModal(false); }}>
+                  <X size={24} color={colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.modalSubtitle}>
+                Introduce yourself to {senderName}
+              </Text>
+
+              <TextInput
+                style={styles.modalInput}
+                value={offerMessage}
+                onChangeText={setOfferMessage}
+                placeholder="Hi! I'm traveling on this route..."
+                placeholderTextColor={colors.textTertiary}
+                multiline
+                textAlignVertical="top"
+              />
+
+              <TouchableOpacity
+                style={[styles.primaryButton, submitting && styles.primaryButtonDisabled]}
+                onPress={handleMakeOffer}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.primaryButtonText}>Send Offer</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    gap: spacing.md,
-  },
-  loadingText: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.base,
-    color: colors.textSecondary,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.fontSize.lg,
-    color: colors.textPrimary,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xl * 2,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  errorText: {
-    fontFamily: typography.fontFamily.medium,
-    fontSize: typography.fontSize.lg,
-    color: colors.textSecondary,
-  },
-  errorButton: {
-    backgroundColor: colors.textPrimary,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
-    marginTop: spacing.md,
-  },
-  errorButtonText: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.fontSize.base,
-    color: colors.textInverse,
-  },
-  // Status Badge
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    marginBottom: spacing.lg,
-    gap: spacing.sm,
-  },
-  statusDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  statusText: {
-    fontFamily: typography.fontFamily.medium,
-    fontSize: typography.fontSize.sm,
-  },
-  // Cards
-  card: {
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: borderRadius.lg,
-    padding: spacing.lg,
-    marginBottom: spacing.md,
-  },
-  cardTitle: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.fontSize.base,
-    color: colors.textPrimary,
-    marginBottom: spacing.md,
-  },
+  container: { flex: 1, backgroundColor: colors.background },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background },
+  errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  errorText: { fontFamily: typography.fontFamily.medium, fontSize: typography.fontSize.base, color: colors.textSecondary, marginTop: spacing.md },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
+  backButton: { padding: spacing.xs },
+  headerTitle: { fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.lg, color: colors.textPrimary },
+  scroll: { flex: 1 },
+  scrollContent: { padding: spacing.lg },
+  card: { backgroundColor: colors.backgroundSecondary, borderRadius: borderRadius.xl, padding: spacing.lg, marginBottom: spacing.md },
+  cardTitle: { fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.base, color: colors.textPrimary, marginBottom: spacing.md },
+
   // Route
-  routeContainer: {
-    gap: spacing.sm,
-  },
-  routePoint: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
-  },
-  routeDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.textPrimary,
-    marginTop: 4,
-  },
-  routeDotDest: {
-    backgroundColor: colors.textTertiary,
-  },
-  routeLine: {
-    width: 2,
-    height: 20,
-    backgroundColor: colors.border,
-    marginLeft: 5,
-  },
-  routeInfo: {
-    flex: 1,
-  },
-  routeLabel: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.xs,
-    color: colors.textSecondary,
-  },
-  routeCity: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.fontSize.lg,
-    color: colors.textPrimary,
-  },
-  routeCountry: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-  },
-  airportBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.md,
-    alignSelf: 'flex-start',
-    marginTop: spacing.md,
-  },
-  airportText: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-  },
-  // Package Image
-  packageImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: borderRadius.md,
-    backgroundColor: colors.border,
-  },
-  // Price
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginBottom: spacing.md,
-  },
-  priceMain: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: 36,
-    color: colors.textPrimary,
-  },
-  priceBadge: {
-    backgroundColor: '#22C55E20',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: borderRadius.md,
-  },
-  priceBadgeText: {
-    fontFamily: typography.fontFamily.medium,
-    fontSize: typography.fontSize.xs,
-    color: '#22C55E',
-  },
-  priceBreakdown: {
-    borderTopWidth: 1,
+  routeContainer: { position: 'relative' },
+  routePoint: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.lg },
+  routeDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.border, marginTop: 4 },
+  routeInfo: { marginLeft: spacing.md, flex: 1 },
+  routeLabel: { fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.xs, color: colors.textTertiary, textTransform: 'capitalize' },
+  routeCity: { fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.lg, color: colors.textPrimary },
+  routeCountry: { fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, color: colors.textSecondary },
+  routeLine: { position: 'absolute', left: 5, top: 16, width: 2, height: 40, backgroundColor: colors.border },
+
+  // Delivery Window
+  deliveryWindowContainer: {
+    flexDirection: 'column', borderTopWidth: 1,
     borderTopColor: colors.border,
     paddingTop: spacing.md,
+    marginTop: spacing.sm,
+  },
+  deliveryWindow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: spacing.sm,
   },
-  priceItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  priceLabel: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-  },
-  priceValue: {
-    fontFamily: typography.fontFamily.medium,
-    fontSize: typography.fontSize.sm,
-    color: colors.textPrimary,
-  },
-  // Details
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.md,
+  deliveryWindowText: { fontFamily: typography.fontFamily.medium, fontSize: typography.fontSize.sm, color: colors.textPrimary },
+
+
+  // Package
+  packageDetailList: { flexDirection: 'column', gap: spacing.md, marginBottom: spacing.md },
+  packageDetailItem: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  packageIconContainer: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: colors.border },
+  packageDetailLabel: { fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.xs, color: colors.textTertiary, marginBottom: 2 },
+  packageDetailValue: { fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.base, color: colors.textPrimary, textTransform: 'capitalize' },
+  packageImageLarge: { width: '100%', height: 200, borderRadius: borderRadius.lg, backgroundColor: colors.border, marginTop: spacing.sm },
+
+  // Earnings
+  earningsCard: {
+    backgroundColor: colors.backgroundSecondary, // or '#F9FAFB'
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
     marginBottom: spacing.md,
   },
-  detailIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  detailContent: {
-    flex: 1,
-  },
-  detailLabel: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.xs,
-    color: colors.textSecondary,
-    marginBottom: 2,
-  },
-  detailValue: {
-    fontFamily: typography.fontFamily.medium,
-    fontSize: typography.fontSize.base,
-    color: colors.textPrimary,
-  },
+  earningsTitle: { fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.sm, color: colors.textPrimary, marginBottom: spacing.sm },
+  earningsMainRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.lg },
+  earningsAmount: { fontFamily: typography.fontFamily.bold, fontSize: 36, color: colors.textPrimary },
+  afterFeesBadge: { backgroundColor: '#DCFCE7', paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: 6 },
+  afterFeesText: { fontFamily: typography.fontFamily.medium, fontSize: 12, color: '#166534' },
+  earningsDivider: { height: 1, backgroundColor: colors.border, marginBottom: spacing.md },
+  breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.xs },
+  breakdownLabel: { fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, color: colors.textSecondary },
+  breakdownValue: { fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.sm, color: colors.textPrimary },
+  breakdownValueNegative: { color: '#EF4444' },
+
   // Sender
-  senderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  senderAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.textPrimary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarImage: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-  },
-  avatarText: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.fontSize.lg,
-    color: colors.textInverse,
-  },
-  senderInfo: {
-    flex: 1,
-  },
-  senderNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  senderName: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.fontSize.base,
-    color: colors.textPrimary,
-  },
-  senderLocation: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  contactOptions: {
-    marginTop: spacing.lg,
-    paddingTop: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  contactButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.background,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  contactButtonText: {
-    fontFamily: typography.fontFamily.medium,
-    fontSize: typography.fontSize.base,
-    color: colors.textPrimary,
-  },
-  chatButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.textPrimary,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.lg,
-  },
-  chatButtonText: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.fontSize.base,
-    color: colors.textInverse,
-  },
-  // Offers Info
-  offersInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.md,
-  },
-  offersText: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-  },
-  postedDate: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.sm,
-    color: colors.textTertiary,
-    textAlign: 'center',
-  },
-  // Bottom
-  bottomContainer: {
-    padding: spacing.lg,
-    paddingBottom: spacing.xl,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  offerButton: {
-    backgroundColor: colors.textPrimary,
+  senderRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.border },
+  avatarPlaceholder: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.textPrimary, justifyContent: 'center', alignItems: 'center' },
+  avatarInitial: { fontFamily: typography.fontFamily.semiBold, fontSize: 20, color: colors.textInverse },
+  senderName: { fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.base, color: colors.textPrimary },
+  senderRole: { fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.xs, color: colors.textTertiary },
+
+  // Offer Section
+  offerSection: { marginTop: spacing.lg, paddingTop: spacing.lg, borderTopWidth: 1, borderTopColor: colors.border },
+  offerMadeBadge: {
+    backgroundColor: '#8B5CF620',
     borderRadius: borderRadius.lg,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-    alignItems: 'center',
+    alignItems: 'center'
   },
-  offerButtonText: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.fontSize.base,
-    color: colors.textInverse,
-  },
+  offerMadeText: { fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.sm, color: '#8B5CF6' },
+  goToChatLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.xs, marginTop: spacing.md },
+  goToChatText: { fontFamily: typography.fontFamily.medium, fontSize: typography.fontSize.sm, color: colors.textSecondary },
+
+  // Button
+  primaryButton: { backgroundColor: colors.textPrimary, borderRadius: borderRadius.lg, paddingVertical: spacing.md, alignItems: 'center' },
+  primaryButtonDisabled: { opacity: 0.5 },
+  primaryButtonText: { fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.base, color: colors.textInverse },
+  bottomPadding: { height: spacing.xl * 2 },
+
   // Modal
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    padding: spacing.lg,
-    paddingBottom: spacing.xl * 2,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.lg,
-  },
-  modalCloseBtn: {
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.fontSize.lg,
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalTouchable: { flex: 1, justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: colors.background, borderTopLeftRadius: borderRadius.xl, borderTopRightRadius: borderRadius.xl, padding: spacing.xl },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
+  modalTitle: { fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.xl, color: colors.textPrimary },
+  modalSubtitle: { fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, color: colors.textSecondary, marginBottom: spacing.lg },
+  modalInput: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.base,
     color: colors.textPrimary,
-  },
-  modalSenderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
     backgroundColor: colors.backgroundSecondary,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.lg,
-  },
-  modalAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: colors.textPrimary,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalAvatarImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-  },
-  modalAvatarText: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.fontSize.base,
-    color: colors.textInverse,
-  },
-  modalSenderName: {
-    fontFamily: typography.fontFamily.medium,
-    fontSize: typography.fontSize.base,
-    color: colors.textPrimary,
-  },
-  modalRoute: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-  },
-  modalLabel: {
-    fontFamily: typography.fontFamily.medium,
-    fontSize: typography.fontSize.sm,
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  messageInput: {
-    borderWidth: 1,
-    borderColor: colors.border,
     borderRadius: borderRadius.lg,
     padding: spacing.md,
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.base,
-    color: colors.textPrimary,
     minHeight: 120,
     marginBottom: spacing.lg,
-  },
-  modalEarnings: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: colors.backgroundSecondary,
-    padding: spacing.md,
-    borderRadius: borderRadius.lg,
-    marginBottom: spacing.lg,
-  },
-  modalEarningsLabel: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-  },
-  modalEarningsValue: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.fontSize.xl,
-    color: colors.textPrimary,
-  },
-  sendButton: {
-    backgroundColor: colors.textPrimary,
-    borderRadius: borderRadius.lg,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-  },
-  sendButtonDisabled: {
-    opacity: 0.5,
-  },
-  sendButtonText: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.fontSize.base,
-    color: colors.textInverse,
   },
 });

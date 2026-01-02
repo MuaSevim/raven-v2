@@ -3,3 +3,4 @@ export { default as Button } from './Button';
 export { default as Header } from './Header';
 export { default as ProgressIndicator } from './ProgressIndicator';
 export { default as SuccessModal } from './SuccessModal';
+export { default as VerificationModal } from './VerificationModal';

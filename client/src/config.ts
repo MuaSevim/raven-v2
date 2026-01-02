@@ -1,6 +1,6 @@
 // Local development configuration
 // Only change this if testing on a physical device
-export const LOCAL_NETWORK_IP = '192.168.1.110';
+export const LOCAL_NETWORK_IP = '192.168.1.109';
 
 // API URL for the backend server
 export const API_URL = `http://${LOCAL_NETWORK_IP}:3000`;

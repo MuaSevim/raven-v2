@@ -96,12 +96,12 @@ export default function MainTabNavigator() {
         }}
       />
       <Tab.Screen
-        name="SettingsTab"
-        component={SettingsTab}
+        name="ProfileTab"
+        component={ProfileScreen}
         options={{
-          tabBarLabel: 'Settings',
+          tabBarLabel: 'Profile',
           tabBarIcon: ({ color, focused }) => (
-            <Settings
+            <User
               size={26}
               color={color}
               strokeWidth={focused ? 2.5 : 1.5}
@@ -110,12 +110,12 @@ export default function MainTabNavigator() {
         }}
       />
       <Tab.Screen
-        name="ProfileTab"
-        component={ProfileScreen}
+        name="SettingsTab"
+        component={SettingsTab}
         options={{
-          tabBarLabel: 'Profile',
+          tabBarLabel: 'Settings',
           tabBarIcon: ({ color, focused }) => (
-            <User
+            <Settings
               size={26}
               color={color}
               strokeWidth={focused ? 2.5 : 1.5}

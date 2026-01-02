@@ -27,12 +27,17 @@ export interface ShipmentDraft {
   price: number;
   currency: string;
 
-  // Step 5: Contact Details
+  // Step 5: Contact Details - Sender
   senderFullName: string;
   senderEmail: string;
   senderPhone: string;
   senderPhoneCode: string;
   senderCountryCode: string;
+
+  // Step 5: Contact Details - Receiver (pickup at destination)
+  receiverFullName: string;
+  receiverPhone: string;
+  receiverPhoneCode: string;
 }
 
 interface ShipmentStore {
@@ -79,6 +84,9 @@ const initialDraft: ShipmentDraft = {
   senderPhone: '',
   senderPhoneCode: '+1',
   senderCountryCode: 'US',
+  receiverFullName: '',
+  receiverPhone: '',
+  receiverPhoneCode: '+1',
 };
 
 export const useShipmentStore = create<ShipmentStore>((set) => ({

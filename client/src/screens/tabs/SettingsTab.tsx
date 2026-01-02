@@ -1,39 +1,49 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, Switch, ScrollView } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  Switch,
+  ScrollView,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ChevronRight, CreditCard, User, Wifi } from 'lucide-react-native';
+import {
+  ChevronRight,
+  CreditCard,
+  Bell,
+  Shield,
+  HelpCircle,
+  Info,
+} from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
 
+// =============================================================================
+// SUB-COMPONENTS
+// =============================================================================
 
 interface SettingsItemProps {
   label: string;
   onPress: () => void;
   showBorder?: boolean;
   icon?: React.ReactNode;
-  badge?: number;
 }
 
-function SettingsItem({ label, onPress, showBorder = true, icon, badge }: SettingsItemProps) {
+function SettingsItem({ label, onPress, showBorder = true, icon }: SettingsItemProps) {
   return (
     <TouchableOpacity
-      style={[styles.settingsItem, !showBorder && styles.settingsItemNoBorder]}
+      style={[styles.settingsItem, !showBorder && styles.noBorder]}
       onPress={onPress}
       activeOpacity={0.7}
     >
-      <View style={styles.settingsItemLeft}>
+      <View style={styles.itemLeft}>
         {icon}
-        <Text style={styles.settingsItemLabel}>{label}</Text>
+        <Text style={styles.itemLabel}>{label}</Text>
       </View>
-      <View style={styles.settingsItemRight}>
-        {badge !== undefined && badge > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{badge > 99 ? '99+' : badge}</Text>
-          </View>
-        )}
-        <ChevronRight size={20} color={colors.textTertiary} />
-      </View>
+      <ChevronRight size={20} color={colors.textTertiary} />
     </TouchableOpacity>
   );
 }
@@ -42,16 +52,20 @@ interface SettingsToggleProps {
   label: string;
   value: boolean;
   onValueChange: (value: boolean) => void;
+  icon?: React.ReactNode;
 }
 
-function SettingsToggle({ label, value, onValueChange }: SettingsToggleProps) {
+function SettingsToggle({ label, value, onValueChange, icon }: SettingsToggleProps) {
   return (
-    <View style={[styles.settingsItem, styles.settingsItemNoBorder]}>
-      <Text style={styles.settingsItemLabel}>{label}</Text>
+    <View style={[styles.settingsItem, styles.noBorder]}>
+      <View style={styles.itemLeft}>
+        {icon}
+        <Text style={styles.itemLabel}>{label}</Text>
+      </View>
       <Switch
         value={value}
         onValueChange={onValueChange}
-        trackColor={{ false: colors.border, true: colors.textTertiary }}
+        trackColor={{ false: colors.border, true: colors.textPrimary }}
         thumbColor={colors.background}
         ios_backgroundColor={colors.border}
       />
@@ -59,32 +73,18 @@ function SettingsToggle({ label, value, onValueChange }: SettingsToggleProps) {
   );
 }
 
+// =============================================================================
+// MAIN COMPONENT
+// =============================================================================
+
 export default function SettingsTab() {
   const navigation = useNavigation<any>();
-  const { user, signOut } = useAuthStore();
+
+
   const [darkMode, setDarkMode] = useState(false);
+  const [notifications, setNotifications] = useState(true);
 
 
-  const handleSignOut = async () => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut();
-            } catch (err) {
-              console.error('Sign out error:', err);
-            }
-          }
-        },
-      ]
-    );
-  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -93,15 +93,9 @@ export default function SettingsTab() {
         <Text style={styles.title}>Settings</Text>
       </View>
 
-      {/* Settings Groups */}
-      <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-        {/* Profile & Payment */}
-        <View style={styles.settingsGroup}>
-          <SettingsItem
-            label="Profile Information"
-            icon={<User size={20} color={colors.textPrimary} />}
-            onPress={() => navigation.navigate('Profile')}
-          />
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+        {/* Payment */}
+        <View style={styles.group}>
           <SettingsItem
             label="Payment Methods"
             icon={<CreditCard size={20} color={colors.textPrimary} />}
@@ -110,66 +104,57 @@ export default function SettingsTab() {
           />
         </View>
 
-        {/* Notifications & Privacy */}
-        <View style={styles.settingsGroup}>
-          <SettingsItem
-            label="Notifications"
-            onPress={() => { }}
-          />
-          <SettingsItem
-            label="Privacy"
-            onPress={() => { }}
-            showBorder={false}
+        {/* Preferences */}
+        <View style={styles.group}>
+          <SettingsToggle
+            label="Push Notifications"
+            icon={<Bell size={20} color={colors.textPrimary} />}
+            value={notifications}
+            onValueChange={setNotifications}
           />
         </View>
 
-        {/* Dark Mode */}
-        <View style={styles.settingsGroup}>
+        {/* Appearance */}
+        {/* <View style={styles.group}>
           <SettingsToggle
             label="Dark Mode"
             value={darkMode}
             onValueChange={setDarkMode}
           />
-        </View>
+        </View> */}
 
-        {/* Developer Tools */}
-        <View style={styles.settingsGroup}>
-          <SettingsItem
-            label="Network Diagnostics"
-            icon={<Wifi size={20} color={colors.textPrimary} />}
-            onPress={() => navigation.navigate('NetworkDiagnostics')}
-            showBorder={false}
-          />
-        </View>
-
-        {/* Help & About */}
-        <View style={styles.settingsGroup}>
+        {/* Info & Legal */}
+        <View style={styles.group}>
           <SettingsItem
             label="Help & Support"
-            onPress={() => { }}
+            icon={<HelpCircle size={20} color={colors.textPrimary} />}
+            onPress={() => navigation.navigate('HelpSupport')}
+          />
+          <SettingsItem
+            label="Privacy Policy"
+            icon={<Shield size={20} color={colors.textPrimary} />}
+            onPress={() => navigation.navigate('PrivacyPolicy')}
           />
           <SettingsItem
             label="About Raven"
-            onPress={() => { }}
+            icon={<Info size={20} color={colors.textPrimary} />}
+            onPress={() => navigation.navigate('About')}
             showBorder={false}
           />
         </View>
 
-        {/* Sign Out */}
-        <TouchableOpacity
-          style={styles.signOutButton}
-          onPress={handleSignOut}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.signOutText}>Sign Out</Text>
-        </TouchableOpacity>
+
 
         {/* Version */}
-        <Text style={styles.versionText}>Version 2.4.0</Text>
+        <Text style={styles.version}>Version 2.5.0</Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+// =============================================================================
+// STYLES
+// =============================================================================
 
 const styles = StyleSheet.create({
   container: {
@@ -178,28 +163,30 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.lg,
-    paddingBottom: spacing.lg,
+    paddingVertical: spacing.lg,
   },
   title: {
     fontFamily: typography.fontFamily.bold,
     fontSize: typography.fontSize['3xl'],
     color: colors.textPrimary,
   },
-  content: {
+  scroll: {
     flex: 1,
   },
   scrollContent: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl * 3,
   },
-  // Settings Groups
-  settingsGroup: {
+
+  // Group
+  group: {
     backgroundColor: colors.backgroundSecondary,
     borderRadius: borderRadius.xl,
     marginBottom: spacing.md,
     overflow: 'hidden',
   },
+
+  // Item
   settingsItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -209,38 +196,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  settingsItemNoBorder: {
+  noBorder: {
     borderBottomWidth: 0,
   },
-  settingsItemLeft: {
+  itemLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
   },
-  settingsItemRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  settingsItemLabel: {
+  itemLabel: {
     fontFamily: typography.fontFamily.medium,
     fontSize: typography.fontSize.base,
     color: colors.textPrimary,
   },
-  badge: {
-    backgroundColor: colors.textPrimary,
-    borderRadius: borderRadius.full,
-    minWidth: 20,
-    height: 20,
-    paddingHorizontal: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  badgeText: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: 11,
-    color: colors.textInverse,
-  },
+
   // Sign Out
   signOutButton: {
     backgroundColor: colors.backgroundSecondary,
@@ -254,8 +223,9 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     color: colors.error,
   },
+
   // Version
-  versionText: {
+  version: {
     fontFamily: typography.fontFamily.regular,
     fontSize: typography.fontSize.sm,
     color: colors.textTertiary,

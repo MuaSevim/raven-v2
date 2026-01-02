@@ -102,4 +102,9 @@ export class ShipmentsController {
   rejectOffer(@Request() req, @Param('offerId') offerId: string) {
     return this.shipmentsService.rejectOffer(offerId, req.user.uid);
   }
+
+  @Get(':id/my-offer')
+  getMyOffer(@Request() req, @Param('id') id: string) {
+    return this.shipmentsService.getUserOfferOnShipment(id, req.user.uid);
+  }
 }

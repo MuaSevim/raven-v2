@@ -17,10 +17,11 @@ import {
   ArrowLeft,
   Send,
   BadgeCheck,
-  Package,
+  Info,
+  Check,
+  CheckCheck,
   CheckCircle,
   CreditCard,
-  AlertCircle,
   Clock,
 } from 'lucide-react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
@@ -285,7 +286,6 @@ export default function ChatScreen() {
   const renderMessage = ({ item }: { item: Message }) => {
     const isMe = item.senderId === user?.uid;
     const isSystem = item.type === 'SYSTEM' || item.type === 'MATCH_ACCEPTED';
-    const isOffer = item.type === 'OFFER';
 
     if (isSystem) {
       return (
@@ -298,9 +298,6 @@ export default function ChatScreen() {
     return (
       <View style={[styles.messageContainer, isMe && styles.myMessageContainer]}>
         <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.theirBubble]}>
-          {isOffer && (
-            <Text style={[styles.offerLabel, isMe && styles.myOfferLabel]}>💼 Delivery Offer</Text>
-          )}
           <Text style={[styles.messageText, isMe && styles.myMessageText]}>
             {item.content}
           </Text>
@@ -310,9 +307,9 @@ export default function ChatScreen() {
             </Text>
             {isMe && (
               <View style={styles.statusTicks}>
-                {item.status === 'SENT' && <Text style={styles.tickGrey}>✓</Text>}
-                {item.status === 'DELIVERED' && <Text style={styles.tickGrey}>✓✓</Text>}
-                {item.status === 'READ' && <Text style={styles.tickBlack}>✓✓</Text>}
+                {item.status === 'SENT' && <Check size={14} color={colors.textTertiary} />}
+                {item.status === 'DELIVERED' && <CheckCheck size={14} color={colors.textTertiary} />}
+                {item.status === 'READ' && <CheckCheck size={14} color="#3B82F6" />}
               </View>
             )}
           </View>
@@ -338,42 +335,53 @@ export default function ChatScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <ArrowLeft size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
+      <View style={[styles.header, { flexDirection: 'column', alignItems: 'stretch', gap: 0 }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: conversation?.canMatch ? spacing.sm : 0 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 }}>
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+              <ArrowLeft size={24} color={colors.textPrimary} />
+            </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.headerInfo}
-          onPress={() => conversation && navigation.navigate('ShipmentDetail', { shipmentId: conversation.shipment.id })}
-        >
-          <View style={styles.headerName}>
-            <Text style={styles.recipientName} numberOfLines={1}>
-              {otherUserName}
-            </Text>
-            {conversation?.otherUser?.isVerified && (
-              <BadgeCheck size={16} color={colors.textPrimary} fill={colors.background} />
-            )}
-          </View>
-          {conversation && (
-            <View style={styles.routeRow}>
-              <Text style={styles.routeText}>
-                {conversation.shipment.originCity} → {conversation.shipment.destCity} • {getCurrencySymbol(conversation.shipment.currency)}{conversation.shipment.price}
-              </Text>
-              {conversation.shipment.status === 'MATCHED' && (
-                <View style={styles.matchedBadge}>
-                  <CheckCircle size={10} color="#22C55E" />
-                  <Text style={styles.matchedText}>Matched</Text>
-                </View>
+            <TouchableOpacity
+              style={styles.headerInfo}
+              onPress={() => conversation && navigation.navigate('PublicProfile', { userId: conversation.otherUser.id })}
+            >
+              <View style={styles.headerName}>
+                <Text style={styles.recipientName} numberOfLines={1}>
+                  {otherUserName}
+                </Text>
+                {conversation?.otherUser?.isVerified && (
+                  <BadgeCheck size={16} color={colors.textPrimary} fill={colors.background} />
+                )}
+              </View>
+              {conversation && (
+                <Text style={styles.routeText}>
+                  {conversation.shipment.originCity} → {conversation.shipment.destCity}
+                </Text>
               )}
-            </View>
-          )}
-        </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
+
+          {/* Info Button */}
+          <TouchableOpacity
+            style={styles.infoButton}
+            onPress={() => {
+              if (!conversation) return;
+              if (conversation.shipment.status === 'OPEN') {
+                navigation.navigate('ShipmentDetail', { shipmentId: conversation.shipment.id });
+              } else {
+                navigation.navigate('ActivityDetail', { shipmentId: conversation.shipment.id });
+              }
+            }}
+          >
+            <Info size={22} color={colors.textPrimary} />
+          </TouchableOpacity>
+        </View>
 
         {/* Match Button - Only for sender when shipment is OPEN */}
         {conversation?.canMatch && (
           <TouchableOpacity
-            style={styles.matchButton}
+            style={[styles.matchButton, { justifyContent: 'center', width: '100%' }]}
             onPress={() => setShowMatchModal(true)}
           >
             <CheckCircle size={16} color={colors.textInverse} />
@@ -382,26 +390,7 @@ export default function ChatScreen() {
         )}
       </View>
 
-      {/* Price Banner for open shipments */}
-      {conversation && conversation.shipment.status === 'OPEN' && (
-        <TouchableOpacity
-          style={styles.priceBanner}
-          onPress={() => navigation.navigate('ShipmentDetail', { shipmentId: conversation.shipment.id })}
-        >
-          <Text style={styles.priceLabel}>Delivery reward:</Text>
-          <Text style={styles.priceValue}>
-            {getCurrencySymbol(conversation.shipment.currency)}{conversation.shipment.price}
-          </Text>
-        </TouchableOpacity>
-      )}
 
-      {/* Pending status banner for couriers */}
-      {conversation && conversation.status === 'PENDING' && !conversation.isSender && (
-        <View style={styles.pendingBanner}>
-          <Clock size={16} color={colors.textSecondary} />
-          <Text style={styles.pendingText}>Waiting for owner's response...</Text>
-        </View>
-      )}
 
       {/* Messages */}
       <KeyboardAvoidingView
@@ -428,27 +417,29 @@ export default function ChatScreen() {
         />
 
         {/* Input */}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="Type a message..."
-            placeholderTextColor={colors.textTertiary}
-            value={message}
-            onChangeText={setMessage}
-            multiline
-            maxLength={1000}
-          />
-          <TouchableOpacity
-            style={[styles.sendButton, (!message.trim() || sending) && styles.sendButtonDisabled]}
-            onPress={handleSend}
-            disabled={!message.trim() || sending}
-          >
-            {sending ? (
-              <ActivityIndicator size="small" color={colors.textInverse} />
-            ) : (
-              <Send size={20} color={colors.textInverse} />
-            )}
-          </TouchableOpacity>
+        <View style={styles.inputWrapper}>
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Type a message..."
+              placeholderTextColor={colors.textTertiary}
+              value={message}
+              onChangeText={setMessage}
+              multiline
+              maxLength={1000}
+            />
+            <TouchableOpacity
+              style={[styles.sendButton, (!message.trim() || sending) && styles.sendButtonDisabled]}
+              onPress={handleSend}
+              disabled={!message.trim() || sending}
+            >
+              {sending ? (
+                <ActivityIndicator size="small" color={colors.textInverse} />
+              ) : (
+                <Send size={20} color={colors.textInverse} />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
 
@@ -481,7 +472,7 @@ export default function ChatScreen() {
             </View>
 
             <Text style={styles.modalNote}>
-              The courier will receive payment once you confirm delivery.
+              The passenger will receive payment once you confirm delivery.
             </Text>
 
             <View style={styles.modalButtons}>
@@ -694,11 +685,19 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     textAlign: 'center',
   },
+  infoButton: {
+    padding: spacing.sm,
+  },
+  inputWrapper: {
+    paddingBottom: Platform.OS === 'ios' ? spacing.sm : 0,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.background,
+  },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.border,
     gap: spacing.sm,
@@ -831,6 +830,10 @@ const styles = StyleSheet.create({
   tickBlack: {
     fontSize: 10,
     color: colors.textPrimary,
+  },
+  tickBlue: {
+    fontSize: 10,
+    color: '#3B82F6',
   },
   // Offer message styling
   offerLabel: {

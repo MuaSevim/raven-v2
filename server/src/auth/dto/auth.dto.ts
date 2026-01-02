@@ -125,6 +125,14 @@ export class UpdateUserDto {
   avatar?: string;
 
   @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsString()
+  phoneCode?: string;
+
+  @IsOptional()
   @IsIn(['SENDER', 'COURIER'])
   role?: 'SENDER' | 'COURIER';
 }

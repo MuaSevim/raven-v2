@@ -16,8 +16,11 @@ import { colors, spacing } from "./theme";
 // Screens
 import WelcomeScreen from "./screens/WelcomeScreen";
 import ProfileScreen from "./screens/ProfileScreen";
+import UpdatePasswordScreen from "./screens/UpdatePasswordScreen";
+import EarningsScreen from "./screens/EarningsScreen";
 import PublicProfileScreen from "./screens/PublicProfileScreen";
 import ActivitiesScreen from "./screens/ActivitiesScreen";
+import ActivityDetailScreen from "./screens/ActivityDetailScreen";
 import NetworkDiagnosticsScreen from "./screens/NetworkDiagnosticsScreen";
 import {
   SignInScreen,
@@ -52,9 +55,15 @@ import { AddCardScreen, PaymentMethodsScreen } from "./screens/payments";
 
 // Delivery Screens
 import { DeliveryTrackingScreen } from "./screens/delivery";
-
 // Tab Navigator
 import MainTabNavigator from "./navigation/MainTabNavigator";
+
+// Settings Screens
+import {
+  AboutScreen,
+  PrivacyPolicyScreen,
+  HelpSupportScreen,
+} from "./screens/settings";
 
 export type RootStackParamList = {
   SignIn: undefined;
@@ -75,6 +84,7 @@ export type RootStackParamList = {
   FinalizeDetails: undefined;
   DeliveryPosted: { shipment?: any };
   ShipmentDetail: { shipmentId: string };
+  ActivityDetail: { shipmentId: string };
   Chat: {
     conversationId?: string;
     shipmentId: string;
@@ -82,13 +92,18 @@ export type RootStackParamList = {
     recipientName?: string;
   };
   Inbox: undefined;
-  AddCard: undefined;
+  AddCard: { card?: any } | undefined;
   PaymentMethods: undefined;
   DeliveryTracking: { transactionId: string };
   Profile: undefined;
+  UpdatePassword: undefined;
+  Earnings: undefined;
   PublicProfile: { userId: string };
   Activities: undefined;
   NetworkDiagnostics: undefined;
+  About: undefined;
+  PrivacyPolicy: undefined;
+  HelpSupport: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -150,9 +165,15 @@ export default function Navigation() {
             <Stack.Screen name="PaymentMethods" component={PaymentMethodsScreen} />
             <Stack.Screen name="DeliveryTracking" component={DeliveryTrackingScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="UpdatePassword" component={UpdatePasswordScreen} />
+            <Stack.Screen name="Earnings" component={EarningsScreen} />
             <Stack.Screen name="PublicProfile" component={PublicProfileScreen} />
             <Stack.Screen name="Activities" component={ActivitiesScreen} />
+            <Stack.Screen name="ActivityDetail" component={ActivityDetailScreen} />
             <Stack.Screen name="NetworkDiagnostics" component={NetworkDiagnosticsScreen} />
+            <Stack.Screen name="About" component={AboutScreen} />
+            <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+            <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
           </>
         ) : (
           // Auth Stack
