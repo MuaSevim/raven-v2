@@ -17,6 +17,10 @@ model User {
   firstName   String?
   lastName    String?
   
+  // Contact
+  phone       String?
+  phoneCode   String?
+  
   // Birthday
   birthDay    Int?
   birthMonth  Int?
@@ -92,7 +96,7 @@ model Shipment {
   senderPhoneCode String?
   
   // Status
-  status          String    @default("OPEN") // OPEN, MATCHED, IN_TRANSIT, DELIVERED, CANCELLED
+  status          String    @default("OPEN") // OPEN, MATCHED, ON_WAY, DELIVERED, CANCELLED
   
   // Relations
   senderId        String

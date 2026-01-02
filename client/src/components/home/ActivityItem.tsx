@@ -1,53 +1,66 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { ArrowRight, Map } from 'lucide-react-native';
-import StatusBadge from './StatusBadge';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { MapPin, ChevronRight } from 'lucide-react-native';
 import { colors, typography, spacing, borderRadius } from '../../theme';
+import StatusBadge from './StatusBadge';
+
+// =============================================================================
+// TYPES
+// =============================================================================
 
 interface ActivityItemProps {
-    item: {
-        id: string;
-        type: 'shipment' | 'offer' | 'transaction';
-        status: string;
-        origin: string;
-        destination: string;
-        price: number;
-        currency: string;
-    };
+    origin: string;
+    destination: string;
+    status: string;
+    price: string;
+    ownerName: string;
     onPress: () => void;
 }
 
-function getCurrencySymbol(currency: string): string {
-    switch (currency) {
-        case 'EUR': return '€';
-        case 'GBP': return '£';
-        case 'SEK': return 'kr';
-        default: return '$';
-    }
-}
+// =============================================================================
+// COMPONENT
+// =============================================================================
 
-export default function ActivityItem({ item, onPress }: ActivityItemProps) {
+export default function ActivityItem({
+    origin,
+    destination,
+    status,
+    price,
+    ownerName,
+    onPress,
+}: ActivityItemProps) {
     return (
-        <TouchableOpacity
-            style={styles.container}
-            onPress={onPress}
-            activeOpacity={0.7}
-        >
-            <View style={styles.header}>
-                <StatusBadge status={item.status} size="small" />
-                <Text style={styles.price}>
-                    {getCurrencySymbol(item.currency)}{item.price}
-                </Text>
+        <TouchableOpacity style={styles.container} onPress={onPress} activeOpacity={0.7}>
+            {/* Status Badge Row */}
+            <View style={styles.statusRow}>
+                <StatusBadge status={status} size="small" />
             </View>
-            <View style={styles.route}>
-                <Text style={styles.city} numberOfLines={1}>{item.origin}</Text>
-                <Map size={14} color={colors.textTertiary} />
-                <ArrowRight size={14} color={colors.textTertiary} />
-                <Text style={styles.city} numberOfLines={1}>{item.destination}</Text>
+
+            {/* Route Row */}
+            <View style={styles.routeRow}>
+                <View style={styles.route}>
+                    <MapPin size={14} color={colors.textSecondary} strokeWidth={1.5} />
+                    <Text style={styles.city}>{origin}</Text>
+                    <Text style={styles.arrow}>→</Text>
+                    <MapPin size={14} color={colors.textSecondary} strokeWidth={1.5} />
+                    <Text style={styles.city}>{destination}</Text>
+                </View>
+            </View>
+
+            {/* Details Row */}
+            <View style={styles.detailsRow}>
+                <Text style={styles.ownerName}>{ownerName}</Text>
+                <View style={styles.rightInfo}>
+                    <Text style={styles.price}>{price}</Text>
+                </View>
             </View>
         </TouchableOpacity>
     );
 }
+
+// =============================================================================
+// STYLES
+// =============================================================================
 
 const styles = StyleSheet.create({
     container: {
@@ -55,28 +68,53 @@ const styles = StyleSheet.create({
         borderRadius: borderRadius.lg,
         padding: spacing.md,
         marginBottom: spacing.sm,
-        borderWidth: 1,
-        borderColor: colors.border,
     },
-    header: {
+    statusRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: spacing.sm,
+        marginBottom: spacing.xs,
     },
-    price: {
-        fontFamily: typography.fontFamily.bold,
-        fontSize: typography.fontSize.base,
-        color: colors.textPrimary,
+    routeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
     },
     route: {
         flexDirection: 'row',
         alignItems: 'center',
+        gap: 6,
+        flex: 1,
     },
     city: {
-        fontFamily: typography.fontFamily.medium,
+        fontFamily: typography.fontFamily.semiBold,
+        fontSize: typography.fontSize.base,
+        color: colors.textPrimary,
+    },
+    arrow: {
+        fontFamily: typography.fontFamily.regular,
+        fontSize: typography.fontSize.sm,
+        color: colors.textTertiary,
+        marginHorizontal: 2,
+    },
+    detailsRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginTop: spacing.sm,
+    },
+    ownerName: {
+        fontFamily: typography.fontFamily.regular,
         fontSize: typography.fontSize.sm,
         color: colors.textSecondary,
         flex: 1,
+    },
+    rightInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    price: {
+        fontFamily: typography.fontFamily.semiBold,
+        fontSize: typography.fontSize.sm,
+        color: colors.textPrimary,
     },
 });

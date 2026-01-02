@@ -112,7 +112,7 @@ export default function ActivitiesScreen() {
                                 origin: t.shipment?.originCity || '',
                                 destination: t.shipment?.destCity || '',
                                 date: t.createdAt,
-                                meta: { role: t.payerId === user.uid ? 'sender' : 'courier' },
+                                meta: { role: t.payerId === user.uid ? 'sender' : 'courier', shipmentId: t.shipment?.id },
                             });
                         });
                     }
@@ -134,11 +134,12 @@ export default function ActivitiesScreen() {
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'OPEN': return '#22C55E';
-            case 'PENDING': return '#F59E0B';
+            case 'PENDING': return '#8B5CF6';
             case 'MATCHED': return '#3B82F6';
-            case 'IN_TRANSIT': return '#8B5CF6';
+            case 'ON_WAY': return '#8B5CF6';
             case 'DELIVERED': return '#10B981';
             case 'ACCEPTED': return '#22C55E';
+            case 'OFFER_MADE': return '#8B5CF6';
             default: return colors.textSecondary;
         }
     };
@@ -148,7 +149,7 @@ export default function ActivitiesScreen() {
             return `${item.meta?.offersCount || 0} Offers`;
         }
         if (item.type === 'offer') {
-            return item.status === 'PENDING' ? 'Offer Pending' : item.status;
+            return item.status === 'PENDING' ? 'Offer Made' : item.status;
         }
         return item.status.replace('_', ' ');
     };
@@ -163,14 +164,24 @@ export default function ActivitiesScreen() {
 
     const handleItemPress = (item: ActivityItem) => {
         if (item.type === 'shipment') {
-            navigation.navigate('ShipmentDetail', { shipmentId: item.id });
+            if (item.status === 'OPEN') {
+                navigation.navigate('ShipmentDetail', { shipmentId: item.id });
+            } else {
+                navigation.navigate('ActivityDetail', { shipmentId: item.id });
+            }
         } else if (item.type === 'offer' && item.meta?.shipmentId) {
-            navigation.navigate('Chat', {
-                shipmentId: item.meta.shipmentId,
-                recipientId: item.meta.ownerId,
-            });
-        } else if (item.type === 'transaction') {
-            navigation.navigate('DeliveryTracking', { transactionId: item.id });
+            // For pending offers, go to shipment detail which shows "You made an offer"
+            if (item.status === 'PENDING') {
+                navigation.navigate('ShipmentDetail', { shipmentId: item.meta.shipmentId });
+            } else {
+                // For accepted/rejected offers, go to activity detail or chat
+                navigation.navigate('Chat', {
+                    shipmentId: item.meta.shipmentId,
+                    recipientId: item.meta.ownerId,
+                });
+            }
+        } else if (item.type === 'transaction' && item.meta?.shipmentId) {
+            navigation.navigate('ActivityDetail', { shipmentId: item.meta.shipmentId });
         }
     };
 

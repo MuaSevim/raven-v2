@@ -5,284 +5,491 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Image,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Box, Package, ArrowRight } from 'lucide-react-native';
+import {
+  Package,
+  Plane,
+  MessageCircle,
+  Globe,
+  Shield,
+  Users,
+  MapPin,
+  ChevronRight,
+  TrendingUp,
+} from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 import { useAuthStore } from '../../store/useAuthStore';
 import { API_URL } from '../../config';
-import { ActivityHeader, ActivityItem, ActivitySkeleton } from '../../components/home';
+import { ActivityItem, ActivitySkeleton } from '../../components/home';
 
-// Types
-interface ActiveItem {
+// =============================================================================
+// TYPES
+// =============================================================================
+
+interface ActivityData {
   id: string;
-  type: 'shipment' | 'offer' | 'transaction';
+  shipmentId: string;
+  type: 'shipment' | 'transaction' | 'offer';
   status: string;
   price: number;
   currency: string;
   origin: string;
   destination: string;
-  date: string;
+  ownerName: string;
+  isOwner: boolean;
+  createdAt: string;
 }
+
+// =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+const getCurrencySymbol = (currency: string): string => {
+  const symbols: Record<string, string> = { EUR: '€', GBP: '£', SEK: 'kr', USD: '$' };
+  return symbols[currency] || '$';
+};
+
+// =============================================================================
+// MAIN COMPONENT
+// =============================================================================
 
 export default function HomeTab() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
-  const [activeItems, setActiveItems] = useState<ActiveItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [unreadCount, setUnreadCount] = useState(0);
 
-  // Fetch all active items
+  const [activeItems, setActiveItems] = useState<ActivityData[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Fetch dashboard data
+  const fetchDashboard = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const token = await user.getIdToken();
+      const headers = { Authorization: `Bearer ${token}` };
+
+      const [shipmentsRes, transactionsRes, offersRes, unreadRes] = await Promise.all([
+        fetch(`${API_URL}/shipments/my/sent`, { headers }),
+        fetch(`${API_URL}/payments/transactions`, { headers }),
+        fetch(`${API_URL}/shipments/my/offers`, { headers }),
+        fetch(`${API_URL}/conversations/unread`, { headers }),
+      ]);
+
+      // Process shipments
+      const shipments = shipmentsRes.ok ? await shipmentsRes.json() : [];
+      const shipmentItems: ActivityData[] = shipments
+        .filter((s: any) => s.status !== 'DELIVERED' && s.status !== 'CANCELLED')
+        .map((s: any) => ({
+          id: s.id,
+          shipmentId: s.id,
+          type: 'shipment' as const,
+          status: s.status,
+          price: s.price,
+          currency: s.currency,
+          origin: s.originCity,
+          destination: s.destCity,
+          ownerName: `${s.sender?.firstName || ''} ${s.sender?.lastName || ''}`.trim() || 'You',
+          isOwner: true,
+          createdAt: s.createdAt,
+        }));
+
+      // Process transactions
+      const transactions = transactionsRes.ok ? await transactionsRes.json() : [];
+      const transactionItems: ActivityData[] = transactions
+        .filter((t: any) => t.status === 'HELD')
+        .map((t: any) => ({
+          id: t.id,
+          shipmentId: t.shipment?.id,
+          type: 'transaction' as const,
+          status: 'ON_WAY',
+          price: t.amount,
+          currency: t.currency,
+          origin: t.shipment?.originCity || 'Unknown',
+          destination: t.shipment?.destCity || 'Unknown',
+          ownerName: `${t.shipment?.sender?.firstName || ''} ${t.shipment?.sender?.lastName || ''}`.trim(),
+          isOwner: t.shipment?.sender?.id === user.uid,
+          createdAt: t.createdAt,
+        }));
+
+      // Process offers - shipments where user made an offer
+      const offers = offersRes.ok ? await offersRes.json() : [];
+      const offerItems: ActivityData[] = offers
+        .filter((o: any) => o.status === 'PENDING' && o.shipment?.status === 'OPEN')
+        .map((o: any) => ({
+          id: o.id,
+          shipmentId: o.shipment?.id,
+          type: 'offer' as const,
+          status: 'OFFER_MADE',
+          price: o.shipment?.price,
+          currency: o.shipment?.currency,
+          origin: o.shipment?.originCity || 'Unknown',
+          destination: o.shipment?.destCity || 'Unknown',
+          ownerName: `${o.shipment?.sender?.firstName || ''} ${o.shipment?.sender?.lastName || ''}`.trim(),
+          isOwner: false,
+          createdAt: o.createdAt,
+        }));
+
+      // Merge and sort by creation date (newest first)
+      const allItems = [...shipmentItems, ...transactionItems, ...offerItems]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      setActiveItems(allItems);
+
+      // Unread count
+      if (unreadRes.ok) {
+        const data = await unreadRes.json();
+        setUnreadCount(data.unreadCount || data.count || 0);
+      }
+    } catch (err) {
+      console.error('Error fetching dashboard:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [user]);
+
   useFocusEffect(
     useCallback(() => {
-      const fetchData = async () => {
-        if (!user) {
-          setLoading(false);
-          return;
-        }
-
-        try {
-          const token = await user.getIdToken();
-          const headers = { 'Authorization': `Bearer ${token}` };
-
-          // Parallel fetch for better performance
-          const [shipmentsRes, transactionsRes, unreadRes] = await Promise.all([
-            fetch(`${API_URL}/shipments/my/sent`, { headers }),
-            fetch(`${API_URL}/payments/transactions`, { headers }),
-            fetch(`${API_URL}/conversations/unread`, { headers }),
-          ]);
-
-          // Process shipments
-          const shipments = shipmentsRes.ok ? await shipmentsRes.json() : [];
-          const myActiveShipments = shipments
-            .filter((s: any) => s.status !== 'DELIVERED' && s.status !== 'CANCELLED')
-            .map((s: any) => ({
-              id: s.id,
-              type: 'shipment' as const,
-              status: s.status,
-              price: s.price,
-              currency: s.currency,
-              origin: s.originCity,
-              destination: s.destCity,
-              date: s.createdAt,
-            }));
-
-          // Process transactions
-          const transactions = transactionsRes.ok ? await transactionsRes.json() : [];
-          const myTransactions = transactions
-            .filter((t: any) => t.status !== 'COMPLETED' && t.status !== 'FAILED')
-            .map((t: any) => ({
-              id: t.id,
-              type: 'transaction' as const,
-              status: 'IN_TRANSIT',
-              price: t.amount,
-              currency: t.currency,
-              origin: t.shipment?.originCity || 'Unknown',
-              destination: t.shipment?.destCity || 'Unknown',
-              date: t.createdAt,
-            }));
-
-          // Merge and sort by date
-          const allItems = [...myActiveShipments, ...myTransactions].sort(
-            (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-          );
-          setActiveItems(allItems);
-
-          // Process unread count
-          if (unreadRes.ok) {
-            const unreadData = await unreadRes.json();
-            setUnreadCount(unreadData.unreadCount || 0);
-          }
-        } catch (err) {
-          console.error('Error fetching dashboard data:', err);
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      fetchData();
-    }, [user])
+      fetchDashboard();
+    }, [fetchDashboard])
   );
 
-  const handleItemPress = (item: ActiveItem) => {
-    if (item.type === 'shipment') {
-      navigation.navigate('ShipmentDetail', { shipmentId: item.id });
-    } else if (item.type === 'transaction') {
-      navigation.navigate('DeliveryTracking', { transactionId: item.id });
-    }
+  const handleRefresh = () => {
+    setRefreshing(true);
+    fetchDashboard();
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.textPrimary} />
+        }
+        contentContainerStyle={styles.scrollContent}
       >
-        {/* Activities Section */}
-        <View style={styles.section}>
-          <ActivityHeader
-            title="Your Activities"
-            unreadCount={unreadCount}
-            onInboxPress={() => navigation.navigate('Inbox')}
-            onSeeAllPress={() => navigation.navigate('Activities')}
-            showSeeAll={!loading && activeItems.length > 3}
-          />
+        {/* Header: Logo + Inbox */}
+        <View style={styles.header}>
+          <View style={styles.logoContainer}>
+            <Text style={styles.logoText}>Raven</Text>
+          </View>
+          <TouchableOpacity style={styles.inboxButton} onPress={() => navigation.navigate('Inbox')}>
+            <MessageCircle size={22} color={colors.textPrimary} strokeWidth={1.5} />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
 
-          {/* Content Based on State */}
+
+        {/* Explore Section */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Explore</Text>
+          <TouchableOpacity
+            style={styles.ctaCard}
+            activeOpacity={0.8}
+            onPress={() => navigation.navigate('SetRoute')}
+          >
+            <View style={{ marginRight: spacing.md }}>
+              <Package size={28} color={colors.textPrimary} strokeWidth={1.5} />
+            </View>
+            <View style={styles.ctaContent}>
+              <Text style={styles.ctaTitle}>Deliver a package</Text>
+              <Text style={styles.ctaSubtitle}>Match with a trusted passenger</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+
+        {/* Top Routes */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Popular Routes</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.routesScroll}>
+            {[
+              { from: 'Berlin', to: 'Istanbul' },
+              { from: 'New York', to: 'London' },
+              { from: 'Paris', to: 'Dubai' },
+              { from: 'Tokyo', to: 'Seoul' },
+            ].map((route, i) => (
+              <View key={i} style={styles.routeChip}>
+                <MapPin size={12} color={colors.textSecondary} />
+                <Text style={styles.routeText}>{route.from}</Text>
+                <Plane size={10} color={colors.textTertiary} />
+                <Text style={styles.routeText}>{route.to}</Text>
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+
+        {/* Your Activities Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Your Activities</Text>
+            {!loading && activeItems.length > 3 && (
+              <TouchableOpacity onPress={() => navigation.navigate('Activities')}>
+                <Text style={styles.seeAll}>See all</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
           {loading ? (
             <>
               <ActivitySkeleton />
               <ActivitySkeleton />
             </>
           ) : activeItems.length > 0 ? (
-            <>
-              {activeItems.slice(0, 3).map((item, index) => (
-                <ActivityItem
-                  key={`${item.type}-${item.id}-${index}`}
-                  item={item}
-                  onPress={() => handleItemPress(item)}
-                />
-              ))}
-              {activeItems.length > 3 && (
-                <TouchableOpacity
-                  style={styles.showAllButton}
-                  onPress={() => navigation.navigate('Activities')}
-                >
-                  <Text style={styles.showAllText}>
-                    Show all activities ({activeItems.length})
-                  </Text>
-                  <ArrowRight size={16} color={colors.textSecondary} />
-                </TouchableOpacity>
-              )}
-            </>
+            activeItems.slice(0, 3).map((item) => (
+              <ActivityItem
+                key={item.id}
+                origin={item.origin}
+                destination={item.destination}
+                status={item.status}
+                price={`${getCurrencySymbol(item.currency)}${item.price}`}
+                ownerName={item.isOwner ? 'Your Delivery' : item.ownerName}
+                onPress={() => {
+                  if (item.status === 'OPEN' || item.status === 'OFFER_MADE') {
+                    navigation.navigate('ShipmentDetail', { shipmentId: item.shipmentId });
+                  } else {
+                    navigation.navigate('ActivityDetail', { shipmentId: item.shipmentId });
+                  }
+                }}
+              />
+            ))
           ) : (
             <View style={styles.emptyState}>
-              <Package size={18} color={colors.textSecondary} />
-              <Text style={styles.emptyStateText}>
-                No active shipments or offers
-              </Text>
+              <Package size={40} color={colors.textTertiary} strokeWidth={1} />
+              <Text style={styles.emptyTitle}>No active deliveries</Text>
+              <Text style={styles.emptySubtitle}>Start by sending a package</Text>
             </View>
           )}
         </View>
 
-        {/* Explore Section */}
+        {/* Platform Stats */}
         <View style={styles.section}>
-          <View style={styles.exploreHeader}>
-            <Text style={styles.sectionTitle}>Explore the Raven</Text>
-            <Text style={styles.subtitle}>
-              Safe Delivery & Free Travelling!
-            </Text>
+          <Text style={styles.sectionTitle}>Platform Insights</Text>
+          <View style={styles.statsGrid}>
+            <View style={styles.statCard}>
+              <Globe size={18} color={colors.textPrimary} strokeWidth={1.5} />
+              <Text style={styles.statValue}>1,240+</Text>
+              <Text style={styles.statLabel}>Active Routes</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Package size={18} color={colors.textPrimary} strokeWidth={1.5} />
+              <Text style={styles.statValue}>450</Text>
+              <Text style={styles.statLabel}>Deliveries Today</Text>
+            </View>
+            <View style={styles.statCard}>
+              <TrendingUp size={18} color={colors.textPrimary} strokeWidth={1.5} />
+              <Text style={styles.statValue}>99.2%</Text>
+              <Text style={styles.statLabel}>Success Rate</Text>
+            </View>
           </View>
-
-          {/* Main Card - Send a Package */}
-          <TouchableOpacity
-            style={styles.mainCard}
-            activeOpacity={0.8}
-            onPress={() => navigation.navigate('DeliveriesTab')}
-          >
-            <View style={styles.mainCardContent}>
-              <Text style={styles.mainCardTitle}>Send a Package</Text>
-              <Text style={styles.mainCardDescription}>
-                Find a verified traveler to deliver your items anywhere in the world.
-              </Text>
-            </View>
-            <View style={styles.mainCardIcon}>
-              <Box size={80} color={colors.textTertiary} strokeWidth={1} />
-            </View>
-          </TouchableOpacity>
         </View>
+
+        <View style={styles.bottomPadding} />
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+// =============================================================================
+// STYLES
+// =============================================================================
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.background,
   },
-  scrollView: {
-    flex: 1,
-  },
   scrollContent: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
   },
+  // Header
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+  },
+  logoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  logoText: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.fontSize['2xl'],
+    color: colors.textPrimary,
+  },
+  inboxButton: {
+    position: 'relative',
+    padding: spacing.xs,
+  },
+  badge: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: 10,
+    color: '#fff',
+  },
+  // Sections
   section: {
-    marginTop: spacing.lg,
+    marginTop: spacing.xl,
   },
-  exploreHeader: {
-    marginBottom: spacing.lg,
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
   },
   sectionTitle: {
     fontFamily: typography.fontFamily.semiBold,
     fontSize: typography.fontSize.lg,
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
   },
-  subtitle: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-  },
-  emptyState: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.backgroundSecondary,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    borderRadius: borderRadius.lg,
-  },
-  emptyStateText: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-  },
-  showAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    marginTop: spacing.sm,
-  },
-  showAllText: {
+  seeAll: {
     fontFamily: typography.fontFamily.medium,
     fontSize: typography.fontSize.sm,
     color: colors.textSecondary,
   },
-  mainCard: {
+  // Empty State
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl * 2,
     backgroundColor: colors.backgroundSecondary,
     borderRadius: borderRadius.xl,
-    padding: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  mainCardContent: {
-    flex: 1,
-    paddingRight: spacing.md,
-  },
-  mainCardTitle: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.fontSize.xl,
+  emptyTitle: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize.base,
     color: colors.textPrimary,
-    marginBottom: spacing.sm,
+    marginTop: spacing.md,
   },
-  mainCardDescription: {
+  emptySubtitle: {
     fontFamily: typography.fontFamily.regular,
     fontSize: typography.fontSize.sm,
     color: colors.textSecondary,
-    lineHeight: 20,
+    marginTop: spacing.xs,
   },
-  mainCardIcon: {
-    opacity: 0.5,
+  // CTA Card
+  ctaCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: borderRadius.xl,
+    padding: spacing.lg,
+    marginTop: spacing.sm,
+  },
+  ctaContent: {
+    flex: 1,
+  },
+  ctaTitle: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize.lg,
+    color: colors.textPrimary,
+  },
+  ctaSubtitle: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  // How It Works
+  howItWorksGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  howItWorksCard: {
+    flex: 1,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.textPrimary,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    alignItems: 'center',
+  },
+  howItWorksLabel: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize.sm,
+    color: colors.textPrimary,
+    marginTop: spacing.sm,
+  },
+  howItWorksDesc: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: 10,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  // Routes
+  routesScroll: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    paddingRight: spacing.lg,
+  },
+  routeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.backgroundSecondary,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.full,
+  },
+  routeText: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.fontSize.xs,
+    color: colors.textPrimary,
+  },
+  // Stats
+  statsGrid: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.fontSize.xl,
+    color: colors.textPrimary,
+    marginTop: spacing.sm,
+  },
+  statLabel: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: 10,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  // Bottom
+  bottomPadding: {
+    height: spacing.xl * 2,
   },
 });

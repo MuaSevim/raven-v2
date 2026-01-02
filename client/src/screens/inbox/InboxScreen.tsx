@@ -7,14 +7,17 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import {
-  MessageCircle,
-  ChevronLeft,
   Package,
   CheckCircle,
+  Check,
+  CheckCheck,
+  MessageCircle,
+  ChevronLeft,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { API_URL } from '../../config';
@@ -43,6 +46,7 @@ interface Conversation {
   lastMessage: {
     content: string;
     createdAt: string;
+    status: string;
     sender: { id: string };
   } | null;
   unreadCount: number;
@@ -109,11 +113,15 @@ function ConversationItem({
     >
       {/* Avatar */}
       <View style={styles.avatarContainer}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>
-            {otherName.charAt(0).toUpperCase()}
-          </Text>
-        </View>
+        {conversation.otherUser.avatar ? (
+          <Image source={{ uri: conversation.otherUser.avatar }} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>
+              {otherName.charAt(0).toUpperCase()}
+            </Text>
+          </View>
+        )}
         {statusInfo && (
           <View style={[styles.statusDot, { backgroundColor: statusInfo.color }]} />
         )}
@@ -126,11 +134,6 @@ function ConversationItem({
             <Text style={[styles.userName, isUnread && styles.userNameUnread]} numberOfLines={1}>
               {otherName}
             </Text>
-            <View style={[styles.roleBadge, { backgroundColor: isOwner ? '#EFF6FF' : '#F0FDF4' }]}>
-              <Text style={[styles.roleText, { color: isOwner ? '#3B82F6' : '#22C55E' }]}>
-                {isOwner ? 'Your Shipment' : 'Your Offer'}
-              </Text>
-            </View>
           </View>
           <Text style={styles.timeText}>
             {conversation.lastMessage ? formatTime(conversation.lastMessage.createdAt) : ''}
@@ -152,15 +155,22 @@ function ConversationItem({
         </View>
 
         <View style={styles.messageRow}>
-          <View style={styles.messagePreviewContainer}>
+          <View style={[styles.messagePreviewContainer, { flexDirection: 'row', alignItems: 'center' }]}>
             {isMyMessage && (
-              <Text style={styles.messageTickPreview}>✓ </Text>
+              <>
+                <Text style={{ fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, color: colors.textSecondary }}>You: </Text>
+                {conversation.lastMessage?.status === 'READ' || conversation.lastMessage?.status === 'SEEN' ? (
+                  <CheckCheck size={14} color="#3B82F6" style={{ marginRight: 4 }} />
+                ) : (
+                  <Check size={14} color={colors.textTertiary} style={{ marginRight: 4 }} />
+                )}
+              </>
             )}
             <Text
-              style={[styles.lastMessage, isUnread && styles.lastMessageUnread]}
+              style={[styles.lastMessage, isUnread && styles.lastMessageUnread, { flex: 1 }]}
               numberOfLines={1}
             >
-              {isMyMessage ? 'You: ' : ''}{lastMessagePreview}
+              {lastMessagePreview}
             </Text>
           </View>
           {isUnread && (
@@ -170,7 +180,7 @@ function ConversationItem({
           )}
         </View>
       </View>
-    </TouchableOpacity>
+    </TouchableOpacity >
   );
 }
 

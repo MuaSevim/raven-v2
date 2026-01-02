@@ -10,11 +10,11 @@ import {
   RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { 
-  ArrowLeft, 
-  Package, 
-  MapPin, 
-  User, 
+import {
+  ArrowLeft,
+  Package,
+  MapPin,
+  User,
   MessageCircle,
   Phone,
   CheckCircle,
@@ -72,8 +72,8 @@ function getCurrencySymbol(currency: string) {
 
 function formatDate(dateString: string) {
   const date = new Date(dateString);
-  return date.toLocaleDateString('en-US', { 
-    month: 'short', 
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
     day: 'numeric',
     year: 'numeric',
   });
@@ -81,7 +81,7 @@ function formatDate(dateString: string) {
 
 const STATUS_STEPS = [
   { key: 'MATCHED', label: 'Matched', icon: CheckCircle },
-  { key: 'IN_TRANSIT', label: 'In Transit', icon: Truck },
+  { key: 'ON_WAY', label: 'On Way', icon: Truck },
   { key: 'DELIVERED', label: 'Delivered', icon: Flag },
 ];
 
@@ -89,9 +89,9 @@ export default function DeliveryTrackingScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { user } = useAuthStore();
-  
+
   const { transactionId } = route.params || {};
-  
+
   const [delivery, setDelivery] = useState<DeliveryDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -99,13 +99,13 @@ export default function DeliveryTrackingScreen() {
 
   const fetchDelivery = async () => {
     if (!user || !transactionId) return;
-    
+
     try {
       const token = await user.getIdToken();
       const response = await fetch(`${API_URL}/payments/transactions`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
-      
+
       if (response.ok) {
         const transactions = await response.json();
         const found = transactions.find((t: any) => t.id === transactionId);
@@ -134,7 +134,7 @@ export default function DeliveryTrackingScreen() {
 
   const handleConfirmDelivery = async () => {
     if (!user || !delivery) return;
-    
+
     Alert.alert(
       'Confirm Delivery',
       'Are you sure you want to confirm delivery? This will release the payment to the courier.',
@@ -150,12 +150,12 @@ export default function DeliveryTrackingScreen() {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
               });
-              
+
               if (!response.ok) {
                 const error = await response.json();
                 throw new Error(error.message || 'Failed to confirm delivery');
               }
-              
+
               const result = await response.json();
               Alert.alert('Success', result.message);
               fetchDelivery();
@@ -172,7 +172,7 @@ export default function DeliveryTrackingScreen() {
 
   const handleCancelDelivery = async () => {
     if (!user || !delivery) return;
-    
+
     Alert.alert(
       'Cancel Delivery',
       'Are you sure you want to cancel? This will refund your payment.',
@@ -189,12 +189,12 @@ export default function DeliveryTrackingScreen() {
                 method: 'POST',
                 headers: { 'Authorization': `Bearer ${token}` },
               });
-              
+
               if (!response.ok) {
                 const error = await response.json();
                 throw new Error(error.message || 'Failed to cancel delivery');
               }
-              
+
               const result = await response.json();
               Alert.alert('Cancelled', result.message, [
                 { text: 'OK', onPress: () => navigation.goBack() },
@@ -247,7 +247,7 @@ export default function DeliveryTrackingScreen() {
   const currentStep = getCurrentStepIndex();
   const isSender = delivery.role === 'sender';
   const otherPerson = isSender ? delivery.shipment.courier : delivery.shipment.sender;
-  const otherName = otherPerson 
+  const otherName = otherPerson
     ? `${otherPerson.firstName || ''} ${otherPerson.lastName || ''}`.trim() || 'User'
     : 'User';
 
@@ -262,7 +262,7 @@ export default function DeliveryTrackingScreen() {
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         refreshControl={
@@ -289,9 +289,9 @@ export default function DeliveryTrackingScreen() {
                 styles.statusText,
                 delivery.shipment.status === 'DELIVERED' && styles.statusTextCompleted,
               ]}>
-                {delivery.shipment.status === 'MATCHED' ? 'In Progress' : 
-                 delivery.shipment.status === 'IN_TRANSIT' ? 'In Transit' : 
-                 delivery.shipment.status === 'DELIVERED' ? 'Delivered' : delivery.shipment.status}
+                {delivery.shipment.status === 'MATCHED' ? 'In Progress' :
+                  delivery.shipment.status === 'ON_WAY' ? 'On Way' :
+                    delivery.shipment.status === 'DELIVERED' ? 'Delivered' : delivery.shipment.status}
               </Text>
             </View>
             <Text style={styles.amount}>
@@ -305,7 +305,7 @@ export default function DeliveryTrackingScreen() {
               const StepIcon = step.icon;
               const isCompleted = index <= currentStep;
               const isCurrent = index === currentStep;
-              
+
               return (
                 <View key={step.key} style={styles.progressStep}>
                   <View style={[
@@ -376,7 +376,7 @@ export default function DeliveryTrackingScreen() {
                 <Text style={styles.contactName}>{otherName}</Text>
               </View>
               <View style={styles.contactActions}>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.contactButton}
                   onPress={() => navigation.navigate('Chat', {
                     shipmentId: delivery.shipment.id,
@@ -409,7 +409,7 @@ export default function DeliveryTrackingScreen() {
           <View style={styles.actionsSection}>
             {isSender && (
               <>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.confirmButton}
                   onPress={handleConfirmDelivery}
                   disabled={actionLoading}
@@ -423,7 +423,7 @@ export default function DeliveryTrackingScreen() {
                     </>
                   )}
                 </TouchableOpacity>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.cancelButton}
                   onPress={handleCancelDelivery}
                   disabled={actionLoading}

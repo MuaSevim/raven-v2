@@ -33,24 +33,38 @@ export default function SetPriceScreen() {
   const [price, setPrice] = useState(draft.price || 50);
   const [currency, setCurrency] = useState(draft.currency || 'USD');
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
+  const [sliderWidth, setSliderWidth] = useState(0);
 
-  const lastPriceRef = React.useRef(price);
+  const startPriceRef = React.useRef(0);
 
   const panResponder = React.useRef(
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: () => {
-        lastPriceRef.current = price;
+      onPanResponderGrant: (evt) => {
+        // Calculate initial price based on touch position
+        if (sliderWidth > 0) {
+          const touchX = evt.nativeEvent.locationX;
+          const percent = Math.max(0, Math.min(1, touchX / sliderWidth));
+          const newPrice = Math.round(MIN_PRICE + percent * (MAX_PRICE - MIN_PRICE));
+          setPrice(newPrice);
+          startPriceRef.current = newPrice;
+        }
       },
-      onPanResponderMove: (_, gestureState) => {
-        const diff = Math.round(gestureState.dx / 10) * 5; // Sensitivity: 10px = $5
-        const newPrice = lastPriceRef.current + diff;
-        setPrice(Math.min(Math.max(newPrice, MIN_PRICE), MAX_PRICE));
+      onPanResponderMove: (evt, gestureState) => {
+        // Update price based on drag distance (dx)
+        if (sliderWidth > 0) {
+          const deltaPercent = gestureState.dx / sliderWidth;
+          const priceDelta = Math.round(deltaPercent * (MAX_PRICE - MIN_PRICE));
+          const newPrice = Math.max(
+            MIN_PRICE,
+            Math.min(MAX_PRICE, startPriceRef.current + priceDelta)
+          );
+          setPrice(newPrice);
+        }
       },
-      onPanResponderRelease: () => {
-        lastPriceRef.current = price;
-      },
+      onPanResponderRelease: () => { },
+      onPanResponderTerminationRequest: () => false,
     })
   ).current;
 
@@ -153,10 +167,8 @@ export default function SetPriceScreen() {
         )}
 
         {/* Price Display */}
-        <View
-          style={styles.priceDisplay}
-          {...panResponder.panHandlers}
-        >
+        {/* Price Display */}
+        <View style={styles.priceDisplay}>
           <Text style={styles.priceSymbol}>{getCurrencySymbol()}</Text>
           <TextInput
             style={styles.priceInput}
@@ -164,8 +176,7 @@ export default function SetPriceScreen() {
             onChangeText={handlePriceInput}
             keyboardType="number-pad"
             selectTextOnFocus
-            editable={false} // Disable direct editing when swipe is active to prevent conflicts, or keep it true but be careful
-            pointerEvents="none" // To ensure swipe works smoothly over the input
+          // Removed pointerEvents="none" and editable={false} to allow typing
           />
         </View>
 
@@ -179,7 +190,11 @@ export default function SetPriceScreen() {
             <Minus size={20} color={price <= MIN_PRICE ? colors.textDisabled : colors.textPrimary} strokeWidth={2} />
           </TouchableOpacity>
 
-          <View style={styles.sliderTrack}>
+          <View
+            style={styles.sliderTrack}
+            onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
+            {...panResponder.panHandlers}
+          >
             <View style={[styles.sliderFill, { width: `${progressPercent}%` }]} />
             <View style={[styles.sliderThumb, { left: `${progressPercent}%` }]} />
           </View>

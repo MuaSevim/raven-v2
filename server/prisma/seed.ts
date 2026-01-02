@@ -262,7 +262,7 @@ async function main() {
     const startDays = randomBetween(3, 30);
     const endDays = startDays + randomBetween(3, 14);
 
-    const statuses = ['OPEN', 'OPEN', 'OPEN', 'OPEN', 'MATCHED', 'IN_TRANSIT', 'DELIVERED'];
+    const statuses = ['OPEN', 'OPEN', 'OPEN', 'OPEN', 'MATCHED', 'ON_WAY', 'DELIVERED'];
     const currencies = ['USD', 'EUR', 'GBP', 'SEK'];
 
     const shipment = await prisma.shipment.create({

@@ -179,7 +179,7 @@ function getStatusColor(status: string) {
   switch (status) {
     case 'OPEN': return '#22C55E';
     case 'MATCHED': return '#3B82F6';
-    case 'IN_TRANSIT': return '#F59E0B';
+    case 'ON_WAY': return '#F59E0B';
     case 'DELIVERED': return '#8B5CF6';
     case 'CANCELLED': return '#EF4444';
     default: return colors.textSecondary;
@@ -275,9 +275,9 @@ export default function DeliveriesTab() {
     },
   ];
 
-  // Filter shipments: hide delivered/cancelled and apply sorting
+  // Filter shipments: hide matched/delivered/cancelled and apply sorting
   const filteredShipments = [...shipments]
-    .filter(s => s.status !== 'DELIVERED' && s.status !== 'CANCELLED')
+    .filter(s => s.status !== 'DELIVERED' && s.status !== 'CANCELLED' && s.status !== 'MATCHED')
     .sort((a, b) => {
       switch (activeFilter) {
         case 'weight':
@@ -326,7 +326,7 @@ export default function DeliveriesTab() {
       {/* Section Header */}
       <View style={styles.listHeader}>
         <Text style={styles.sectionLabel}>
-          {shipments.length} available shipment{shipments.length !== 1 ? 's' : ''}
+          {filteredShipments.length} available shipment{filteredShipments.length !== 1 ? 's' : ''}
         </Text>
       </View>
 

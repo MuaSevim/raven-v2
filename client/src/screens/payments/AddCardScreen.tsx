@@ -12,8 +12,8 @@ import {
   Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { ArrowLeft, CreditCard, Lock } from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
+import { ArrowLeft, CreditCard, Lock, Check } from 'lucide-react-native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { API_URL } from '../../config';
 import { colors, typography, spacing, borderRadius } from '../../theme';
@@ -46,17 +46,22 @@ function formatExpiry(value: string): string {
 
 export default function AddCardScreen() {
   const navigation = useNavigation<any>();
+  const route = useRoute<any>();
   const { user } = useAuthStore();
-  
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiry, setExpiry] = useState('');
+
+  // Check if we're editing an existing card
+  const editingCard = route.params?.card;
+  const isEditing = !!editingCard;
+
+  const [cardNumber, setCardNumber] = useState(editingCard ? `•••• •••• •••• ${editingCard.lastFour}` : '');
+  const [expiry, setExpiry] = useState(editingCard ? `${editingCard.expiryMonth.toString().padStart(2, '0')}/${editingCard.expiryYear.toString().slice(-2)}` : '');
   const [cvv, setCvv] = useState('');
-  const [cardholderName, setCardholderName] = useState('');
-  const [setAsDefault, setSetAsDefault] = useState(true);
+  const [cardholderName, setCardholderName] = useState(editingCard?.cardHolder || '');
+  const [setAsDefault, setSetAsDefault] = useState(editingCard?.isDefault || true);
   const [saving, setSaving] = useState(false);
 
   const cardType = detectCardType(cardNumber);
-  const isValid = 
+  const isValid =
     cardNumber.replace(/\s/g, '').length >= 15 &&
     expiry.length === 5 &&
     cvv.length >= 3 &&
@@ -77,17 +82,17 @@ export default function AddCardScreen() {
 
   const handleSave = async () => {
     if (!isValid || !user) return;
-    
+
     setSaving(true);
-    
+
     try {
       const token = await user.getIdToken();
-      
+
       // Parse expiry
       const [monthStr, yearStr] = expiry.split('/');
       const expiryMonth = parseInt(monthStr, 10);
       const expiryYear = parseInt('20' + yearStr, 10);
-      
+
       const response = await fetch(`${API_URL}/payments/methods`, {
         method: 'POST',
         headers: {
@@ -103,12 +108,12 @@ export default function AddCardScreen() {
           setAsDefault,
         }),
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.message || 'Failed to save card');
       }
-      
+
       Alert.alert('Success', 'Card added successfully', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
@@ -127,15 +132,15 @@ export default function AddCardScreen() {
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <ArrowLeft size={24} color={colors.textPrimary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Add Card</Text>
+        <Text style={styles.headerTitle}>{isEditing ? 'Edit Card' : 'Add Card'}</Text>
         <View style={styles.placeholder} />
       </View>
 
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <ScrollView 
+        <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
@@ -228,12 +233,13 @@ export default function AddCardScreen() {
               />
             </View>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.defaultToggle}
               onPress={() => setSetAsDefault(!setAsDefault)}
+              activeOpacity={0.7}
             >
               <View style={[styles.checkbox, setAsDefault && styles.checkboxChecked]}>
-                {setAsDefault && <View style={styles.checkboxInner} />}
+                {setAsDefault && <Check size={16} color={colors.textInverse} strokeWidth={3} />}
               </View>
               <Text style={styles.defaultText}>Set as default payment method</Text>
             </TouchableOpacity>
@@ -250,7 +256,7 @@ export default function AddCardScreen() {
 
         {/* Save Button */}
         <View style={styles.footer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.saveButton, !isValid && styles.saveButtonDisabled]}
             onPress={handleSave}
             disabled={!isValid || saving}
@@ -258,7 +264,7 @@ export default function AddCardScreen() {
             {saving ? (
               <ActivityIndicator size="small" color={colors.textInverse} />
             ) : (
-              <Text style={styles.saveButtonText}>Save Card</Text>
+              <Text style={styles.saveButtonText}>{isEditing ? 'Update Card' : 'Save Card'}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -398,8 +404,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   checkbox: {
-    width: 24,
-    height: 24,
+    width: 22,
+    height: 22,
     borderRadius: borderRadius.sm,
     borderWidth: 2,
     borderColor: colors.border,
@@ -409,12 +415,6 @@ const styles = StyleSheet.create({
   checkboxChecked: {
     borderColor: colors.textPrimary,
     backgroundColor: colors.textPrimary,
-  },
-  checkboxInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 2,
-    backgroundColor: colors.background,
   },
   defaultText: {
     fontFamily: typography.fontFamily.regular,
