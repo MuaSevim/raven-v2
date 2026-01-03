@@ -116,7 +116,36 @@ export default function SignUpStep5Screen({ navigation }: Props) {
       resetSignup();
       // The navigation is handled automatically by the auth state listener
     } catch (err: any) {
-      const message = err.response?.data?.message || 'Verification failed. Please try again.';
+      console.error('Verification error:', err);
+
+      let message = 'Verification failed. Please try again.';
+
+      // Handle specific error types
+      if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        message = 'Request timed out. Please check your connection and try again.';
+      } else if (err.code === 'ERR_NETWORK' || err.message?.includes('Network')) {
+        message = 'Network error. Please check your internet connection.';
+      } else if (err.response?.status === 400) {
+        message = err.response?.data?.message || 'Invalid verification code';
+      } else if (err.response?.status === 404) {
+        message = 'Verification code not found. Please request a new code.';
+      } else if (err.code?.startsWith('auth/')) {
+        // Firebase auth errors
+        switch (err.code) {
+          case 'auth/invalid-credential':
+          case 'auth/wrong-password':
+            message = 'Authentication failed. Please try signing up again.';
+            break;
+          case 'auth/network-request-failed':
+            message = 'Network error during sign-in. Please try again.';
+            break;
+          default:
+            message = 'Authentication error. Please try again.';
+        }
+      } else if (err.response?.data?.message) {
+        message = err.response.data.message;
+      }
+
       setError(message);
       // Clear the code
       setCode(Array(CODE_LENGTH).fill(''));
