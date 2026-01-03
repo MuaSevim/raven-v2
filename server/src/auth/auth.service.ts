@@ -81,9 +81,9 @@ export class AuthService implements OnModuleInit {
         birthDay: dto.birthDay,
         birthMonth: dto.birthMonth,
         birthYear: dto.birthYear,
-        country: dto.country,
-        countryCode: dto.countryCode,
-        city: dto.city,
+        country: dto.country || null,
+        countryCode: dto.countryCode || null,
+        city: dto.city || null,
         isVerified: false,
       },
     });

@@ -6,7 +6,7 @@ const API_URL = `http://${LOCAL_NETWORK_IP}:3000`;
 
 const api = axios.create({
   baseURL: API_URL,
-  timeout: 30000,
+  timeout: 60000, // Increased to 60 seconds
   headers: {
     'Content-Type': 'application/json',
   },

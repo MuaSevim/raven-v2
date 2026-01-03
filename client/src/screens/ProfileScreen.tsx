@@ -192,15 +192,32 @@ export default function ProfileScreen() {
     };
 
     const handlePickImage = async () => {
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.8,
-        });
+        // Request permission first
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
-        if (!result.canceled && result.assets[0]) {
-            setAvatar(result.assets[0].uri);
+        if (status !== 'granted') {
+            Alert.alert(
+                'Permission Required',
+                'Please grant permission to access your photo library to upload an avatar.',
+                [{ text: 'OK' }]
+            );
+            return;
+        }
+
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [1, 1],
+                quality: 0.8,
+            });
+
+            if (!result.canceled && result.assets[0]) {
+                setAvatar(result.assets[0].uri);
+            }
+        } catch (error) {
+            console.error('Error picking image:', error);
+            Alert.alert('Error', 'Failed to pick image. Please try again.');
         }
     };
 
@@ -215,7 +232,7 @@ export default function ProfileScreen() {
     };
 
     const getInitial = () => {
-        if (firstName) return firstName.charAt(0).toUpperCase();
+        if (firstName && lastName) return firstName.charAt(0).toUpperCase() + lastName.charAt(0).toUpperCase();
         if (profile?.email) return profile.email.charAt(0).toUpperCase();
         return '?';
     };
@@ -451,53 +468,58 @@ export default function ProfileScreen() {
                     activeOpacity={1}
                     onPress={() => setShowAvatarModal(false)}
                 >
-                    <View style={styles.avatarModalContent}>
-                        <View style={styles.avatarModalHandle} />
+                    <TouchableOpacity
+                        activeOpacity={1}
+                        onPress={(e) => e.stopPropagation()}
+                    >
+                        <View style={styles.avatarModalContent}>
+                            <View style={styles.avatarModalHandle} />
 
-                        <Text style={styles.avatarModalTitle}>Profile Photo</Text>
+                            <Text style={styles.avatarModalTitle}>Profile Photo</Text>
 
-                        <TouchableOpacity
-                            style={styles.avatarModalOption}
-                            onPress={() => {
-                                setShowAvatarModal(false);
-                                handlePickImage();
-                            }}
-                            activeOpacity={0.7}
-                        >
-                            {avatar ? (
-                                <ImageIcon size={22} color={colors.textPrimary} />
-                            ) : (
-                                <Upload size={22} color={colors.textPrimary} />
-                            )}
-                            <Text style={styles.avatarModalOptionText}>
-                                {avatar ? 'Change Photo' : 'Upload Photo'}
-                            </Text>
-                        </TouchableOpacity>
-
-                        {avatar && (
                             <TouchableOpacity
                                 style={styles.avatarModalOption}
                                 onPress={() => {
                                     setShowAvatarModal(false);
-                                    handleRemoveAvatar();
+                                    handlePickImage();
                                 }}
                                 activeOpacity={0.7}
                             >
-                                <Trash2 size={22} color="#EF4444" />
-                                <Text style={[styles.avatarModalOptionText, { color: '#EF4444' }]}>
-                                    Remove Photo
+                                {avatar ? (
+                                    <ImageIcon size={22} color={colors.textPrimary} />
+                                ) : (
+                                    <Upload size={22} color={colors.textPrimary} />
+                                )}
+                                <Text style={styles.avatarModalOptionText}>
+                                    {avatar ? 'Change Photo' : 'Upload Photo'}
                                 </Text>
                             </TouchableOpacity>
-                        )}
 
-                        <TouchableOpacity
-                            style={styles.avatarModalCancel}
-                            onPress={() => setShowAvatarModal(false)}
-                            activeOpacity={0.7}
-                        >
-                            <Text style={styles.avatarModalCancelText}>Cancel</Text>
-                        </TouchableOpacity>
-                    </View>
+                            {avatar && (
+                                <TouchableOpacity
+                                    style={styles.avatarModalOption}
+                                    onPress={() => {
+                                        setShowAvatarModal(false);
+                                        handleRemoveAvatar();
+                                    }}
+                                    activeOpacity={0.7}
+                                >
+                                    <Trash2 size={22} color="#EF4444" />
+                                    <Text style={[styles.avatarModalOptionText, { color: '#EF4444' }]}>
+                                        Remove Photo
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+
+                            <TouchableOpacity
+                                style={styles.avatarModalCancel}
+                                onPress={() => setShowAvatarModal(false)}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.avatarModalCancelText}>Cancel</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </TouchableOpacity>
                 </TouchableOpacity>
             </Modal>
         </SafeAreaView>

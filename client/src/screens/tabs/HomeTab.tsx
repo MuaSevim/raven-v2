@@ -14,10 +14,7 @@ import {
   Plane,
   MessageCircle,
   Globe,
-  Shield,
-  Users,
   MapPin,
-  ChevronRight,
   TrendingUp,
 } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -66,6 +63,7 @@ export default function HomeTab() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+
   // Fetch dashboard data
   const fetchDashboard = useCallback(async () => {
     if (!user) return;
@@ -74,11 +72,12 @@ export default function HomeTab() {
       const token = await user.getIdToken();
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [shipmentsRes, transactionsRes, offersRes, unreadRes] = await Promise.all([
+      const [shipmentsRes, transactionsRes, offersRes, unreadRes, profileRes] = await Promise.all([
         fetch(`${API_URL}/shipments/my/sent`, { headers }),
         fetch(`${API_URL}/payments/transactions`, { headers }),
         fetch(`${API_URL}/shipments/my/offers`, { headers }),
         fetch(`${API_URL}/conversations/unread`, { headers }),
+        fetch(`${API_URL}/auth/me`, { headers }),
       ]);
 
       // Process shipments
@@ -146,6 +145,8 @@ export default function HomeTab() {
         const data = await unreadRes.json();
         setUnreadCount(data.unreadCount || data.count || 0);
       }
+
+
     } catch (err) {
       console.error('Error fetching dashboard:', err);
     } finally {
@@ -174,19 +175,27 @@ export default function HomeTab() {
         }
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Header: Logo + Inbox */}
+        {/* Header: Logo + Avatar + Inbox */}
         <View style={styles.header}>
           <View style={styles.logoContainer}>
             <Text style={styles.logoText}>Raven</Text>
           </View>
-          <TouchableOpacity style={styles.inboxButton} onPress={() => navigation.navigate('Inbox')}>
-            <MessageCircle size={22} color={colors.textPrimary} strokeWidth={1.5} />
-            {unreadCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={styles.headerRight}>
+            <TouchableOpacity
+              style={styles.avatarButton}
+              onPress={() => navigation.navigate('Profile')}
+              activeOpacity={0.7}
+            >
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.inboxButton} onPress={() => navigation.navigate('Inbox')}>
+              <MessageCircle size={22} color={colors.textPrimary} strokeWidth={1.5} />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
 
@@ -265,9 +274,7 @@ export default function HomeTab() {
             ))
           ) : (
             <View style={styles.emptyState}>
-              <Package size={40} color={colors.textTertiary} strokeWidth={1} />
               <Text style={styles.emptyTitle}>No active deliveries</Text>
-              <Text style={styles.emptySubtitle}>Start by sending a package</Text>
             </View>
           )}
         </View>
@@ -329,6 +336,33 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize['2xl'],
     color: colors.textPrimary,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  avatarButton: {
+    width: 40,
+    height: 40,
+  },
+  avatarImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  avatarPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#000000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarInitials: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize.sm,
+    color: '#FFFFFF',
+  },
   inboxButton: {
     position: 'relative',
     padding: spacing.xs,
@@ -373,21 +407,14 @@ const styles = StyleSheet.create({
   // Empty State
   emptyState: {
     alignItems: 'center',
-    paddingVertical: spacing.xl * 2,
+    paddingVertical: spacing.lg,
     backgroundColor: colors.backgroundSecondary,
     borderRadius: borderRadius.xl,
   },
   emptyTitle: {
     fontFamily: typography.fontFamily.semiBold,
     fontSize: typography.fontSize.base,
-    color: colors.textPrimary,
-    marginTop: spacing.md,
-  },
-  emptySubtitle: {
-    fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.sm,
     color: colors.textSecondary,
-    marginTop: spacing.xs,
   },
   // CTA Card
   ctaCard: {

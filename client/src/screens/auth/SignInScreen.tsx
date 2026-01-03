@@ -37,74 +37,78 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
   // Check if form is valid for button state
   const isFormValid = email.trim().length > 0 && password.length >= 6;
 
-  const validateForm = (): boolean => {
-    const newErrors: { email?: string; password?: string } = {};
 
+  const handleSignIn = async () => {
+    // Clear any previous errors
+    setErrors({});
+
+    // Step 1: Check if both fields are filled
     if (!email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!isValidEmail(email)) {
-      newErrors.email = 'Please enter a valid email address';
+      setErrors({ email: 'Email is required' });
+      return;
     }
 
     if (!password) {
-      newErrors.password = 'Password is required';
-    } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+      setErrors({ password: 'Password is required' });
+      return;
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
+    // Step 2: Validate email format
+    if (!isValidEmail(email)) {
+      setErrors({ email: 'Please enter a valid email address' });
+      return;
+    }
 
-  const handleSignIn = async () => {
-    if (!validateForm()) return;
+    // Step 3: Check password length
+    if (password.length < 6) {
+      setErrors({ password: 'Password must be at least 6 characters' });
+      return;
+    }
 
     setIsLoading(true);
+
     try {
-      // Sign in with Firebase
-      await signInWithEmailAndPassword(auth, email.trim().toLowerCase(), password);
+      const emailLower = email.trim().toLowerCase();
+
+      // Sign in directly with Firebase - it will tell us if user doesn't exist
+      await signInWithEmailAndPassword(auth, emailLower, password);
       // Navigation will automatically switch to Home screen via onAuthStateChanged
+
     } catch (error: any) {
-      // Handle Firebase errors with field-specific feedback
+      // Handle errors
       let emailError: string | undefined;
       let passwordError: string | undefined;
-      let clearPassword = false;
 
       switch (error.code) {
         case 'auth/user-not-found':
+          // No account with this email
           emailError = 'No account found with this email';
-          break;
-        case 'auth/invalid-email':
-          emailError = 'Invalid email address format';
           break;
         case 'auth/wrong-password':
         case 'auth/invalid-credential':
-          passwordError = 'Incorrect password';
-          clearPassword = true;
+          // Password is incorrect or user not found (Firebase combines these for security)
+          passwordError = 'Invalid email or password';
+          setPassword(''); // Clear password field
           break;
         case 'auth/user-disabled':
+          // Account has been disabled
           emailError = 'This account has been disabled';
           break;
         case 'auth/too-many-requests':
+          // Too many failed login attempts
           passwordError = 'Too many failed attempts. Please try again later.';
           break;
         case 'auth/network-request-failed':
+          // Network error
           emailError = 'Network error. Please check your connection.';
           break;
-        case 'auth/operation-not-allowed':
-          emailError = 'Email/password sign-in is not enabled. Please contact support.';
-          console.error('FIREBASE ERROR: Email/Password provider is not enabled in Firebase Console!');
-          console.error('Enable it at: https://console.firebase.google.com/project/raven-app-e21c2/authentication/providers');
+        case 'auth/invalid-email':
+          emailError = 'Invalid email address';
           break;
         default:
           // Log unexpected errors for debugging
           console.error('Sign in error:', error.code, error.message);
-          emailError = 'An unexpected error occurred. Please try again.';
-      }
-
-      // Clear password if it was a password error
-      if (clearPassword) {
-        setPassword('');
+          emailError = error.message || 'An unexpected error occurred. Please try again.';
       }
 
       setErrors({
@@ -137,7 +141,7 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
               />
             </View>
             <Text style={styles.brandName}>RAVEN</Text>
-            <Text style={styles.tagline}>"International delivery has never been easier!"</Text>
+            <Text style={styles.tagline}>"Flying has never been cheaper"</Text>
           </View>
 
           {/* Form Section */}

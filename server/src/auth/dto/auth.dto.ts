@@ -40,14 +40,17 @@ export class CreateUserDto {
   @Max(2010) // Allow users 16+ years old
   birthYear: number;
 
+  @IsOptional()
   @IsString()
-  country: string;
+  country?: string;
 
+  @IsOptional()
   @IsString()
-  countryCode: string;
+  countryCode?: string;
 
+  @IsOptional()
   @IsString()
-  city: string;
+  city?: string;
 }
 
 export class SyncUserDto {
