@@ -242,11 +242,11 @@ export default function SignUpStep5Screen({ navigation }: Props) {
               </TouchableOpacity>
 
               {/* Demo hint */}
-              <View style={styles.hintContainer}>
+              {/* <View style={styles.hintContainer}>
                 <Text style={styles.hintText}>
                   💡 For testing, use code: <Text style={styles.hintCode}>0000</Text>
                 </Text>
-              </View>
+              </View>  */}
             </View>
           </View>
 

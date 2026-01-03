@@ -153,9 +153,9 @@ function ShipmentCard({ shipment, onPress }: ShipmentCardProps) {
 
       {/* Bottom Row: Date Range and Weight */}
       <View style={styles.shipmentDetails}>
-        <View style={styles.dateContainer}>
-          <Text style={styles.dateLabel}>Delivery window</Text>
-          <Text style={styles.dateText}>
+        <View style={styles.weightContainer}>
+          <Calendar size={14} color={colors.textSecondary} />
+          <Text style={styles.weightText}>
             {formatDate(shipment.dateStart)} - {formatDate(shipment.dateEnd)}
           </Text>
         </View>
@@ -561,6 +561,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
+    marginVertical: spacing.xs,
   },
   dateContainer: {},
   dateLabel: {
