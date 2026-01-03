@@ -100,6 +100,10 @@ export class UpdateUserDto {
   lastName?: string;
 
   @IsOptional()
+  @IsEmail()
+  email?: string;
+
+  @IsOptional()
   @IsInt()
   birthDay?: number;
 

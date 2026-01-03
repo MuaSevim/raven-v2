@@ -115,9 +115,8 @@ export class ConversationsService {
       }
     }
 
-    // Determine other user, isSender, and canMatch for client
+    // Determine other user and canMatch for client
     const otherUser = conversation.user1Id === userId ? conversation.user2 : conversation.user1;
-    const isSender = shipment.senderId === userId;
 
     return {
       ...conversation,
