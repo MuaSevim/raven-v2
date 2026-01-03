@@ -35,15 +35,19 @@ export default function VerificationModal({
     const [idImage, setIdImage] = useState<string | null>(null);
 
     const handlePickImage = async () => {
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ['images'],
-            allowsEditing: true,
-            aspect: [3, 2],
-            quality: 0.8,
-        });
+        try {
+            const result = await ImagePicker.launchImageLibraryAsync({
+                mediaTypes: ['images'],
+                allowsEditing: true,
+                aspect: [3, 2],
+                quality: 0.8,
+            });
 
-        if (!result.canceled && result.assets[0]) {
-            setIdImage(result.assets[0].uri);
+            if (!result.canceled && result.assets[0]) {
+                setIdImage(result.assets[0].uri);
+            }
+        } catch (error) {
+            console.error('Error picking verification image:', error);
         }
     };
 

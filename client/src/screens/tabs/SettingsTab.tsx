@@ -16,6 +16,7 @@ import {
   Shield,
   HelpCircle,
   Info,
+  LogOut,
 } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { colors, typography, spacing, borderRadius } from '../../theme';
@@ -79,12 +80,30 @@ function SettingsToggle({ label, value, onValueChange, icon }: SettingsTogglePro
 
 export default function SettingsTab() {
   const navigation = useNavigation<any>();
-
+  const { signOut: authSignOut } = useAuthStore();
 
   const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState(true);
 
-
+  const handleSignOut = () => {
+    Alert.alert(
+      'Sign Out',
+      'Are you sure you want to sign out?',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            await authSignOut();
+          },
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -143,10 +162,19 @@ export default function SettingsTab() {
           />
         </View>
 
-
+        {/* Sign Out */}
+        <TouchableOpacity
+          style={styles.signOutButton}
+          onPress={handleSignOut}
+          activeOpacity={0.7}
+        >
+          <LogOut size={20} color="#EF4444" />
+          <Text style={styles.signOutText}>Sign Out</Text>
+        </TouchableOpacity>
 
         {/* Version */}
-        <Text style={styles.version}>Version 2.5.0</Text>
+        <Text style={styles.version}>Version 1.0.0</Text>
+        <Text style={[styles.version, { marginTop: spacing.xs, fontSize: typography.fontSize.xs }]}>Made by Mua</Text>
       </ScrollView>
     </SafeAreaView>
   );
@@ -215,13 +243,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundSecondary,
     borderRadius: borderRadius.xl,
     paddingVertical: spacing.lg,
+    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
+    gap: spacing.sm,
     marginTop: spacing.md,
   },
   signOutText: {
     fontFamily: typography.fontFamily.medium,
     fontSize: typography.fontSize.base,
-    color: colors.error,
+    color: '#EF4444',
   },
 
   // Version

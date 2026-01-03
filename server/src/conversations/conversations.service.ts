@@ -10,12 +10,13 @@ export class ConversationsService {
    * Get or create a conversation between two users about a shipment
    */
   async getOrCreateConversation(userId: string, userEmail: string, dto: CreateConversationDto) {
-    // Ensure user exists
-    await this.prisma.user.upsert({
-      where: { id: userId },
-      update: {},
-      create: { id: userId, email: userEmail },
-    });
+    // Ensure current user exists
+    const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!existingUser) {
+      await this.prisma.user.create({
+        data: { id: userId, email: userEmail },
+      });
+    }
 
     // Check if shipment exists
     const shipment = await this.prisma.shipment.findUnique({
@@ -34,6 +35,16 @@ export class ConversationsService {
     // Don't allow conversation with self
     if (user1Id === user2Id) {
       throw new BadRequestException('Cannot create conversation with yourself');
+    }
+
+    // Ensure recipient user exists (they might not be in DB yet)
+    const recipientId = isSender ? dto.recipientId : shipment.senderId;
+    const recipientExists = await this.prisma.user.findUnique({ where: { id: recipientId } });
+    if (!recipientExists) {
+      // Create placeholder user - they'll update their profile when they sign in
+      await this.prisma.user.create({
+        data: { id: recipientId, email: `${recipientId}@placeholder.raven` },
+      });
     }
 
     // Try to find existing conversation
@@ -100,10 +111,20 @@ export class ConversationsService {
         await this.sendMessage(userId, conversation.id, { content: dto.initialMessage });
         // Refresh conversation
         conversation = await this.getConversationById(userId, conversation.id);
+        return conversation;
       }
     }
 
-    return conversation;
+    // Determine other user, isSender, and canMatch for client
+    const otherUser = conversation.user1Id === userId ? conversation.user2 : conversation.user1;
+    const isSender = shipment.senderId === userId;
+
+    return {
+      ...conversation,
+      otherUser,
+      isSender,
+      canMatch: isSender && shipment.status === 'OPEN',
+    };
   }
 
   /**

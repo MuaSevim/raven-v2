@@ -15,20 +15,27 @@ export class ShipmentsService {
     const lastName = nameParts.slice(1).join(' ') || '';
 
     // Ensure user exists in database (upsert if not)
-    await this.prisma.user.upsert({
-      where: { id: senderId },
-      update: {
-        // Update the user's name if provided and not already set
-        ...(firstName && { firstName }),
-        ...(lastName && { lastName }),
-      },
-      create: {
-        id: senderId,
-        email: senderEmail || `${senderId}@placeholder.com`,
-        firstName: firstName || null,
-        lastName: lastName || null,
-      },
-    });
+    const existingUser = await this.prisma.user.findUnique({ where: { id: senderId } });
+    
+    if (!existingUser) {
+      await this.prisma.user.create({
+        data: {
+          id: senderId,
+          email: senderEmail || `${senderId}@placeholder.com`,
+          firstName: firstName || null,
+          lastName: lastName || null,
+        },
+      });
+    } else if (firstName || lastName) {
+      // Update name if provided and user doesn't have one
+      await this.prisma.user.update({
+        where: { id: senderId },
+        data: {
+          ...(firstName && !existingUser.firstName ? { firstName } : {}),
+          ...(lastName && !existingUser.lastName ? { lastName } : {}),
+        },
+      });
+    }
 
     return this.prisma.shipment.create({
       data: {
@@ -436,6 +443,181 @@ export class ShipmentsService {
       id: offer.id,
       status: offer.status,
       conversationId: conversation?.id,
+    };
+  }
+
+  /**
+   * Confirm handover - called by either sender or courier
+   * When both confirm, status changes to HANDED_OVER, then auto-advances to ON_WAY
+   */
+  async confirmHandover(shipmentId: string, userId: string) {
+    const shipment = await this.prisma.shipment.findUnique({
+      where: { id: shipmentId },
+      select: {
+        id: true,
+        status: true,
+        senderId: true,
+        courierId: true,
+        senderConfirmedHandover: true,
+        courierConfirmedHandover: true,
+      },
+    });
+
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
+    }
+
+    // Verify user is either sender or courier
+    const isSender = shipment.senderId === userId;
+    const isCourier = shipment.courierId === userId;
+
+    if (!isSender && !isCourier) {
+      throw new ForbiddenException('You are not authorized to confirm this shipment');
+    }
+
+    if (!shipment.courierId) {
+      throw new ForbiddenException('Cannot confirm handover - no courier assigned');
+    }
+
+    if (shipment.status !== 'MATCHED' && shipment.status !== 'HANDED_OVER') {
+      throw new ForbiddenException(`Cannot confirm handover in status: ${shipment.status}`);
+    }
+
+    // Update the appropriate confirmation field
+    const updateData: any = {};
+    if (isSender) {
+      updateData.senderConfirmedHandover = true;
+    }
+    if (isCourier) {
+      updateData.courierConfirmedHandover = true;
+    }
+
+    // Check if both will be confirmed after this update
+    const senderConfirmed = isSender ? true : shipment.senderConfirmedHandover;
+    const courierConfirmed = isCourier ? true : shipment.courierConfirmedHandover;
+
+    if (senderConfirmed && courierConfirmed) {
+      // Both confirmed - update status to HANDED_OVER then ON_WAY
+      updateData.status = 'ON_WAY';
+      updateData.handoverConfirmedAt = new Date();
+    }
+
+    const updated = await this.prisma.shipment.update({
+      where: { id: shipmentId },
+      data: updateData,
+      include: {
+        sender: {
+          select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
+        },
+        courier: {
+          select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
+        },
+      },
+    });
+
+    return {
+      shipment: updated,
+      confirmations: {
+        senderConfirmedHandover: updated.senderConfirmedHandover,
+        courierConfirmedHandover: updated.courierConfirmedHandover,
+        bothConfirmed: updated.senderConfirmedHandover && updated.courierConfirmedHandover,
+      },
+      message: senderConfirmed && courierConfirmed
+        ? 'Both parties confirmed handover. Package is now on the way!'
+        : `${isSender ? 'Sender' : 'Courier'} confirmed handover. Waiting for ${isSender ? 'courier' : 'sender'} confirmation.`,
+    };
+  }
+
+  /**
+   * Confirm delivery - called by either sender or courier
+   * When both confirm, status changes to DELIVERED and payment is released
+   */
+  async confirmDelivery(shipmentId: string, userId: string) {
+    const shipment = await this.prisma.shipment.findUnique({
+      where: { id: shipmentId },
+      select: {
+        id: true,
+        status: true,
+        senderId: true,
+        courierId: true,
+        senderConfirmedDelivery: true,
+        courierConfirmedDelivery: true,
+        price: true,
+        currency: true,
+      },
+    });
+
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
+    }
+
+    // Verify user is either sender or courier
+    const isSender = shipment.senderId === userId;
+    const isCourier = shipment.courierId === userId;
+
+    if (!isSender && !isCourier) {
+      throw new ForbiddenException('You are not authorized to confirm this shipment');
+    }
+
+    if (!shipment.courierId) {
+      throw new ForbiddenException('Cannot confirm delivery - no courier assigned');
+    }
+
+    if (shipment.status !== 'ON_WAY') {
+      throw new ForbiddenException(`Cannot confirm delivery in status: ${shipment.status}`);
+    }
+
+    // Update the appropriate confirmation field
+    const updateData: any = {};
+    if (isSender) {
+      updateData.senderConfirmedDelivery = true;
+    }
+    if (isCourier) {
+      updateData.courierConfirmedDelivery = true;
+    }
+
+    // Check if both will be confirmed after this update
+    const senderConfirmed = isSender ? true : shipment.senderConfirmedDelivery;
+    const courierConfirmed = isCourier ? true : shipment.courierConfirmedDelivery;
+
+    if (senderConfirmed && courierConfirmed) {
+      // Both confirmed - update status to DELIVERED
+      updateData.status = 'DELIVERED';
+      updateData.deliveryConfirmedAt = new Date();
+
+      // Release payment to courier
+      await this.prisma.transaction.updateMany({
+        where: { shipmentId, status: 'HELD' },
+        data: {
+          status: 'RELEASED',
+          payeeId: shipment.courierId,
+        },
+      });
+    }
+
+    const updated = await this.prisma.shipment.update({
+      where: { id: shipmentId },
+      data: updateData,
+      include: {
+        sender: {
+          select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
+        },
+        courier: {
+          select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
+        },
+      },
+    });
+
+    return {
+      shipment: updated,
+      confirmations: {
+        senderConfirmedDelivery: updated.senderConfirmedDelivery,
+        courierConfirmedDelivery: updated.courierConfirmedDelivery,
+        bothConfirmed: updated.senderConfirmedDelivery && updated.courierConfirmedDelivery,
+      },
+      message: senderConfirmed && courierConfirmed
+        ? 'Both parties confirmed delivery. Payment has been released!'
+        : `${isSender ? 'Sender' : 'Courier'} confirmed delivery. Waiting for ${isSender ? 'courier' : 'sender'} confirmation.`,
     };
   }
 }

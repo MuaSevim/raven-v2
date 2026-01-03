@@ -96,7 +96,17 @@ model Shipment {
   senderPhoneCode String?
   
   // Status
-  status          String    @default("OPEN") // OPEN, MATCHED, ON_WAY, DELIVERED, CANCELLED
+  status          String    @default("OPEN") // OPEN, MATCHED, HANDED_OVER, ON_WAY, DELIVERED, CANCELLED
+  
+  // Confirmation tracking - Both parties must confirm
+  senderConfirmedHandover   Boolean   @default(false)
+  courierConfirmedHandover  Boolean   @default(false)
+  senderConfirmedDelivery   Boolean   @default(false)
+  courierConfirmedDelivery  Boolean   @default(false)
+  
+  // Confirmation timestamps
+  handoverConfirmedAt       DateTime?
+  deliveryConfirmedAt       DateTime?
   
   // Relations
   senderId        String

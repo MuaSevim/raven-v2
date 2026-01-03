@@ -72,8 +72,9 @@ export default function HomeTab() {
       const token = await user.getIdToken();
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [shipmentsRes, transactionsRes, offersRes, unreadRes, profileRes] = await Promise.all([
+      const [shipmentsRes, deliveringRes, transactionsRes, offersRes, unreadRes, profileRes] = await Promise.all([
         fetch(`${API_URL}/shipments/my/sent`, { headers }),
+        fetch(`${API_URL}/shipments/my/delivering`, { headers }),
         fetch(`${API_URL}/payments/transactions`, { headers }),
         fetch(`${API_URL}/shipments/my/offers`, { headers }),
         fetch(`${API_URL}/conversations/unread`, { headers }),
@@ -82,8 +83,25 @@ export default function HomeTab() {
 
       // Process shipments
       const shipments = shipmentsRes.ok ? await shipmentsRes.json() : [];
+
+      // Calculate 2 days ago for filtering recently delivered
+      const twoDaysAgo = new Date();
+      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+
       const shipmentItems: ActivityData[] = shipments
-        .filter((s: any) => s.status !== 'DELIVERED' && s.status !== 'CANCELLED')
+        .filter((s: any) => {
+          // Always exclude CANCELLED
+          if (s.status === 'CANCELLED') return false;
+
+          // Include DELIVERED if delivered within last 2 days
+          if (s.status === 'DELIVERED') {
+            const deliveredAt = s.deliveryConfirmedAt ? new Date(s.deliveryConfirmedAt) : new Date(s.updatedAt);
+            return deliveredAt >= twoDaysAgo;
+          }
+
+          // Include all other active statuses
+          return true;
+        })
         .map((s: any) => ({
           id: s.id,
           shipmentId: s.id,
@@ -98,15 +116,45 @@ export default function HomeTab() {
           createdAt: s.createdAt,
         }));
 
+      // Process courier deliveries (shipments where user is courier)
+      const delivering = deliveringRes.ok ? await deliveringRes.json() : [];
+      const deliveringItems: ActivityData[] = delivering
+        .filter((s: any) => {
+          // Always exclude CANCELLED
+          if (s.status === 'CANCELLED') return false;
+
+          // Include DELIVERED if delivered within last 2 days
+          if (s.status === 'DELIVERED') {
+            const deliveredAt = s.deliveryConfirmedAt ? new Date(s.deliveryConfirmedAt) : new Date(s.updatedAt);
+            return deliveredAt >= twoDaysAgo;
+          }
+
+          // Include all other active statuses
+          return true;
+        })
+        .map((s: any) => ({
+          id: `courier-${s.id}`,
+          shipmentId: s.id,
+          type: 'shipment' as const,
+          status: s.status,
+          price: s.price,
+          currency: s.currency,
+          origin: s.originCity,
+          destination: s.destCity,
+          ownerName: `${s.sender?.firstName || ''} ${s.sender?.lastName || ''}`.trim(),
+          isOwner: false, // User is courier, not owner
+          createdAt: s.createdAt,
+        }));
+
       // Process transactions
       const transactions = transactionsRes.ok ? await transactionsRes.json() : [];
       const transactionItems: ActivityData[] = transactions
-        .filter((t: any) => t.status === 'HELD')
+        .filter((t: any) => t.status === 'HELD' || t.status === 'RELEASED')
         .map((t: any) => ({
           id: t.id,
           shipmentId: t.shipment?.id,
           type: 'transaction' as const,
-          status: 'ON_WAY',
+          status: t.status === 'RELEASED' ? 'DELIVERED' : 'ON_WAY',
           price: t.amount,
           currency: t.currency,
           origin: t.shipment?.originCity || 'Unknown',
@@ -135,7 +183,18 @@ export default function HomeTab() {
         }));
 
       // Merge and sort by creation date (newest first)
-      const allItems = [...shipmentItems, ...transactionItems, ...offerItems]
+      // Use a Set to deduplicate by shipmentId (in case same shipment appears in multiple lists)
+      const seenShipmentIds = new Set<string>();
+      const allItems = [...shipmentItems, ...deliveringItems, ...transactionItems, ...offerItems]
+        .filter(item => {
+          if (item.shipmentId && seenShipmentIds.has(item.shipmentId)) {
+            return false;
+          }
+          if (item.shipmentId) {
+            seenShipmentIds.add(item.shipmentId);
+          }
+          return true;
+        })
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
       setActiveItems(allItems);
@@ -371,7 +430,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 0,
     right: 0,
-    backgroundColor: '#EF4444',
+    backgroundColor: colors.primary,
     borderRadius: 10,
     minWidth: 18,
     height: 18,
