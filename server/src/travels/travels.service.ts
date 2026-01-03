@@ -8,15 +8,16 @@ export class TravelsService {
   constructor(private prisma: PrismaService) { }
 
   async create(userId: string, userEmail: string, createTravelDto: CreateTravelDto) {
-    // Ensure user exists in database (upsert if not)
-    await this.prisma.user.upsert({
-      where: { id: userId },
-      update: {},
-      create: {
-        id: userId,
-        email: userEmail || `${userId}@placeholder.com`,
-      },
-    });
+    // Ensure user exists in database
+    const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!existingUser) {
+      await this.prisma.user.create({
+        data: {
+          id: userId,
+          email: userEmail || `${userId}@placeholder.com`,
+        },
+      });
+    }
 
     return this.prisma.travel.create({
       data: {

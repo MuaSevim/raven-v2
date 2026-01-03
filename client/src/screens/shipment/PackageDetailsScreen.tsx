@@ -53,15 +53,20 @@ export default function PackageDetailsScreen() {
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
+      if (!result.canceled && result.assets[0]) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error picking image:', error);
+      Alert.alert('Error', 'Failed to pick image. Please try again.');
     }
   };
 
@@ -72,24 +77,30 @@ export default function PackageDetailsScreen() {
       return;
     }
 
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
+    try {
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.8,
+      });
 
-    if (!result.canceled && result.assets[0]) {
-      setImageUri(result.assets[0].uri);
+      if (!result.canceled && result.assets[0]) {
+        setImageUri(result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Error taking photo:', error);
+      Alert.alert('Error', 'Failed to open camera. Please try again.');
     }
   };
 
   const showImageOptions = () => {
+    // Use Alert.alert on all platforms - it works reliably
     Alert.alert(
       'Add Package Photo',
       'Choose how you want to add the photo',
       [
-        { text: 'Take Photo', onPress: takePhoto },
-        { text: 'Choose from Library', onPress: pickImage },
+        { text: 'Take Photo', onPress: () => setTimeout(takePhoto, 100) },
+        { text: 'Choose from Library', onPress: () => setTimeout(pickImage, 100) },
         { text: 'Cancel', style: 'cancel' },
       ]
     );
@@ -256,7 +267,7 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.xl,
+    paddingBottom: 120, // Extra padding to clear bottom button
   },
   sectionHeader: {
     flexDirection: 'row',

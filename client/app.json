@@ -37,7 +37,13 @@
     },
     "plugins": [
       "expo-font",
-      "expo-image-picker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Raven needs access to your photos to upload package images and profile pictures.",
+          "cameraPermission": "Raven needs access to your camera to take photos of packages."
+        }
+      ],
       "expo-web-browser"
     ],
     "extra": {

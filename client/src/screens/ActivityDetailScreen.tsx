@@ -27,10 +27,12 @@ import {
   AlertTriangle,
   Ban,
   CreditCard,
+  Calendar,
 } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuthStore } from '../store/useAuthStore';
 import { API_URL } from '../config';
+import { shipmentsApi } from '../services/api';
 import { colors, typography, spacing, borderRadius } from '../theme';
 
 // =============================================================================
@@ -53,6 +55,13 @@ interface ShipmentDetails {
   imageUrl: string | null;
   status: string;
   createdAt: string;
+  // Confirmation tracking
+  senderConfirmedHandover: boolean;
+  courierConfirmedHandover: boolean;
+  senderConfirmedDelivery: boolean;
+  courierConfirmedDelivery: boolean;
+  handoverConfirmedAt: string | null;
+  deliveryConfirmedAt: string | null;
   sender: {
     id: string;
     firstName: string;
@@ -60,6 +69,7 @@ interface ShipmentDetails {
     avatar: string | null;
     isVerified: boolean;
   };
+  courierId?: string | null;
   courier?: {
     id: string;
     firstName: string;
@@ -103,6 +113,8 @@ export default function ActivityDetailScreen() {
   const [showOfferModal, setShowOfferModal] = useState(false);
   const [offerMessage, setOfferMessage] = useState("Hi! I'm traveling on this route and can deliver your package.");
   const [submitting, setSubmitting] = useState(false);
+  const [confirmingHandover, setConfirmingHandover] = useState(false);
+  const [confirmingDelivery, setConfirmingDelivery] = useState(false);
 
   useEffect(() => {
     if (shipmentId) fetchShipment();
@@ -148,6 +160,62 @@ export default function ActivityDetailScreen() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleConfirmHandover = async () => {
+    if (!shipment || !user) return;
+
+    Alert.alert(
+      'Confirm Handover',
+      'Are you sure you want to confirm the package was handed over?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          onPress: async () => {
+            setConfirmingHandover(true);
+            try {
+              const token = await user.getIdToken();
+              const result = await shipmentsApi.confirmHandover(token, shipment.id);
+              setShipment(result.shipment);
+              Alert.alert('Success', result.message);
+            } catch (err: any) {
+              Alert.alert('Error', err.response?.data?.message || 'Failed to confirm handover');
+            } finally {
+              setConfirmingHandover(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleConfirmDelivery = async () => {
+    if (!shipment || !user) return;
+
+    Alert.alert(
+      'Confirm Delivery',
+      'Are you sure you want to confirm the package was delivered?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm',
+          onPress: async () => {
+            setConfirmingDelivery(true);
+            try {
+              const token = await user.getIdToken();
+              const result = await shipmentsApi.confirmDelivery(token, shipment.id);
+              setShipment(result.shipment);
+              Alert.alert('Success', result.message);
+            } catch (err: any) {
+              Alert.alert('Error', err.response?.data?.message || 'Failed to confirm delivery');
+            } finally {
+              setConfirmingDelivery(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   const handleCancel = () => {
@@ -222,7 +290,12 @@ export default function ActivityDetailScreen() {
 
                 return (
                   <View key={status} style={styles.progressStep}>
-                    <View style={[styles.progressDot, isComplete && styles.progressDotComplete, isCurrent && styles.progressDotCurrent]}>
+                    <View style={[
+                      styles.progressDot,
+                      isComplete && styles.progressDotComplete,
+                      // Only show "current" (black) style if NOT complete - for DELIVERED, show green
+                      isCurrent && !isComplete && styles.progressDotCurrent
+                    ]}>
                       <Icon size={14} color={isComplete ? '#fff' : colors.textTertiary} />
                     </View>
                     <Text style={[styles.progressLabel, isComplete && styles.progressLabelComplete]}>{label}</Text>
@@ -275,9 +348,8 @@ export default function ActivityDetailScreen() {
 
         {/* Delivery Window */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Delivery Window</Text>
           <View style={styles.dateRow}>
-            <Clock size={18} color={colors.textSecondary} />
+            <Calendar size={18} color={colors.textSecondary} strokeWidth={1.5} />
             <Text style={styles.dateText}>
               {formatDate(shipment.dateStart)} - {formatDate(shipment.dateEnd)}
             </Text>
@@ -342,12 +414,153 @@ export default function ActivityDetailScreen() {
           </View>
         )}
 
-        {/* Price */}
+        {/* Earnings / Price - Show differently based on status and role */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Earnings</Text>
-          <Text style={styles.priceText}>{currencySymbol}{Math.floor(shipment.price * 0.9)}</Text>
-          <Text style={styles.priceSubtext}>After 10% platform fee</Text>
+          {shipment.status === 'DELIVERED' ? (
+            <>
+              <View style={styles.successBanner}>
+                <CheckCircle size={24} color="#22C55E" />
+                <Text style={styles.successText}>Delivery Complete!</Text>
+              </View>
+              <Text style={styles.cardTitle}>{isMySender ? 'Amount Paid' : 'Earnings'}</Text>
+              <Text style={styles.priceText}>
+                {currencySymbol}{isMySender ? shipment.price : Math.floor(shipment.price * 0.9)}
+              </Text>
+              <Text style={styles.priceSubtext}>
+                {isMySender
+                  ? 'Payment released to courier'
+                  : 'After 10% platform fee'}
+              </Text>
+              {shipment.deliveryConfirmedAt && (
+                <Text style={styles.deliveredDate}>
+                  Delivered on {formatDate(shipment.deliveryConfirmedAt)}
+                </Text>
+              )}
+            </>
+          ) : (
+            <>
+              <Text style={styles.cardTitle}>{isMySender ? 'Price' : 'Earnings'}</Text>
+              <Text style={styles.priceText}>
+                {currencySymbol}{isMySender ? shipment.price : Math.floor(shipment.price * 0.9)}
+              </Text>
+              <Text style={styles.priceSubtext}>
+                {isMySender ? 'Total shipment cost' : 'After 10% platform fee'}
+              </Text>
+            </>
+          )}
         </View>
+
+        {/* Confirmation Section */}
+        {shipment.status === 'MATCHED' && shipment.courierId && (
+          <View style={styles.confirmationCard}>
+            <Text style={styles.cardTitle}>Confirm Handover</Text>
+            <Text style={styles.confirmationSubtext}>
+              Both parties must confirm when the package is handed over.
+            </Text>
+
+            <View style={styles.confirmationStatus}>
+              <View style={styles.confirmationRow}>
+                <View style={[styles.confirmationIndicator, shipment.senderConfirmedHandover && styles.confirmationIndicatorActive]}>
+                  {shipment.senderConfirmedHandover ? (
+                    <CheckCircle size={16} color="#fff" />
+                  ) : (
+                    <Clock size={16} color={colors.textTertiary} />
+                  )}
+                </View>
+                <Text style={styles.confirmationLabel}>
+                  Sender {shipment.senderConfirmedHandover ? 'confirmed' : 'pending'}
+                </Text>
+              </View>
+              <View style={styles.confirmationRow}>
+                <View style={[styles.confirmationIndicator, shipment.courierConfirmedHandover && styles.confirmationIndicatorActive]}>
+                  {shipment.courierConfirmedHandover ? (
+                    <CheckCircle size={16} color="#fff" />
+                  ) : (
+                    <Clock size={16} color={colors.textTertiary} />
+                  )}
+                </View>
+                <Text style={styles.confirmationLabel}>
+                  Courier {shipment.courierConfirmedHandover ? 'confirmed' : 'pending'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Show button only if current user hasn't confirmed yet */}
+            {((isMySender && !shipment.senderConfirmedHandover) ||
+              (!isMySender && !shipment.courierConfirmedHandover)) && (
+                <TouchableOpacity
+                  style={styles.confirmButton}
+                  onPress={handleConfirmHandover}
+                  disabled={confirmingHandover}
+                >
+                  {confirmingHandover ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <>
+                      <HandHeart size={20} color="#fff" />
+                      <Text style={styles.confirmButtonText}>Confirm Handover</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+          </View>
+        )}
+
+        {/* Confirm Delivery - Only when ON_WAY */}
+        {shipment.status === 'ON_WAY' && (
+          <View style={styles.confirmationCard}>
+            <Text style={styles.cardTitle}>Confirm Delivery</Text>
+            <Text style={styles.confirmationSubtext}>
+              Both parties must confirm when the package is delivered.
+            </Text>
+
+            <View style={styles.confirmationStatus}>
+              <View style={styles.confirmationRow}>
+                <View style={[styles.confirmationIndicator, shipment.senderConfirmedDelivery && styles.confirmationIndicatorActive]}>
+                  {shipment.senderConfirmedDelivery ? (
+                    <CheckCircle size={16} color="#fff" />
+                  ) : (
+                    <Clock size={16} color={colors.textTertiary} />
+                  )}
+                </View>
+                <Text style={styles.confirmationLabel}>
+                  Sender {shipment.senderConfirmedDelivery ? 'confirmed' : 'pending'}
+                </Text>
+              </View>
+              <View style={styles.confirmationRow}>
+                <View style={[styles.confirmationIndicator, shipment.courierConfirmedDelivery && styles.confirmationIndicatorActive]}>
+                  {shipment.courierConfirmedDelivery ? (
+                    <CheckCircle size={16} color="#fff" />
+                  ) : (
+                    <Clock size={16} color={colors.textTertiary} />
+                  )}
+                </View>
+                <Text style={styles.confirmationLabel}>
+                  Courier {shipment.courierConfirmedDelivery ? 'confirmed' : 'pending'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Show button only if current user hasn't confirmed yet */}
+            {((isMySender && !shipment.senderConfirmedDelivery) ||
+              (!isMySender && !shipment.courierConfirmedDelivery)) && (
+                <TouchableOpacity
+                  style={[styles.confirmButton, styles.confirmDeliveryButton]}
+                  onPress={handleConfirmDelivery}
+                  disabled={confirmingDelivery}
+                >
+                  {confirmingDelivery ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <>
+                      <Package size={20} color="#fff" />
+                      <Text style={styles.confirmButtonText}>Confirm Delivery</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              )}
+          </View>
+        )}
 
         {/* Action Buttons */}
         {shipment.status === 'OPEN' && !isMySender && (
@@ -470,6 +683,9 @@ const styles = StyleSheet.create({
   // Price
   priceText: { fontFamily: typography.fontFamily.bold, fontSize: typography.fontSize['2xl'], color: colors.textPrimary },
   priceSubtext: { fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, color: colors.textSecondary, marginTop: 2 },
+  successBanner: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, backgroundColor: '#E8F5E9', borderRadius: borderRadius.lg },
+  successText: { fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.base, color: '#22C55E' },
+  deliveredDate: { fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, color: colors.textTertiary, marginTop: spacing.sm },
   // Buttons
   primaryButton: { backgroundColor: colors.textPrimary, borderRadius: borderRadius.lg, paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.md },
   primaryButtonDisabled: { opacity: 0.5 },
@@ -480,6 +696,17 @@ const styles = StyleSheet.create({
   reportButton: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, paddingVertical: spacing.md, borderRadius: borderRadius.lg },
   reportButtonText: { fontFamily: typography.fontFamily.medium, fontSize: typography.fontSize.sm, color: colors.textSecondary },
   bottomPadding: { height: spacing.xl * 2 },
+  // Confirmation
+  confirmationCard: { backgroundColor: colors.backgroundSecondary, borderRadius: borderRadius.xl, padding: spacing.lg, marginTop: spacing.md },
+  confirmationSubtext: { fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, color: colors.textSecondary, marginTop: spacing.xs, marginBottom: spacing.md },
+  confirmationStatus: { gap: spacing.sm, marginBottom: spacing.md },
+  confirmationRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  confirmationIndicator: { width: 28, height: 28, borderRadius: 14, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, justifyContent: 'center', alignItems: 'center' },
+  confirmationIndicatorActive: { backgroundColor: '#22C55E', borderColor: '#22C55E' },
+  confirmationLabel: { fontFamily: typography.fontFamily.medium, fontSize: typography.fontSize.sm, color: colors.textPrimary },
+  confirmButton: { backgroundColor: '#22C55E', borderRadius: borderRadius.lg, paddingVertical: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
+  confirmDeliveryButton: { backgroundColor: colors.textPrimary },
+  confirmButtonText: { fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.base, color: '#fff' },
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: colors.background, borderTopLeftRadius: borderRadius.xl, borderTopRightRadius: borderRadius.xl, padding: spacing.xl },

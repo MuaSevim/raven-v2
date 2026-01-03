@@ -318,7 +318,7 @@ export default function ChatScreen() {
     );
   };
 
-  const otherUserName = conversation
+  const otherUserName = conversation?.otherUser
     ? `${conversation.otherUser.firstName || ''} ${conversation.otherUser.lastName || ''}`.trim() || 'User'
     : params.recipientName || 'User';
 
@@ -516,13 +516,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     gap: spacing.sm,
   },
   backButton: {
     padding: spacing.xs,
+    marginRight: spacing.xs,
   },
   headerInfo: {
     flex: 1,
@@ -696,7 +697,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     paddingVertical: spacing.md,
     borderTopWidth: 1,
     borderTopColor: colors.border,
@@ -710,7 +711,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundSecondary,
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     maxHeight: 100,
   },
   sendButton: {

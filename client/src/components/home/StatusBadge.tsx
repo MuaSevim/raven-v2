@@ -21,7 +21,7 @@ const STATUS_CONFIG: Record<string, { bg: string; text: string; label: string; I
     MATCHED: { bg: '#E3F2FD', text: '#1976D2', label: 'MATCHED', Icon: CheckCircle },
     HANDED_OVER: { bg: '#E8EAF6', text: '#5C6BC0', label: 'HANDED', Icon: HandHeart },
     ON_WAY: { bg: '#E8F5E9', text: '#4CAF50', label: 'ON WAY', Icon: Plane },
-    DELIVERED: { bg: '#F5F5F5', text: '#4CAF50', label: 'DONE', Icon: CheckCircle },
+    DELIVERED: { bg: '#22C55E', text: '#FFFFFF', label: 'DELIVERED', Icon: CheckCircle },
     CANCELLED: { bg: '#FFEBEE', text: '#F44336', label: 'CANCELLED', Icon: XCircle },
     PENDING: { bg: '#FFF8E1', text: '#FFA000', label: 'PENDING', Icon: Clock },
     OFFER_MADE: { bg: '#F3E8FF', text: '#8B5CF6', label: 'OFFER MADE', Icon: Send },

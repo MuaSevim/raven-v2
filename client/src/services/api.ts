@@ -100,4 +100,27 @@ export const authApi = {
   },
 };
 
+// Shipments API functions
+export const shipmentsApi = {
+  /**
+   * Confirm handover - both sender and courier must confirm
+   */
+  confirmHandover: async (token: string, shipmentId: string) => {
+    const response = await api.post(`/shipments/${shipmentId}/confirm-handover`, {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  },
+
+  /**
+   * Confirm delivery - both sender and courier must confirm
+   */
+  confirmDelivery: async (token: string, shipmentId: string) => {
+    const response = await api.post(`/shipments/${shipmentId}/confirm-delivery`, {}, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return response.data;
+  },
+};
+
 export default api;

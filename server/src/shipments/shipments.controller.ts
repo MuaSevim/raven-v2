@@ -107,4 +107,22 @@ export class ShipmentsController {
   getMyOffer(@Request() req, @Param('id') id: string) {
     return this.shipmentsService.getUserOfferOnShipment(id, req.user.uid);
   }
+
+  /**
+   * Confirm handover - both sender and courier must confirm
+   * POST /shipments/:id/confirm-handover
+   */
+  @Post(':id/confirm-handover')
+  confirmHandover(@Request() req, @Param('id') id: string) {
+    return this.shipmentsService.confirmHandover(id, req.user.uid);
+  }
+
+  /**
+   * Confirm delivery - both sender and courier must confirm
+   * POST /shipments/:id/confirm-delivery
+   */
+  @Post(':id/confirm-delivery')
+  confirmDelivery(@Request() req, @Param('id') id: string) {
+    return this.shipmentsService.confirmDelivery(id, req.user.uid);
+  }
 }
