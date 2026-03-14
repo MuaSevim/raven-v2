@@ -109,3 +109,62 @@ Optimized for low-latency interactions, the system ensures sub-200ms updates for
 │   └── prisma       # Database schema and migrations
 └── validate-system.js # System-wide platform debugging scripts
 ```
+
+---
+
+## ✅ Current Development Status
+
+> Last updated: March 2026
+
+| Module | Status | Notes |
+|--------|--------|-------|
+| Authentication (Firebase) | ✅ Complete | Sign up / login / token verification |
+| User Profile | ✅ Complete | Profile view, public profile, password update |
+| Shipment Creation (6-step wizard) | ✅ Complete | Full flow + review screen |
+| Shipment Marketplace | ✅ Complete | Filtered feed with real-time data |
+| Offer & Matching System | ✅ Complete | Atomic handshake protocol |
+| In-App Messaging | ✅ Complete | Read receipts, match confirmation |
+| Activity & Lifecycle Tracking | ✅ Complete | Granular status machine |
+| Earnings Dashboard | ✅ Complete | Courier payout overview |
+| Payments Infrastructure | 🔄 In Progress | Stripe integration, escrow logic |
+| Push Notifications | 🔄 In Progress | Firebase Cloud Messaging |
+| Production Deployment | 🔜 Planned | EAS Build + cloud server provisioning |
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- Expo CLI (`npm install -g expo-cli`)
+- PostgreSQL database
+- Firebase project credentials
+
+### Client (Mobile)
+
+```bash
+cd client
+npm install
+npx expo start
+```
+
+### Server (Backend)
+
+```bash
+cd server
+npm install
+npx prisma migrate dev
+npm run start:dev
+```
+
+---
+
+## 🗺️ Roadmap
+
+- [ ] Stripe payment integration & escrow release
+- [ ] Push notification delivery for match/message events
+- [ ] ID verification via government document upload
+- [ ] In-app rating & trust score system
+- [ ] EAS production build (iOS + Android)
+- [ ] Admin dashboard for dispute resolution
