@@ -100,15 +100,25 @@ Optimized for low-latency interactions, the system ensures sub-200ms updates for
 ## 📂 Repository Structure
 
 ```bash
-├── .agent           # Latest snapshots and system documentation
-├── client           # Expo/React Native mobile codebase
-│   ├── components   # Reusable UI modules (8px grid based)
-│   └── screens      # Smart containers for application logic
-├── server           # NestJS backend modules
-│   ├── src          # Auth, Shipment, and Travel controllers
-│   └── prisma       # Database schema and migrations
-└── validate-system.js # System-wide platform debugging scripts
+├── client/              # Expo / React Native mobile application
+│   ├── src/components/  # Reusable UI modules
+│   ├── src/screens/     # Screen-level containers and flows
+│   ├── src/services/    # API, auth, firebase, and location services
+│   └── src/store/       # Zustand state stores
+├── server/              # NestJS backend application
+│   ├── src/             # Auth, users, shipments, travels, payments
+│   └── prisma/          # Prisma schema and seed data
+├── docs/                # Architecture, API, and quick reference docs
+├── preview/             # App screenshots used in the README
+└── validate-system.js   # System validation utility
 ```
+
+## 📚 Project Documentation
+
+- `docs/API.md` for backend routes and integration patterns
+- `docs/ARCHITECTURE.md` for system diagrams and module relationships
+- `docs/COMPONENT_TREE.md` for the React Native component hierarchy
+- `docs/QUICK_REFERENCE.md` for stack, flows, and design tokens
 
 ---
 
