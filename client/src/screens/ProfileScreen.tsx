@@ -40,6 +40,7 @@ import { API_URL } from "../config";
 import { VerificationModal } from "../components/ui";
 import { PHONE_COUNTRIES, PhoneCountry } from "../services/locationApi";
 import { updateEmail } from "firebase/auth";
+import { normalizeText } from "../utils/text";
 
 // =============================================================================
 // TYPES
@@ -344,9 +345,9 @@ export default function ProfileScreen() {
 
   const filteredCountries = PHONE_COUNTRIES.filter(
     (country) =>
-      country.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      normalizeText(country.name).includes(normalizeText(searchQuery)) ||
       country.dialCode.includes(searchQuery) ||
-      country.code.toLowerCase().includes(searchQuery.toLowerCase())
+      normalizeText(country.code).includes(normalizeText(searchQuery))
   );
 
   const selectedCountry = PHONE_COUNTRIES.find((c) => c.code === countryCode);

@@ -22,6 +22,7 @@ import {
   searchCountries,
   Country
 } from '../../services/locationService';
+import { normalizeText } from '../../utils/text';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'SignUpStep3'>;
@@ -59,7 +60,7 @@ function SelectModal({
 
     // Standard search
     return items.filter(item =>
-      item.label.toLowerCase().includes(search.toLowerCase())
+      normalizeText(item.label).includes(normalizeText(search))
     );
   }, [items, search, onSearch]);
 
