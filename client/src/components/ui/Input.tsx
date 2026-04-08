@@ -7,6 +7,7 @@ import {
   TextInputProps,
   TouchableOpacity,
   ViewStyle,
+  Platform,
 } from 'react-native';
 import { Eye, EyeOff } from 'lucide-react-native';
 import { colors, typography, spacing, borderRadius, dimensions } from '../../theme';
@@ -39,6 +40,16 @@ export default function Input({
 
   const hasValue = value && value.length > 0;
   const eyeIconColor = hasValue ? colors.textSecondary : colors.textDisabled;
+  const resolvedTextContentType =
+    props.textContentType ??
+    (isPassword
+      ? Platform.OS === 'ios'
+        ? 'oneTimeCode'
+        : 'password'
+      : undefined);
+  const resolvedAutoComplete = props.autoComplete ?? (isPassword ? 'off' : undefined);
+  const resolvedImportantForAutofill =
+    props.importantForAutofill ?? (isPassword ? 'no' : 'auto');
 
   return (
     <View style={[styles.container, containerStyle]}>
@@ -50,6 +61,9 @@ export default function Input({
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           secureTextEntry={isPassword && !showPassword}
+          textContentType={resolvedTextContentType}
+          autoComplete={resolvedAutoComplete}
+          importantForAutofill={resolvedImportantForAutofill}
           value={value}
           {...props}
         />
@@ -76,6 +90,7 @@ export default function Input({
 const styles = StyleSheet.create({
   container: {
     marginBottom: spacing.md,
+    width: '100%',
   },
   label: {
     fontFamily: typography.fontFamily.medium,
@@ -91,10 +106,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.md,
+    overflow: 'hidden',
   },
   input: {
     flex: 1,
     height: '100%',
+    backgroundColor: 'transparent',
     fontFamily: typography.fontFamily.regular,
     fontSize: typography.fontSize.base,
     color: colors.textPrimary,

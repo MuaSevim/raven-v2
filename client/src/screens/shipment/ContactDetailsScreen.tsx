@@ -21,6 +21,7 @@ import { colors, typography, spacing, borderRadius } from '../../theme';
 import { StepHeader, BottomButton } from '../../components/shipment/StepComponents';
 import { PHONE_COUNTRIES, PhoneCountry } from '../../services/locationApi';
 import { API_URL } from '../../config';
+import { normalizeText } from '../../utils/text';
 
 // =============================================================================
 // TYPES
@@ -295,9 +296,9 @@ export default function ContactDetailsScreen() {
 
   const filteredCountries = PHONE_COUNTRIES.filter(
     (country) =>
-      country.name.toLowerCase().includes(state.searchQuery.toLowerCase()) ||
+      normalizeText(country.name).includes(normalizeText(state.searchQuery)) ||
       country.dialCode.includes(state.searchQuery) ||
-      country.code.toLowerCase().includes(state.searchQuery.toLowerCase())
+      normalizeText(country.code).includes(normalizeText(state.searchQuery))
   );
 
   return (

@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ShipmentStatus } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
@@ -36,7 +37,7 @@ export class UsersService {
         const deliveriesCompleted = await this.prisma.shipment.count({
             where: {
                 courierId: userId,
-                status: 'DELIVERED',
+                status: ShipmentStatus.DELIVERED,
             },
         });
 

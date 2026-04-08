@@ -21,6 +21,7 @@ import {
   Country,
 } from '../../services/locationApi';
 import { colors, typography, spacing, borderRadius } from '../../theme';
+import { normalizeText } from '../../utils/text';
 
 type ModalType = 'originCountry' | 'originCity' | 'destCountry' | 'destCity' | null;
 
@@ -166,18 +167,18 @@ export default function SetRouteScreen() {
 
   // Filter data based on search query
   const getFilteredData = () => {
-    const query = searchQuery.toLowerCase();
+    const query = normalizeText(searchQuery);
 
     switch (modalType) {
       case 'originCountry':
       case 'destCountry':
         return countries.filter(c =>
-          c.country.toLowerCase().includes(query)
+          normalizeText(c.country).includes(query)
         );
       case 'originCity':
       case 'destCity':
         return cities.filter(c =>
-          c.toLowerCase().includes(query)
+          normalizeText(c).includes(query)
         );
 
       default:

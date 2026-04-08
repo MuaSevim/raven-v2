@@ -17,6 +17,7 @@ import { auth } from '../../services/firebaseConfig';
 import { Input, Button } from '../../components/ui';
 import { colors, typography, spacing } from '../../theme';
 import { RootStackParamList } from '../../navigation';
+import { useSignupStore } from '../../store/useSignupStore';
 
 type SignInScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'SignIn'>;
@@ -29,6 +30,7 @@ const isValidEmail = (email: string): boolean => {
 };
 
 export default function SignInScreen({ navigation }: SignInScreenProps) {
+  const resetSignup = useSignupStore((state) => state.reset);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
@@ -186,7 +188,12 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
           {/* Footer */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>Don't have an account yet? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('SignUpStep1')}>
+            <TouchableOpacity
+              onPress={() => {
+                resetSignup();
+                navigation.navigate('SignUpStep1');
+              }}
+            >
               <Text style={styles.footerLink}>Sign up</Text>
             </TouchableOpacity>
           </View>

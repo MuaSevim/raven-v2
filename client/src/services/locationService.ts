@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { normalizeText } from '../utils/text';
 
 // API endpoints
 const REST_COUNTRIES_API = 'https://restcountries.com/v3.1';
@@ -98,17 +99,17 @@ export const fetchCities = async (countryName: string): Promise<string[]> => {
 export const searchCountries = (countries: Country[], query: string): Country[] => {
   if (!query.trim()) return countries;
 
-  const normalizedQuery = query.toLowerCase().trim();
+  const normalizedQuery = normalizeText(query);
 
   return countries.filter(country => {
     // Check main name
-    if (country.name.toLowerCase().includes(normalizedQuery)) return true;
+    if (normalizeText(country.name).includes(normalizedQuery)) return true;
 
     // Check native name
-    if (country.nativeName?.toLowerCase().includes(normalizedQuery)) return true;
+    if (country.nativeName && normalizeText(country.nativeName).includes(normalizedQuery)) return true;
 
     // Check country code
-    if (country.code.toLowerCase() === normalizedQuery) return true;
+    if (normalizeText(country.code) === normalizedQuery) return true;
 
     return false;
   });

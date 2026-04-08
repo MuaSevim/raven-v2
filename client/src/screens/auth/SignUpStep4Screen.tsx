@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Alert,
   TextInput,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -113,7 +114,24 @@ export default function SignUpStep4Screen({ navigation }: Props) {
     password?: string;
     confirmPassword?: string;
   }>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const getApiErrorMessage = (err: any): string => {
+    if (err?.response?.data?.message) {
+      if (Array.isArray(err.response.data.message)) {
+        return err.response.data.message.join('\n');
+      }
+      return String(err.response.data.message);
+    }
+    if (err?.code === 'ERR_NETWORK' || err?.message?.includes('Network')) {
+      return 'Unable to reach the server. Please check your connection and backend URL.';
+    }
+    if (err?.message) {
+      return err.message;
+    }
+    return 'Registration failed. Please try again.';
+  };
 
   const passwordStrength = useMemo(
     () => calculatePasswordStrength(password),
@@ -164,11 +182,33 @@ export default function SignUpStep4Screen({ navigation }: Props) {
   const handleNext = async () => {
     if (!validateForm()) return;
 
+    setSubmitError(null);
+    Keyboard.dismiss();
+
     setIsLoading(true);
 
     try {
+      const payload = {
+        email: email.trim().toLowerCase(),
+        password,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        birthDay: Number(data.birthDay),
+        birthMonth: Number(data.birthMonth),
+        birthYear: Number(data.birthYear),
+        country: data.country,
+        countryCode: data.countryCode,
+        city: data.city,
+      };
+
+      if (!payload.birthDay || !payload.birthMonth || !payload.birthYear) {
+        setSubmitError('Birthday is missing. Please go back and complete your birthday details.');
+        setIsLoading(false);
+        return;
+      }
+
       // Check if email already exists
-      const { exists } = await authApi.checkEmail(email.trim().toLowerCase());
+      const { exists } = await authApi.checkEmail(payload.email);
       if (exists) {
         setErrors({ email: 'This email is already registered' });
         setIsLoading(false);
@@ -176,33 +216,26 @@ export default function SignUpStep4Screen({ navigation }: Props) {
       }
 
       // Register user with backend (creates Firebase Auth + DB user)
-      await authApi.register({
-        email: email.trim().toLowerCase(),
-        password,
-        firstName: data.firstName,
-        lastName: data.lastName,
-        birthDay: data.birthDay,
-        birthMonth: data.birthMonth,
-        birthYear: data.birthYear,
-        country: data.country,
-        countryCode: data.countryCode,
-        city: data.city,
-      });
+      await authApi.register(payload);
 
       // Note: We don't sign in here - user will sign in after email verification in Step 5
 
       // Send verification code
-      await authApi.sendCode(email.trim().toLowerCase());
+      await authApi.sendCode(payload.email);
 
       // Update local store
-      updateData({ email: email.trim().toLowerCase(), password });
+      updateData({ email: payload.email, password });
 
       // Navigate to verification
       navigation.navigate('SignUpStep5');
     } catch (err: any) {
       console.error('Registration error:', err);
-      const message = err.response?.data?.message || err.message || 'Registration failed. Please try again.';
-      Alert.alert('Error', message);
+      const message = getApiErrorMessage(err);
+      setSubmitError(message);
+
+      if (err?.response?.status === 409 || /already registered|already exists/i.test(message)) {
+        setErrors((prev) => ({ ...prev, email: 'This email is already registered' }));
+      }
     } finally {
       setIsLoading(false);
     }
@@ -250,6 +283,9 @@ export default function SignUpStep4Screen({ navigation }: Props) {
         <ScrollView
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          contentInsetAdjustmentBehavior="automatic"
+          automaticallyAdjustKeyboardInsets
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.progressContainer}>
@@ -257,6 +293,7 @@ export default function SignUpStep4Screen({ navigation }: Props) {
           </View>
 
           <Text style={styles.title}>Create your account</Text>
+          {submitError && <Text style={styles.submitErrorText}>{submitError}</Text>}
 
           {/* Email Input */}
           <Input
@@ -265,6 +302,7 @@ export default function SignUpStep4Screen({ navigation }: Props) {
             value={email}
             onChangeText={(text) => {
               setEmail(text);
+              if (submitError) setSubmitError(null);
               if (errors.email) setErrors({ ...errors, email: undefined });
             }}
             error={errors.email}
@@ -287,9 +325,13 @@ export default function SignUpStep4Screen({ navigation }: Props) {
                 value={password}
                 onChangeText={(text) => {
                   setPassword(text);
+                  if (submitError) setSubmitError(null);
                   if (errors.password) setErrors({ ...errors, password: undefined });
                 }}
                 secureTextEntry={!showPassword}
+                textContentType={Platform.OS === 'ios' ? 'oneTimeCode' : 'password'}
+                autoComplete="off"
+                importantForAutofill="no"
                 autoCapitalize="none"
                 autoCorrect={false}
               />
@@ -350,10 +392,14 @@ export default function SignUpStep4Screen({ navigation }: Props) {
                 value={confirmPassword}
                 onChangeText={(text) => {
                   setConfirmPassword(text);
+                  if (submitError) setSubmitError(null);
                   if (errors.confirmPassword)
                     setErrors({ ...errors, confirmPassword: undefined });
                 }}
                 secureTextEntry={!showPassword}
+                textContentType={Platform.OS === 'ios' ? 'oneTimeCode' : 'password'}
+                autoComplete="off"
+                importantForAutofill="no"
                 autoCapitalize="none"
                 autoCorrect={false}
               />
@@ -457,6 +503,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.md,
+    overflow: 'hidden',
   },
   inputError: {
     borderColor: colors.error,
@@ -464,9 +511,16 @@ const styles = StyleSheet.create({
   customInput: {
     flex: 1,
     height: '100%',
+    backgroundColor: 'transparent',
     fontFamily: typography.fontFamily.regular,
     fontSize: typography.fontSize.base,
     color: colors.textPrimary,
+  },
+  submitErrorText: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.sm,
+    color: colors.error,
+    marginBottom: spacing.md,
   },
   eyeButton: {
     padding: spacing.xs,
