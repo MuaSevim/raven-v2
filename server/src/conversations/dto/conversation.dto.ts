@@ -1,4 +1,5 @@
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsEnum } from 'class-validator';
+import { MessageCategory } from '@prisma/client';
 
 export class CreateConversationDto {
   @IsString()
@@ -17,6 +18,6 @@ export class SendMessageDto {
   content: string;
 
   @IsOptional()
-  @IsString()
-  type?: string; // TEXT, SYSTEM, MATCH_REQUEST
+  @IsEnum(MessageCategory)
+  type?: MessageCategory;
 }

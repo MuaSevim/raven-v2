@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateConversationDto, SendMessageDto } from './dto/conversation.dto';
+import { MessageCategory } from '@prisma/client';
 
 @Injectable()
 export class ConversationsService {
@@ -276,7 +277,7 @@ export class ConversationsService {
     const message = await this.prisma.message.create({
       data: {
         content: dto.content,
-        type: dto.type || 'TEXT',
+        type: dto.type || MessageCategory.TEXT,
         conversationId,
         senderId: userId,
       },

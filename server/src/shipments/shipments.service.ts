@@ -2,10 +2,40 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { CreateOfferDto } from './dto/create-offer.dto';
+import { MessageCategory, ShipmentStatus, TransactionStatus } from '@prisma/client';
 
 @Injectable()
 export class ShipmentsService {
   constructor(private prisma: PrismaService) { }
+
+  private normalizeShipmentStatus(status: string): ShipmentStatus {
+    const normalized = status?.toUpperCase();
+    if (!normalized || !(normalized in ShipmentStatus)) {
+      throw new ForbiddenException(`Invalid shipment status: ${status}`);
+    }
+
+    return normalized as ShipmentStatus;
+  }
+
+  private normalizeShipmentStatusFilter(status?: string): ShipmentStatus | undefined {
+    if (!status) {
+      return undefined;
+    }
+    return this.normalizeShipmentStatus(status);
+  }
+
+  private resolveImageUrl(imageUrl?: string): string | null {
+    if (!imageUrl) {
+      return null;
+    }
+
+    // Supabase storage upload integration is intentionally disabled during migration.
+    if (imageUrl.startsWith('data:') || imageUrl.startsWith('file://')) {
+      return 'https://placeholder.com/package.png';
+    }
+
+    return imageUrl;
+  }
 
   async create(senderId: string, senderEmail: string, createShipmentDto: CreateShipmentDto) {
     // Split the full name into firstName and lastName
@@ -37,11 +67,20 @@ export class ShipmentsService {
       });
     }
 
+    const {
+      dateStart,
+      dateEnd,
+      paymentMethod: _paymentMethod,
+      imageUrl,
+      ...shipmentData
+    } = createShipmentDto;
+
     return this.prisma.shipment.create({
       data: {
-        ...createShipmentDto,
-        dateStart: new Date(createShipmentDto.dateStart),
-        dateEnd: new Date(createShipmentDto.dateEnd),
+        ...shipmentData,
+        imageUrl: this.resolveImageUrl(imageUrl),
+        dateStart: new Date(dateStart),
+        dateEnd: new Date(dateEnd),
         senderId,
       },
       include: {
@@ -69,9 +108,7 @@ export class ShipmentsService {
   }) {
     const where: any = {};
 
-    if (filters?.status) {
-      where.status = filters.status;
-    }
+    where.status = this.normalizeShipmentStatusFilter(filters?.status);
     if (filters?.originCountry) {
       where.originCountry = { contains: filters.originCountry, mode: 'insensitive' };
     }
@@ -225,6 +262,8 @@ export class ShipmentsService {
   }
 
   async updateStatus(id: string, userId: string, status: string) {
+    const nextStatus = this.normalizeShipmentStatus(status);
+
     const shipment = await this.prisma.shipment.findUnique({
       where: { id },
     });
@@ -234,17 +273,20 @@ export class ShipmentsService {
     }
 
     // Only sender can cancel, only courier can update to ON_WAY or DELIVERED
-    if (status === 'CANCELLED' && shipment.senderId !== userId) {
+    if (nextStatus === ShipmentStatus.CANCELLED && shipment.senderId !== userId) {
       throw new ForbiddenException('Only the sender can cancel this shipment');
     }
 
-    if (['ON_WAY', 'DELIVERED'].includes(status) && shipment.courierId !== userId) {
+    if (
+      (nextStatus === ShipmentStatus.ON_WAY || nextStatus === ShipmentStatus.DELIVERED) &&
+      shipment.courierId !== userId
+    ) {
       throw new ForbiddenException('Only the assigned courier can update delivery status');
     }
 
     return this.prisma.shipment.update({
       where: { id },
-      data: { status },
+      data: { status: nextStatus },
     });
   }
 
@@ -258,7 +300,7 @@ export class ShipmentsService {
       throw new NotFoundException('Shipment not found');
     }
 
-    if (shipment.status !== 'OPEN') {
+    if (shipment.status !== ShipmentStatus.OPEN) {
       throw new ForbiddenException('Cannot make offer on a shipment that is not open');
     }
 
@@ -317,7 +359,7 @@ export class ShipmentsService {
     await this.prisma.message.create({
       data: {
         content: createOfferDto.message,
-        type: 'OFFER',
+        type: MessageCategory.OFFER,
         conversationId: conversation.id,
         senderId: courierId,
       },
@@ -349,7 +391,7 @@ export class ShipmentsService {
       throw new ForbiddenException('Only the sender can accept offers');
     }
 
-    if (offer.shipment.status !== 'OPEN') {
+    if (offer.shipment.status !== ShipmentStatus.OPEN) {
       throw new ForbiddenException('This shipment is no longer open');
     }
 
@@ -370,7 +412,7 @@ export class ShipmentsService {
         where: { id: offer.shipmentId },
         data: {
           courierId: offer.courierId,
-          status: 'MATCHED',
+          status: ShipmentStatus.MATCHED,
         },
       }),
     ]);
@@ -479,7 +521,7 @@ export class ShipmentsService {
       throw new ForbiddenException('Cannot confirm handover - no courier assigned');
     }
 
-    if (shipment.status !== 'MATCHED' && shipment.status !== 'HANDED_OVER') {
+    if (shipment.status !== ShipmentStatus.MATCHED && shipment.status !== ShipmentStatus.HANDED_OVER) {
       throw new ForbiddenException(`Cannot confirm handover in status: ${shipment.status}`);
     }
 
@@ -498,7 +540,7 @@ export class ShipmentsService {
 
     if (senderConfirmed && courierConfirmed) {
       // Both confirmed - update status to HANDED_OVER then ON_WAY
-      updateData.status = 'ON_WAY';
+      updateData.status = ShipmentStatus.ON_WAY;
       updateData.handoverConfirmedAt = new Date();
     }
 
@@ -563,7 +605,7 @@ export class ShipmentsService {
       throw new ForbiddenException('Cannot confirm delivery - no courier assigned');
     }
 
-    if (shipment.status !== 'ON_WAY') {
+    if (shipment.status !== ShipmentStatus.ON_WAY) {
       throw new ForbiddenException(`Cannot confirm delivery in status: ${shipment.status}`);
     }
 
@@ -582,14 +624,14 @@ export class ShipmentsService {
 
     if (senderConfirmed && courierConfirmed) {
       // Both confirmed - update status to DELIVERED
-      updateData.status = 'DELIVERED';
+      updateData.status = ShipmentStatus.DELIVERED;
       updateData.deliveryConfirmedAt = new Date();
 
       // Release payment to courier
       await this.prisma.transaction.updateMany({
-        where: { shipmentId, status: 'HELD' },
+        where: { shipmentId, status: TransactionStatus.HELD },
         data: {
-          status: 'RELEASED',
+          status: TransactionStatus.RELEASED,
           payeeId: shipment.courierId,
         },
       });

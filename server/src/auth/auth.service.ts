@@ -11,6 +11,45 @@ const verificationCodes = new Map<string, { code: string; expiresAt: Date }>();
 export class AuthService implements OnModuleInit {
   constructor(private prisma: PrismaService) { }
 
+  private buildDateOfBirth(day?: number, month?: number, year?: number): Date | undefined {
+    if (day == null || month == null || year == null) {
+      return undefined;
+    }
+
+    const dateOfBirth = new Date(year, month - 1, day);
+    const isValidDate =
+      !Number.isNaN(dateOfBirth.getTime()) &&
+      dateOfBirth.getFullYear() === year &&
+      dateOfBirth.getMonth() === month - 1 &&
+      dateOfBirth.getDate() === day;
+
+    if (!isValidDate) {
+      throw new BadRequestException('Invalid birth date provided');
+    }
+
+    return dateOfBirth;
+  }
+
+  private mapUserForClient<T extends { dateOfBirth?: Date | null }>(user: T | null): (Omit<T, 'dateOfBirth'> & {
+    birthDay: number | null;
+    birthMonth: number | null;
+    birthYear: number | null;
+  }) | null {
+    if (!user) {
+      return null;
+    }
+
+    const { dateOfBirth, ...rest } = user;
+    const birthDate = dateOfBirth ? new Date(dateOfBirth) : null;
+
+    return {
+      ...rest,
+      birthDay: birthDate ? birthDate.getDate() : null,
+      birthMonth: birthDate ? birthDate.getMonth() + 1 : null,
+      birthYear: birthDate ? birthDate.getFullYear() : null,
+    };
+  }
+
   onModuleInit() {
     // Initialize Firebase Admin when the module starts
     initializeFirebase();
@@ -78,9 +117,7 @@ export class AuthService implements OnModuleInit {
         email: normalizedEmail,
         firstName: dto.firstName,
         lastName: dto.lastName,
-        birthDay: dto.birthDay,
-        birthMonth: dto.birthMonth,
-        birthYear: dto.birthYear,
+        dateOfBirth: this.buildDateOfBirth(dto.birthDay, dto.birthMonth, dto.birthYear),
         country: dto.country || null,
         countryCode: dto.countryCode || null,
         city: dto.city || null,
@@ -88,7 +125,7 @@ export class AuthService implements OnModuleInit {
       },
     });
 
-    return user;
+    return this.mapUserForClient(user)!;
   }
 
   /**
@@ -124,16 +161,16 @@ export class AuthService implements OnModuleInit {
     const firstName = dto.firstName || nameParts[0] || null;
     const lastName = dto.lastName || nameParts.slice(1).join(' ') || null;
 
+    const dateOfBirth = this.buildDateOfBirth(dto.birthDay, dto.birthMonth, dto.birthYear);
+
     // Upsert user in database
-    return await this.prisma.user.upsert({
+    const user = await this.prisma.user.upsert({
       where: { id: uid },
       update: {
         firstName: firstName,
         lastName: lastName,
         avatar: picture || null,
-        birthDay: dto.birthDay,
-        birthMonth: dto.birthMonth,
-        birthYear: dto.birthYear,
+        ...(dateOfBirth !== undefined ? { dateOfBirth } : {}),
         country: dto.country,
         countryCode: dto.countryCode,
         city: dto.city,
@@ -144,15 +181,15 @@ export class AuthService implements OnModuleInit {
         firstName: firstName,
         lastName: lastName,
         avatar: picture || null,
-        birthDay: dto.birthDay,
-        birthMonth: dto.birthMonth,
-        birthYear: dto.birthYear,
+        dateOfBirth,
         country: dto.country,
         countryCode: dto.countryCode,
         city: dto.city,
         isVerified: true, // Social login users are pre-verified
       },
     });
+
+    return this.mapUserForClient(user)!;
   }
 
   /**
@@ -222,9 +259,11 @@ export class AuthService implements OnModuleInit {
    * Get user by Firebase UID
    */
   async getUserById(uid: string) {
-    return this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: uid },
     });
+
+    return this.mapUserForClient(user)!;
   }
 
   /**
@@ -232,19 +271,29 @@ export class AuthService implements OnModuleInit {
    */
   async getUserByEmail(email: string) {
     const normalizedEmail = email.toLowerCase().trim();
-    return this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { email: normalizedEmail },
     });
+
+    return this.mapUserForClient(user);
   }
 
   /**
    * Update user profile
    */
   async updateUser(uid: string, dto: UpdateUserDto) {
-    return this.prisma.user.update({
+    const { birthDay, birthMonth, birthYear, ...rest } = dto;
+    const dateOfBirth = this.buildDateOfBirth(birthDay, birthMonth, birthYear);
+
+    const user = await this.prisma.user.update({
       where: { id: uid },
-      data: dto,
+      data: {
+        ...rest,
+        ...(dateOfBirth !== undefined ? { dateOfBirth } : {}),
+      },
     });
+
+    return this.mapUserForClient(user);
   }
 
 }

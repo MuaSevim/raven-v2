@@ -9,6 +9,38 @@ datasource db {
   provider = "postgresql"
 }
 
+enum ShipmentStatus {
+  OPEN
+  MATCHED
+  HANDED_OVER
+  ON_WAY
+  DELIVERED
+  CANCELLED
+}
+
+enum PackageType {
+  PACKAGE
+  DOCUMENT
+  ENVELOPE
+  BOX
+}
+
+enum MessageCategory {
+  TEXT
+  SYSTEM
+  MATCH_REQUEST
+  MATCH_ACCEPTED
+  OFFER
+}
+
+enum TransactionStatus {
+  PENDING
+  HELD
+  RELEASED
+  REFUNDED
+  FAILED
+}
+
 model User {
   id          String    @id // Firebase UID
   email       String    @unique
@@ -22,9 +54,7 @@ model User {
   phoneCode   String?
   
   // Birthday
-  birthDay    Int?
-  birthMonth  Int?
-  birthYear   Int?
+  dateOfBirth DateTime?
   
   // Location
   country     String?
@@ -76,7 +106,7 @@ model Shipment {
   weight          Float     // in kg
   weightUnit      String    @default("kg")
   content         String
-  packageType     String    @default("Package") // Package, Document, Envelope, Box
+  packageType     PackageType @default(PACKAGE)
   imageUrl        String?
   
   // Delivery Window
@@ -86,7 +116,6 @@ model Shipment {
   // Pricing
   price           Float     // Amount in USD
   currency        String    @default("USD")
-  paymentMethod   String?   // Mastercard, Amex, Paypal, Swish
   
   // Sender Details (for finalization)
   senderFullName  String?
@@ -96,7 +125,7 @@ model Shipment {
   senderPhoneCode String?
   
   // Status
-  status          String    @default("OPEN") // OPEN, MATCHED, HANDED_OVER, ON_WAY, DELIVERED, CANCELLED
+  status          ShipmentStatus @default(OPEN)
   
   // Confirmation tracking - Both parties must confirm
   senderConfirmedHandover   Boolean   @default(false)
@@ -244,7 +273,7 @@ model Message {
   content         String
   
   // Message type
-  type            String    @default("TEXT") // TEXT, SYSTEM, MATCH_REQUEST, MATCH_ACCEPTED, OFFER
+  type            MessageCategory @default(TEXT)
   
   // Message delivery status for read receipts
   // SENT = message created, DELIVERED = recipient notified, READ = recipient opened chat
@@ -303,7 +332,7 @@ model Transaction {
   currency        String    @default("USD")
   
   // Status
-  status          String    @default("PENDING") // PENDING, HELD, RELEASED, REFUNDED, FAILED
+  status          TransactionStatus @default(PENDING)
   
   // Description
   description     String?
