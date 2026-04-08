@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AddPaymentMethodDto, HoldPaymentDto } from './dto/payment.dto';
+import { ShipmentStatus, TransactionStatus } from '@prisma/client';
 
 @Injectable()
 export class PaymentsService {
@@ -162,7 +163,7 @@ export class PaymentsService {
       throw new ForbiddenException('Only the sender can hold payment');
     }
 
-    if (shipment.status !== 'OPEN') {
+    if (shipment.status !== ShipmentStatus.OPEN) {
       throw new BadRequestException('Shipment is not open for matching');
     }
 
@@ -197,7 +198,7 @@ export class PaymentsService {
       data: {
         amount: shipment.price,
         currency: shipment.currency,
-        status: 'HELD',
+        status: TransactionStatus.HELD,
         description: `Payment held for shipment ${shipment.originCity} → ${shipment.destCity}`,
         payerId: userId,
         payeeId: dto.courierId,
@@ -210,7 +211,7 @@ export class PaymentsService {
     await this.prisma.shipment.update({
       where: { id: dto.shipmentId },
       data: {
-        status: 'MATCHED',
+        status: ShipmentStatus.MATCHED,
         courierId: dto.courierId,
       },
     });
@@ -239,20 +240,20 @@ export class PaymentsService {
       throw new ForbiddenException('Only the sender can release payment');
     }
 
-    if (transaction.status !== 'HELD') {
+    if (transaction.status !== TransactionStatus.HELD) {
       throw new BadRequestException('Payment is not in held status');
     }
 
     // Update transaction
     await this.prisma.transaction.update({
       where: { id: transaction.id },
-      data: { status: 'RELEASED' },
+      data: { status: TransactionStatus.RELEASED },
     });
 
     // Update shipment
     await this.prisma.shipment.update({
       where: { id: shipmentId },
-      data: { status: 'DELIVERED' },
+      data: { status: ShipmentStatus.DELIVERED },
     });
 
     return {
@@ -277,21 +278,21 @@ export class PaymentsService {
       throw new ForbiddenException('Only the sender can request refund');
     }
 
-    if (transaction.status !== 'HELD') {
+    if (transaction.status !== TransactionStatus.HELD) {
       throw new BadRequestException('Payment cannot be refunded');
     }
 
     // Update transaction
     await this.prisma.transaction.update({
       where: { id: transaction.id },
-      data: { status: 'REFUNDED' },
+      data: { status: TransactionStatus.REFUNDED },
     });
 
     // Update shipment back to open
     await this.prisma.shipment.update({
       where: { id: shipmentId },
       data: { 
-        status: 'OPEN',
+        status: ShipmentStatus.OPEN,
         courierId: null,
       },
     });

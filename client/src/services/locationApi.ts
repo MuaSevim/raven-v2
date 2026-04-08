@@ -1,5 +1,6 @@
 // Location APIs for Countries, Cities, and Airports
 import axios from 'axios';
+import { normalizeText } from '../utils/text';
 
 // ============================================
 // Countries & Cities API (countriesnow.space)
@@ -74,16 +75,16 @@ export async function searchAirports(query: string): Promise<Airport[]> {
     
     const airportsData = response.data;
     const results: Airport[] = [];
-    const queryLower = query.toLowerCase();
+    const queryLower = normalizeText(query);
     
     // Search through airports
     for (const [icao, airport] of Object.entries(airportsData)) {
       const a = airport as any;
       if (
         a.iata && // Only airports with IATA codes (major airports)
-        (a.city?.toLowerCase().includes(queryLower) ||
-          a.name?.toLowerCase().includes(queryLower) ||
-          a.country?.toLowerCase().includes(queryLower))
+        (normalizeText(a.city || '').includes(queryLower) ||
+          normalizeText(a.name || '').includes(queryLower) ||
+          normalizeText(a.country || '').includes(queryLower))
       ) {
         results.push({
           icao,

@@ -9,9 +9,33 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
   private pool: Pool;
 
   constructor() {
+    const connectionString = process.env.DATABASE_URL;
+    if (!connectionString) {
+      throw new Error('DATABASE_URL is not set');
+    }
+
+    const wantsSsl = /[?&]ssl=true/i.test(connectionString) || /[?&]sslmode=(require|no-verify)/i.test(connectionString);
+    const allowSelfSigned = process.env.DATABASE_SSL_ALLOW_SELF_SIGNED === 'true';
+    const normalizedConnectionString = allowSelfSigned
+      ? connectionString.replace(/sslmode=require/gi, 'sslmode=no-verify')
+      : connectionString;
+
     // Create a pg Pool with the DATABASE_URL
     this.pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: normalizedConnectionString,
+      max: Number(process.env.DATABASE_POOL_MAX ?? 10),
+      min: Number(process.env.DATABASE_POOL_MIN ?? 0),
+      idleTimeoutMillis: Number(process.env.DATABASE_POOL_IDLE_TIMEOUT_MS ?? 30_000),
+      connectionTimeoutMillis: Number(process.env.DATABASE_POOL_CONNECTION_TIMEOUT_MS ?? 10_000),
+      keepAlive: true,
+      keepAliveInitialDelayMillis: Number(process.env.DATABASE_POOL_KEEPALIVE_DELAY_MS ?? 10_000),
+      ...(wantsSsl
+        ? {
+            ssl: {
+              rejectUnauthorized: !allowSelfSigned,
+            },
+          }
+        : {}),
     });
 
     // Create Prisma adapter with the pool

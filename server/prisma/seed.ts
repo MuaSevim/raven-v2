@@ -7,8 +7,26 @@ import * as dotenv from 'dotenv';
 dotenv.config();
 
 // Create pg Pool
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error('DATABASE_URL is not set');
+}
+
+const wantsSsl = /[?&]ssl=true/i.test(connectionString) || /[?&]sslmode=(require|no-verify)/i.test(connectionString);
+const allowSelfSigned = process.env.DATABASE_SSL_ALLOW_SELF_SIGNED === 'true';
+const normalizedConnectionString = allowSelfSigned
+  ? connectionString.replace(/sslmode=require/gi, 'sslmode=no-verify')
+  : connectionString;
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: normalizedConnectionString,
+  ...(wantsSsl
+    ? {
+        ssl: {
+          rejectUnauthorized: !allowSelfSigned,
+        },
+      }
+    : {}),
 });
 
 // Create Prisma client with pg adapter
@@ -223,7 +241,7 @@ function randomBetween(min: number, max: number): number {
 }
 
 // Random element from array
-function randomFrom<T>(arr: T[]): T {
+function randomFrom<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
@@ -241,9 +259,19 @@ async function main() {
   // Create users
   console.log('👥 Creating users...');
   for (const userData of users) {
+    const dateOfBirth = new Date(userData.birthYear, userData.birthMonth - 1, userData.birthDay);
+
     await prisma.user.create({
       data: {
-        ...userData,
+        id: userData.id,
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        dateOfBirth,
+        country: userData.country,
+        countryCode: userData.countryCode,
+        city: userData.city,
+        isVerified: userData.isVerified,
         avatar: getAvatar(`${userData.firstName} ${userData.lastName}`),
       },
     });
@@ -262,7 +290,8 @@ async function main() {
     const startDays = randomBetween(3, 30);
     const endDays = startDays + randomBetween(3, 14);
 
-    const statuses = ['OPEN', 'OPEN', 'OPEN', 'OPEN', 'MATCHED', 'ON_WAY', 'DELIVERED'];
+    const statuses = ['OPEN', 'OPEN', 'OPEN', 'OPEN', 'MATCHED', 'ON_WAY', 'DELIVERED'] as const;
+    const packageTypes = ['PACKAGE', 'DOCUMENT', 'BOX', 'ENVELOPE'] as const;
     const currencies = ['USD', 'EUR', 'GBP', 'SEK'];
 
     const shipment = await prisma.shipment.create({
@@ -274,7 +303,7 @@ async function main() {
         weight: randomBetween(1, 15) + randomBetween(0, 9) / 10,
         weightUnit: 'kg',
         content: randomFrom(packageContents),
-        packageType: randomFrom(['Package', 'Document', 'Box', 'Envelope']),
+        packageType: randomFrom(packageTypes),
         dateStart: futureDate(startDays),
         dateEnd: futureDate(endDays),
         price: randomBetween(30, 200),

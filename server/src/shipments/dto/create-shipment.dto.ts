@@ -1,4 +1,5 @@
-import { IsString, IsNumber, IsOptional, IsDateString, Min, Max } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsDateString, Min, Max, IsEnum } from 'class-validator';
+import { PackageType } from '@prisma/client';
 
 export class CreateShipmentDto {
   // Route - Origin
@@ -39,8 +40,8 @@ export class CreateShipmentDto {
   content: string;
 
   @IsOptional()
-  @IsString()
-  packageType?: string;
+  @IsEnum(PackageType)
+  packageType?: PackageType;
 
   @IsOptional()
   @IsString()
@@ -64,6 +65,7 @@ export class CreateShipmentDto {
 
   @IsOptional()
   @IsString()
+  // Legacy frontend field kept for compatibility and ignored by persistence layer.
   paymentMethod?: string;
 
   // Sender Details
