@@ -48,7 +48,9 @@ export const useGoogleAuth = () => {
             const credential = GoogleAuthProvider.credential(idToken);
             const userCredential = await signInWithCredential(auth, credential);
 
-            console.log("Successfully logged into Firebase!");
+            if (__DEV__) {
+              console.log("Successfully logged into Firebase!");
+            }
 
             // Sync with backend
             try {
@@ -58,9 +60,13 @@ export const useGoogleAuth = () => {
                 {},
                 { headers: { Authorization: `Bearer ${firebaseToken}` } }
               );
-              console.log("User synced with backend");
+              if (__DEV__) {
+                console.log("User synced with backend");
+              }
             } catch (error) {
-              console.error("Backend sync error:", error);
+              if (__DEV__) {
+                console.error("Backend sync error:", error);
+              }
             }
 
             return { success: true, user: userCredential.user };
@@ -70,7 +76,9 @@ export const useGoogleAuth = () => {
 
       return { success: false, error: "Authentication cancelled or failed" };
     } catch (error) {
-      console.error("Google Auth Error:", error);
+      if (__DEV__) {
+        console.error("Google Auth Error:", error);
+      }
       return { success: false, error };
     } finally {
       setIsLoading(false);
@@ -84,9 +92,13 @@ export const useGoogleAuth = () => {
 export const signOut = async () => {
   try {
     await firebaseSignOut(auth);
-    console.log("Signed out successfully");
+    if (__DEV__) {
+      console.log("Signed out successfully");
+    }
   } catch (error) {
-    console.error("Sign out error:", error);
+    if (__DEV__) {
+      console.error("Sign out error:", error);
+    }
   }
 };
 

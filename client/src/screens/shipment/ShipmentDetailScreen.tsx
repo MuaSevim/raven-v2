@@ -27,7 +27,7 @@ import {
 } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuthStore } from '../../store/useAuthStore';
-import { API_URL } from '../../config';
+import { api } from '../../utils/api';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 
 // =============================================================================
@@ -108,15 +108,9 @@ export default function ShipmentDetailScreen() {
     if (!shipmentId || !user) return setLoading(false);
 
     try {
-      const token = await user.getIdToken();
-      const res = await fetch(`${API_URL}/shipments/${shipmentId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setShipment(data);
-      }
-    } catch (err) {
+      const data = await api.shipments.getById(shipmentId);
+      setShipment(data);
+    } catch (err: Error | unknown) {
       console.error('Error fetching shipment:', err);
     } finally {
       setLoading(false);
@@ -127,15 +121,9 @@ export default function ShipmentDetailScreen() {
     if (!shipmentId || !user) return;
 
     try {
-      const token = await user.getIdToken();
-      const res = await fetch(`${API_URL}/shipments/${shipmentId}/my-offer`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data) setUserOffer(data);
-      }
-    } catch (err) {
+      const data = await api.shipments.getMyOffer(shipmentId);
+      if (data) setUserOffer(data as UserOffer);
+    } catch (err: Error | unknown) {
       // No offer exists - that's fine
     }
   };
@@ -145,21 +133,13 @@ export default function ShipmentDetailScreen() {
     setSubmitting(true);
 
     try {
-      const token = await user.getIdToken();
-      const res = await fetch(`${API_URL}/shipments/${shipment.id}/offers`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: offerMessage }),
-      });
-
-      if (!res.ok) throw new Error((await res.json()).message || 'Failed to send offer');
-
-      const offer = await res.json();
-      setUserOffer({ id: offer.id, status: 'PENDING', conversationId: offer.conversationId });
+      const offer = await api.shipments.submitOffer(shipment.id, 0); // TODO: Get price from user
+      setUserOffer({ id: offer.id, status: 'PENDING' });
       setShowOfferModal(false);
       Alert.alert('Success', 'Your offer has been sent!');
-    } catch (err: any) {
-      Alert.alert('Error', err.message);
+    } catch (err: Error | unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to send offer';
+      Alert.alert('Error', errorMessage);
     } finally {
       setSubmitting(false);
     }

@@ -2,6 +2,10 @@ import { IsString, IsNumber, IsOptional, IsDateString, Min, Max, IsEnum } from '
 import { PackageType } from '@prisma/client';
 
 export class CreateShipmentDto {
+  @IsOptional()
+  @IsString()
+  id?: string;
+
   // Route - Origin
   @IsString()
   originCountry: string;

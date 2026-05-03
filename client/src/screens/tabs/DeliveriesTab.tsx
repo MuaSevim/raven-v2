@@ -27,7 +27,7 @@ import {
   RefreshCw,
 } from "lucide-react-native";
 import { useAuthStore } from "../../store/useAuthStore";
-import { API_URL } from "../../config";
+import { api } from "../../utils/api";
 import { colors, typography, spacing, borderRadius } from "../../theme";
 
 interface Shipment {
@@ -205,26 +205,12 @@ export default function DeliveriesTab() {
     setError(null);
 
     try {
-      const token = await user.getIdToken();
-      const response = await fetch(`${API_URL}/shipments`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch shipments');
-      }
-
-      const data = await response.json();
-      setShipments(data);
-    } catch (err: any) {
+      const response = await api.shipments.getAvailableShipments();
+      const data = response.data || [];
+      setShipments(data as Shipment[]);
+    } catch (err: Error | unknown) {
       console.error('Error fetching shipments:', err);
-      if (err.response) {
-        console.error('Response data:', err.response.data);
-        console.error('Response status:', err.response.status);
-      }
-      const errorMessage = err.message || 'Failed to load shipments';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load shipments';
       setError(errorMessage);
       Alert.alert('Error', `Could not load shipments: ${errorMessage}`);
     } finally {

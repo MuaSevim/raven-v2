@@ -13,7 +13,7 @@ import { HomeTab, DeliveriesTab, SettingsTab } from '../screens/tabs';
 import ProfileScreen from '../screens/ProfileScreen';
 import { colors, typography, borderRadius } from '../theme';
 import { useAuthStore } from '../store/useAuthStore';
-import { API_URL } from '../config';
+import { api } from '../utils/api';
 
 const Tab = createBottomTabNavigator();
 
@@ -27,15 +27,9 @@ export default function MainTabNavigator() {
       const fetchUnreadCount = async () => {
         if (!user) return;
         try {
-          const token = await user.getIdToken();
-          const response = await fetch(`${API_URL}/conversations/unread`, {
-            headers: { 'Authorization': `Bearer ${token}` },
-          });
-          if (response.ok) {
-            const data = await response.json();
-            setUnreadCount(data.unreadCount || 0);
-          }
-        } catch (err) {
+          const data = await api.conversations.getUnread();
+          setUnreadCount(data.unread || 0);
+        } catch (err: Error | unknown) {
           console.error('Error fetching unread count:', err);
         }
       };
