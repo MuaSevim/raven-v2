@@ -63,12 +63,12 @@ export default function ActivitiesScreen() {
                         allActivities.push({
                             id: s.id,
                             type: 'shipment',
-                            title: s.description,
+                            title: s.description || s.content || 'Shipment',
                             status: s.status,
                             price: s.price,
                             currency: s.currency,
-                            origin: s.departure.location,
-                            destination: s.destination.location,
+                            origin: s.originCity || s.departure?.location || '',
+                            destination: s.destCity || s.destination?.location || '',
                             date: s.createdAt,
                             meta: { offersCount: 0 },
                         });

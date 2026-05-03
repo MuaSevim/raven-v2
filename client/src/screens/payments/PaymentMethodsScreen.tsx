@@ -21,17 +21,8 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { api } from '../../utils/api';
+import type { PaymentMethod } from '../../types/api';
 import { colors, typography, spacing, borderRadius } from '../../theme';
-
-interface PaymentMethod {
-  id: string;
-  cardType: string;
-  lastFour: string;
-  expiryMonth: number;
-  expiryYear: number;
-  cardHolder: string;
-  isDefault: boolean;
-}
 
 // Card brand colors
 const cardColors: Record<string, string> = {
@@ -57,7 +48,7 @@ export default function PaymentMethodsScreen() {
     try {
       const response = await api.payments.getMethods();
       const data = response.data || [];
-      setPaymentMethods(data as PaymentMethod[]);
+      setPaymentMethods(data);
     } catch (err: Error | unknown) {
       console.error('Error fetching payment methods:', err);
     } finally {

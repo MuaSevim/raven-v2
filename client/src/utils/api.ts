@@ -5,6 +5,7 @@
 
 import { API_URL } from '../config';
 import { useAuthStore } from '../store/useAuthStore';
+import { auth } from '../services/firebaseConfig';
 import type {
   User,
   AuthResponse,
@@ -61,12 +62,14 @@ async function fetchWithTimeout(
   } catch (error: Error | unknown) {
     clearTimeout(timeoutId);
 
-    const err = error as Record<string, unknown>;
-    if (err.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError') {
       throw new Error('Request timeout - please check your connection');
     }
 
-    if ((err as Error).message === 'Network request failed') {
+    const message = error instanceof Error
+      ? error.message
+      : String((error as Record<string, unknown>)?.message || '');
+    if (message === 'Network request failed') {
       throw new Error(
         `Cannot connect to server at ${API_URL}. Please ensure:\n` +
         '1. The server is running if using a local URL\n' +
@@ -84,9 +87,11 @@ async function fetchWithTimeout(
 async function getAuthHeader(): Promise<Record<string, string>> {
   try {
     const { user } = useAuthStore.getState();
-    if (user?.token) {
+    const activeUser = user || auth.currentUser;
+    if (activeUser) {
+      const token = await activeUser.getIdToken();
       return {
-        Authorization: `Bearer ${user.token}`,
+        Authorization: `Bearer ${token}`,
       };
     }
   } catch {
@@ -227,6 +232,18 @@ export const api = {
       apiRequest<Shipment>(`/shipments/${shipmentId}/offers/${offerId}/accept`, {
         method: 'POST',
       }),
+
+    confirmHandover: (shipmentId: string) =>
+      apiRequest<{ message: string; shipment: Shipment }>(
+        `/shipments/${shipmentId}/confirm-handover`,
+        { method: 'POST' }
+      ),
+
+    confirmDelivery: (shipmentId: string) =>
+      apiRequest<{ message: string; shipment: Shipment }>(
+        `/shipments/${shipmentId}/confirm-delivery`,
+        { method: 'POST' }
+      ),
   },
 
   // === CONVERSATION ENDPOINTS ===
