@@ -5,7 +5,7 @@ import { colors, borderRadius, spacing } from '../../theme';
 interface SkeletonLoaderProps {
     width?: number | string;
     height?: number;
-    style?: any;
+    style?: Record<string, unknown>;
     borderRadius?: number;
 }
 

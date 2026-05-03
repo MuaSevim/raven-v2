@@ -26,7 +26,7 @@ import {
 } from 'lucide-react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../../store/useAuthStore';
-import { API_URL } from '../../config';
+import { api } from '../../utils/api';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 
 interface DeliveryDetails {
@@ -101,19 +101,13 @@ export default function DeliveryTrackingScreen() {
     if (!user || !transactionId) return;
 
     try {
-      const token = await user.getIdToken();
-      const response = await fetch(`${API_URL}/payments/transactions`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-
-      if (response.ok) {
-        const transactions = await response.json();
-        const found = transactions.find((t: any) => t.id === transactionId);
-        if (found) {
-          setDelivery(found);
-        }
+      const transactionsResponse = await api.payments.getTransactions();
+      const transactions = transactionsResponse.data || [];
+      const found = transactions.find((t) => t.id === transactionId);
+      if (found) {
+        setDelivery(found as any); // Type mapping needed from API response
       }
-    } catch (err) {
+    } catch (err: Error | unknown) {
       console.error('Error fetching delivery:', err);
     } finally {
       setLoading(false);
@@ -145,22 +139,12 @@ export default function DeliveryTrackingScreen() {
           onPress: async () => {
             setActionLoading(true);
             try {
-              const token = await user.getIdToken();
-              const response = await fetch(`${API_URL}/payments/release/${delivery.shipment.id}`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` },
-              });
-
-              if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Failed to confirm delivery');
-              }
-
-              const result = await response.json();
-              Alert.alert('Success', result.message);
+              const result = await api.payments.releasePayment(delivery.shipment.id);
+              Alert.alert('Success', 'Payment released successfully');
               fetchDelivery();
-            } catch (err: any) {
-              Alert.alert('Error', err.message);
+            } catch (err: Error | unknown) {
+              const errorMessage = err instanceof Error ? err.message : 'Failed to confirm delivery';
+              Alert.alert('Error', errorMessage);
             } finally {
               setActionLoading(false);
             }
@@ -184,23 +168,13 @@ export default function DeliveryTrackingScreen() {
           onPress: async () => {
             setActionLoading(true);
             try {
-              const token = await user.getIdToken();
-              const response = await fetch(`${API_URL}/payments/refund/${delivery.shipment.id}`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}` },
-              });
-
-              if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.message || 'Failed to cancel delivery');
-              }
-
-              const result = await response.json();
-              Alert.alert('Cancelled', result.message, [
+              const result = await api.payments.refundPayment(delivery.shipment.id);
+              Alert.alert('Cancelled', 'Your payment has been refunded', [
                 { text: 'OK', onPress: () => navigation.goBack() },
               ]);
-            } catch (err: any) {
-              Alert.alert('Error', err.message);
+            } catch (err: Error | unknown) {
+              const errorMessage = err instanceof Error ? err.message : 'Failed to cancel delivery';
+              Alert.alert('Error', errorMessage);
             } finally {
               setActionLoading(false);
             }

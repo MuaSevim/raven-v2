@@ -50,6 +50,23 @@ export class AuthService implements OnModuleInit {
     };
   }
 
+  private normalizeAvatarUrl(avatar?: string | null): string | null {
+    if (!avatar) {
+      return null;
+    }
+
+    if (
+      avatar.startsWith('data:') ||
+      avatar.startsWith('file://') ||
+      avatar.startsWith('content://') ||
+      avatar.startsWith('ph://')
+    ) {
+      return null;
+    }
+
+    return avatar;
+  }
+
   onModuleInit() {
     // Initialize Firebase Admin when the module starts
     initializeFirebase();
@@ -88,7 +105,9 @@ export class AuthService implements OnModuleInit {
           // we should proceed with creating the DB entry instead of failing.
           try {
             firebaseUser = await firebaseAdmin.auth().getUserByEmail(normalizedEmail);
-            console.log(`User ${normalizedEmail} exists in Firebase but not in DB. Syncing...`);
+            if (process.env.NODE_ENV !== 'production') {
+              console.log(`User ${normalizedEmail} exists in Firebase but not in DB. Syncing...`);
+            }
           } catch (innerError) {
             throw new BadRequestException('This email address is already registered. Please sign in instead.');
           }
@@ -169,7 +188,7 @@ export class AuthService implements OnModuleInit {
       update: {
         firstName: firstName,
         lastName: lastName,
-        avatar: picture || null,
+        avatar: this.normalizeAvatarUrl(picture || null),
         ...(dateOfBirth !== undefined ? { dateOfBirth } : {}),
         country: dto.country,
         countryCode: dto.countryCode,
@@ -180,7 +199,7 @@ export class AuthService implements OnModuleInit {
         email: email || '',
         firstName: firstName,
         lastName: lastName,
-        avatar: picture || null,
+        avatar: this.normalizeAvatarUrl(picture || null),
         dateOfBirth,
         country: dto.country,
         countryCode: dto.countryCode,
@@ -209,7 +228,9 @@ export class AuthService implements OnModuleInit {
 
     // TODO: Send email with code
     // For now, log it (in production, use email service)
-    console.log(`Verification code for ${normalizedEmail}: ${code}`);
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`Verification code for ${normalizedEmail}: ${code}`);
+    }
 
     return code;
   }
@@ -282,13 +303,14 @@ export class AuthService implements OnModuleInit {
    * Update user profile
    */
   async updateUser(uid: string, dto: UpdateUserDto) {
-    const { birthDay, birthMonth, birthYear, ...rest } = dto;
+    const { birthDay, birthMonth, birthYear, avatar, ...rest } = dto;
     const dateOfBirth = this.buildDateOfBirth(birthDay, birthMonth, birthYear);
 
     const user = await this.prisma.user.update({
       where: { id: uid },
       data: {
         ...rest,
+        ...(avatar !== undefined ? { avatar: this.normalizeAvatarUrl(avatar) } : {}),
         ...(dateOfBirth !== undefined ? { dateOfBirth } : {}),
       },
     });

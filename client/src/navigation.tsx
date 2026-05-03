@@ -82,7 +82,7 @@ export type RootStackParamList = {
   ContactDetails: undefined;
   ReviewShipment: undefined;
   FinalizeDetails: undefined;
-  DeliveryPosted: { shipment?: any };
+  DeliveryPosted: { shipment?: { id: string } };
   ShipmentDetail: { shipmentId: string };
   ActivityDetail: { shipmentId: string };
   Chat: {
@@ -92,7 +92,7 @@ export type RootStackParamList = {
     recipientName?: string;
   };
   Inbox: undefined;
-  AddCard: { card?: any } | undefined;
+  AddCard: { card?: { id: string } } | undefined;
   PaymentMethods: undefined;
   DeliveryTracking: { transactionId: string };
   Profile: undefined;

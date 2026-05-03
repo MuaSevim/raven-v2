@@ -25,7 +25,7 @@ import {
   Scale,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../store/useAuthStore';
-import { API_URL } from '../../config';
+import { api } from '../../utils/api';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 
 interface Travel {
@@ -204,26 +204,12 @@ export default function TravelersTab() {
     setError(null);
 
     try {
-      const token = await user.getIdToken();
-      const response = await fetch(`${API_URL}/travels`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch travels');
-      }
-
-      const data = await response.json();
-      setTravels(data);
-    } catch (err: any) {
+      const response = await api.travels.getAll();
+      const data = response.data || [];
+      setTravels(data as Travel[]);
+    } catch (err: Error | unknown) {
       console.error('Error fetching travels:', err);
-      if (err.response) {
-        console.error('Response data:', err.response.data);
-        console.error('Response status:', err.response.status);
-      }
-      const errorMessage = err.message || 'Failed to load travels';
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load travels';
       setError(errorMessage);
       Alert.alert('Error', `Could not load travels: ${errorMessage}`);
     } finally {

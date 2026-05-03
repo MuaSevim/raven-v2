@@ -13,7 +13,7 @@ import { ArrowLeft, BadgeCheck, Star, Package, Plane, MapPin } from 'lucide-reac
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import { useAuthStore } from '../store/useAuthStore';
-import { API_URL } from '../config';
+import { api } from '../utils/api';
 
 interface UserProfile {
     id: string;
@@ -58,16 +58,9 @@ export default function PublicProfileScreen() {
                 if (!user || !userId) return;
 
                 try {
-                    const token = await user.getIdToken();
-                    const response = await fetch(`${API_URL}/users/${userId}/profile`, {
-                        headers: { 'Authorization': `Bearer ${token}` },
-                    });
-
-                    if (response.ok) {
-                        const data = await response.json();
-                        setProfile(data);
-                    }
-                } catch (err) {
+                    const data = await api.users.getProfile(userId);
+                    setProfile(data.user);
+                } catch (err: Error | unknown) {
                     console.error('Error fetching profile:', err);
                 } finally {
                     setLoading(false);

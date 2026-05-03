@@ -20,7 +20,7 @@ import {
   ChevronLeft,
 } from 'lucide-react-native';
 import { useAuthStore } from '../../store/useAuthStore';
-import { API_URL } from '../../config';
+import { api } from '../../utils/api';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 
 interface Conversation {
@@ -202,20 +202,12 @@ export default function InboxScreen() {
     setError(null);
 
     try {
-      const token = await user.getIdToken();
-      const response = await fetch(`${API_URL}/conversations`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) throw new Error('Failed to fetch conversations');
-
-      const data = await response.json();
-      setConversations(data);
-    } catch (err: any) {
+      const data = await api.conversations.getAll();
+      setConversations(data.data || []);
+    } catch (err: Error | unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch conversations';
       console.error('Error fetching conversations:', err);
-      setError(err.message);
+      setError(message);
     } finally {
       setLoading(false);
       setRefreshing(false);

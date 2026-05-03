@@ -18,6 +18,7 @@ export interface ShipmentDraft {
   weightUnit: 'kg' | 'lb' | 'g';
   content: string;
   packageImageUri: string | null;
+  packageImageUrl: string | null;
 
   // Step 3: Delivery Window
   dateStart: Date | null;
@@ -69,6 +70,7 @@ const initialDraft: ShipmentDraft = {
   weightUnit: 'kg',
   content: '',
   packageImageUri: null,
+  packageImageUrl: null,
 
   // Step 3 - Dates
   dateStart: null,
