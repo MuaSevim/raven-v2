@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, Wifi, Server, CheckCircle, XCircle } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { colors, typography, spacing, borderRadius } from '../theme';
-import { API_URL, LOCAL_NETWORK_IP } from '../config';
+import { API_URL } from '../config';
+import { api } from '../utils/api';
 
 interface TestResult {
     name: string;
@@ -31,11 +32,12 @@ export default function NetworkDiagnosticsScreen() {
                     ? `Server is reachable at ${API_URL}`
                     : `Server returned status ${response.status}`,
             });
-        } catch (error: any) {
+        } catch (error: Error | unknown) {
+            const message = error instanceof Error ? error.message : 'Unknown error';
             testResults.push({
                 name: 'Server Reachability',
                 status: 'error',
-                message: `Cannot reach server: ${error.message}`,
+                message: `Cannot reach server: ${message}`,
             });
         }
 
@@ -53,11 +55,12 @@ export default function NetworkDiagnosticsScreen() {
                     ? 'Auth endpoint is working'
                     : `Auth endpoint returned ${response.status}`,
             });
-        } catch (error: any) {
+        } catch (error: Error | unknown) {
+            const message = error instanceof Error ? error.message : 'Unknown error';
             testResults.push({
                 name: 'Auth Endpoint',
                 status: 'error',
-                message: `Auth endpoint failed: ${error.message}`,
+                message: `Auth endpoint failed: ${message}`,
             });
         }
 

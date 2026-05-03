@@ -1,94 +1,343 @@
 /**
- * API utility functions with proper error handling and timeout management
+ * Centralized API client with typed methods and proper error handling
+ * All API calls must go through this wrapper for consistency
  */
 
 import { API_URL } from '../config';
+import { useAuthStore } from '../store/useAuthStore';
+import type {
+  User,
+  AuthResponse,
+  AuthMeResponse,
+  CheckEmailResponse,
+  Shipment,
+  ShipmentOffer,
+  ShipmentsResponse,
+  ShipmentOffersResponse,
+  Conversation,
+  ConversationsResponse,
+  ConversationDetailResponse,
+  UnreadConversationsResponse,
+  MessagesResponse,
+  PaymentMethod,
+  PaymentTransaction,
+  PaymentMethodsResponse,
+  TransactionsResponse,
+  PaymentHoldResponse,
+  PaymentReleaseResponse,
+  PaymentRefundResponse,
+  Travel,
+  TravelsResponse,
+  UserProfile,
+  UserProfileResponse,
+  ApiError,
+} from '../types/api';
 
-// Default timeout for API requests (30 seconds)
 const DEFAULT_TIMEOUT = 30000;
 
 interface FetchOptions extends RequestInit {
-    timeout?: number;
+  timeout?: number;
 }
 
 /**
  * Enhanced fetch with timeout and better error handling
  */
-export async function fetchWithTimeout(
-    url: string,
-    options: FetchOptions = {}
+async function fetchWithTimeout(
+  url: string,
+  options: FetchOptions = {}
 ): Promise<Response> {
-    const { timeout = DEFAULT_TIMEOUT, ...fetchOptions } = options;
+  const { timeout = DEFAULT_TIMEOUT, ...fetchOptions } = options;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-    try {
-        const response = await fetch(url, {
-            ...fetchOptions,
-            signal: controller.signal,
-        });
-        clearTimeout(timeoutId);
-        return response;
-    } catch (error: any) {
-        clearTimeout(timeoutId);
+  try {
+    const response = await fetch(url, {
+      ...fetchOptions,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error: Error | unknown) {
+    clearTimeout(timeoutId);
 
-        if (error.name === 'AbortError') {
-            throw new Error('Request timeout - please check your connection');
-        }
-
-        if (error.message === 'Network request failed') {
-            throw new Error(
-                `Cannot connect to server at ${API_URL}. Please ensure:\n` +
-                '1. The server is running (npm run start:dev)\n' +
-                '2. Your device is on the same network\n' +
-                '3. The IP address in config.ts is correct'
-            );
-        }
-
-        throw error;
+    const err = error as Record<string, unknown>;
+    if (err.name === 'AbortError') {
+      throw new Error('Request timeout - please check your connection');
     }
+
+    if ((err as Error).message === 'Network request failed') {
+      throw new Error(
+        `Cannot connect to server at ${API_URL}. Please ensure:\n` +
+        '1. The server is running if using a local URL\n' +
+        '2. The API_URL in config.ts points to the correct environment'
+      );
+    }
+
+    throw error;
+  }
 }
 
 /**
- * API helper for authenticated requests
+ * Get authorization header with Firebase token
  */
-export async function apiRequest(
-    endpoint: string,
-    options: FetchOptions & { token?: string } = {}
-): Promise<Response> {
-    const { token, ...fetchOptions } = options;
-
-    const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-        ...(fetchOptions.headers as Record<string, string>),
-    };
-
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
+async function getAuthHeader(): Promise<Record<string, string>> {
+  try {
+    const { user } = useAuthStore.getState();
+    if (user?.token) {
+      return {
+        Authorization: `Bearer ${user.token}`,
+      };
     }
-
-    return fetchWithTimeout(`${API_URL}${endpoint}`, {
-        ...fetchOptions,
-        headers,
-    });
+  } catch {
+    // If token is unavailable, return empty headers
+  }
+  return {};
 }
 
 /**
  * Parse JSON response with error handling
  */
-export async function parseJsonResponse<T = any>(response: Response): Promise<T> {
-    if (!response.ok) {
-        let errorMessage = `Request failed with status ${response.status}`;
-        try {
-            const errorData = await response.json();
-            errorMessage = errorData.message || errorMessage;
-        } catch {
-            // If JSON parsing fails, use status text
-            errorMessage = response.statusText || errorMessage;
-        }
-        throw new Error(errorMessage);
-    }
+async function parseResponse<T>(response: Response): Promise<T> {
+  const text = await response.text();
 
-    return response.json();
+  if (!response.ok) {
+    let errorData: ApiError;
+    try {
+      errorData = JSON.parse(text);
+    } catch {
+      errorData = {
+        message: text || `HTTP ${response.status}: ${response.statusText}`,
+        code: `HTTP_${response.status}`,
+      };
+    }
+    throw errorData;
+  }
+
+  if (!text) {
+    return {} as T;
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text as unknown as T;
+  }
 }
+
+/**
+ * Base API request handler
+ */
+async function apiRequest<T>(
+  endpoint: string,
+  options: FetchOptions = {}
+): Promise<T> {
+  const authHeader = await getAuthHeader();
+  const url = `${API_URL}${endpoint}`;
+
+  const response = await fetchWithTimeout(url, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeader,
+      ...(options.headers || {}),
+    },
+  });
+
+  return parseResponse<T>(response);
+}
+
+/**
+ * API Client with typed methods
+ */
+export const api = {
+  // === AUTH ENDPOINTS ===
+  auth: {
+    signIn: (email: string, password: string) =>
+      apiRequest<AuthResponse>('/auth/sign-in', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      }),
+
+    signUp: (data: Record<string, unknown>) =>
+      apiRequest<AuthResponse>('/auth/sign-up', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    me: () =>
+      apiRequest<AuthMeResponse>('/auth/me', { method: 'GET' }),
+
+    updateProfile: (data: Record<string, unknown>) =>
+      apiRequest<User>('/auth/profile', {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+
+    updatePassword: (currentPassword: string, newPassword: string) =>
+      apiRequest<{ message: string }>('/auth/password', {
+        method: 'PATCH',
+        body: JSON.stringify({ currentPassword, newPassword }),
+      }),
+
+    checkEmail: (email: string) =>
+      apiRequest<CheckEmailResponse>('/auth/check-email', {
+        method: 'POST',
+        body: JSON.stringify({ email }),
+      }),
+  },
+
+  // === SHIPMENT ENDPOINTS ===
+  shipments: {
+    create: (data: Record<string, unknown>) =>
+      apiRequest<Shipment>('/shipments', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    getById: (id: string) =>
+      apiRequest<Shipment>(`/shipments/${id}`, { method: 'GET' }),
+
+    getMyShipments: () =>
+      apiRequest<ShipmentsResponse>('/shipments/my/sent', { method: 'GET' }),
+
+    getMyDeliveries: () =>
+      apiRequest<ShipmentsResponse>('/shipments/my/delivering', { method: 'GET' }),
+
+    getAvailableShipments: () =>
+      apiRequest<ShipmentsResponse>('/shipments', { method: 'GET' }),
+
+    getOffers: (shipmentId: string) =>
+      apiRequest<ShipmentOffersResponse>(`/shipments/${shipmentId}/offers`, {
+        method: 'GET',
+      }),
+
+    getMyOffer: (shipmentId: string) =>
+      apiRequest<ShipmentOffer>(`/shipments/${shipmentId}/my-offer`, {
+        method: 'GET',
+      }),
+
+    submitOffer: (shipmentId: string, price: number) =>
+      apiRequest<ShipmentOffer>(`/shipments/${shipmentId}/offers`, {
+        method: 'POST',
+        body: JSON.stringify({ price }),
+      }),
+
+    acceptOffer: (shipmentId: string, offerId: string) =>
+      apiRequest<Shipment>(`/shipments/${shipmentId}/offers/${offerId}/accept`, {
+        method: 'POST',
+      }),
+  },
+
+  // === CONVERSATION ENDPOINTS ===
+  conversations: {
+    getAll: () =>
+      apiRequest<ConversationsResponse>('/conversations', { method: 'GET' }),
+
+    getUnread: () =>
+      apiRequest<UnreadConversationsResponse>('/conversations/unread', {
+        method: 'GET',
+      }),
+
+    getById: (id: string) =>
+      apiRequest<ConversationDetailResponse>(`/conversations/${id}`, {
+        method: 'GET',
+      }),
+
+    create: (data: Record<string, unknown>) =>
+      apiRequest<Conversation>('/conversations', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    markAsRead: (id: string) =>
+      apiRequest<{ message: string }>(`/conversations/${id}/read`, {
+        method: 'POST',
+      }),
+
+    getMessages: (conversationId: string) =>
+      apiRequest<MessagesResponse>(`/conversations/${conversationId}/messages`, {
+        method: 'GET',
+      }),
+
+    sendMessage: (conversationId: string, content: string) =>
+      apiRequest<{ message: Record<string, unknown> }>(`/conversations/${conversationId}/messages`, {
+        method: 'POST',
+        body: JSON.stringify({ content }),
+      }),
+  },
+
+  // === PAYMENT ENDPOINTS ===
+  payments: {
+    getMethods: () =>
+      apiRequest<PaymentMethodsResponse>('/payments/methods', { method: 'GET' }),
+
+    createMethod: (data: Record<string, unknown>) =>
+      apiRequest<PaymentMethod>('/payments/methods', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    setDefaultMethod: (id: string) =>
+      apiRequest<PaymentMethod>(`/payments/methods/${id}/default`, {
+        method: 'PATCH',
+      }),
+
+    deleteMethod: (id: string) =>
+      apiRequest<{ message: string }>(`/payments/methods/${id}`, {
+        method: 'DELETE',
+      }),
+
+    getTransactions: () =>
+      apiRequest<TransactionsResponse>('/payments/transactions', {
+        method: 'GET',
+      }),
+
+    holdPayment: (shipmentId: string) =>
+      apiRequest<PaymentHoldResponse>('/payments/hold', {
+        method: 'POST',
+        body: JSON.stringify({ shipmentId }),
+      }),
+
+    releasePayment: (shipmentId: string) =>
+      apiRequest<PaymentReleaseResponse>(`/payments/release/${shipmentId}`, {
+        method: 'POST',
+      }),
+
+    refundPayment: (shipmentId: string) =>
+      apiRequest<PaymentRefundResponse>(`/payments/refund/${shipmentId}`, {
+        method: 'POST',
+      }),
+  },
+
+  // === TRAVEL ENDPOINTS ===
+  travels: {
+    getAll: () =>
+      apiRequest<TravelsResponse>('/travels', { method: 'GET' }),
+
+    create: (data: Record<string, unknown>) =>
+      apiRequest<Travel>('/travels', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      }),
+
+    getById: (id: string) =>
+      apiRequest<Travel>(`/travels/${id}`, { method: 'GET' }),
+
+    update: (id: string, data: Record<string, unknown>) =>
+      apiRequest<Travel>(`/travels/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(data),
+      }),
+  },
+
+  // === USER ENDPOINTS ===
+  users: {
+    getProfile: (userId: string) =>
+      apiRequest<UserProfileResponse>(`/users/${userId}/profile`, {
+        method: 'GET',
+      }),
+  },
+};
+
+

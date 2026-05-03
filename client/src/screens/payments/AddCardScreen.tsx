@@ -15,7 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, CreditCard, Lock, Check } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuthStore } from '../../store/useAuthStore';
-import { API_URL } from '../../config';
+import { api } from '../../utils/api';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 
 // Card type detection
@@ -86,40 +86,27 @@ export default function AddCardScreen() {
     setSaving(true);
 
     try {
-      const token = await user.getIdToken();
-
       // Parse expiry
       const [monthStr, yearStr] = expiry.split('/');
       const expiryMonth = parseInt(monthStr, 10);
       const expiryYear = parseInt('20' + yearStr, 10);
 
-      const response = await fetch(`${API_URL}/payments/methods`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          cardNumber: cardNumber.replace(/\s/g, ''),
-          expiryMonth,
-          expiryYear,
-          cvv,
-          cardHolder: cardholderName.trim(),
-          setAsDefault,
-        }),
+      await api.payments.createMethod({
+        cardNumber: cardNumber.replace(/\s/g, ''),
+        expiryMonth,
+        expiryYear,
+        cvv,
+        cardHolder: cardholderName.trim(),
+        setAsDefault,
       });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to save card');
-      }
 
       Alert.alert('Success', 'Card added successfully', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
-    } catch (err: any) {
+    } catch (err: Error | unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to save card';
       console.error('Error saving card:', err);
-      Alert.alert('Error', err.message);
+      Alert.alert('Error', errorMessage);
     } finally {
       setSaving(false);
     }

@@ -1,8 +1,5 @@
 import axios from 'axios';
-import { LOCAL_NETWORK_IP } from '../config';
-
-// API URL for local development with physical devices
-const API_URL = `http://${LOCAL_NETWORK_IP}:3000`;
+import { API_URL } from '../config';
 
 const api = axios.create({
   baseURL: API_URL,

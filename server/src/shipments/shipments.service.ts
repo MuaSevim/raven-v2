@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { CreateOfferDto } from './dto/create-offer.dto';
-import { MessageCategory, ShipmentStatus, TransactionStatus } from '@prisma/client';
+import { MessageCategory, ShipmentStatus, TransactionStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class ShipmentsService {
@@ -29,9 +29,8 @@ export class ShipmentsService {
       return null;
     }
 
-    // Supabase storage upload integration is intentionally disabled during migration.
     if (imageUrl.startsWith('data:') || imageUrl.startsWith('file://')) {
-      return 'https://placeholder.com/package.png';
+      return null;
     }
 
     return imageUrl;
@@ -46,7 +45,7 @@ export class ShipmentsService {
 
     // Ensure user exists in database (upsert if not)
     const existingUser = await this.prisma.user.findUnique({ where: { id: senderId } });
-    
+
     if (!existingUser) {
       await this.prisma.user.create({
         data: {
@@ -106,7 +105,7 @@ export class ShipmentsService {
     minPrice?: number;
     maxPrice?: number;
   }) {
-    const where: any = {};
+    const where: Prisma.ShipmentWhereInput = {};
 
     where.status = this.normalizeShipmentStatusFilter(filters?.status);
     if (filters?.originCountry) {
@@ -526,7 +525,7 @@ export class ShipmentsService {
     }
 
     // Update the appropriate confirmation field
-    const updateData: any = {};
+    const updateData: Prisma.ShipmentUpdateInput = {};
     if (isSender) {
       updateData.senderConfirmedHandover = true;
     }
@@ -610,7 +609,7 @@ export class ShipmentsService {
     }
 
     // Update the appropriate confirmation field
-    const updateData: any = {};
+    const updateData: Prisma.ShipmentUpdateInput = {};
     if (isSender) {
       updateData.senderConfirmedDelivery = true;
     }

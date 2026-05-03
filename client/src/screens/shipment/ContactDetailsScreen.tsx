@@ -20,7 +20,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 import { StepHeader, BottomButton } from '../../components/shipment/StepComponents';
 import { PHONE_COUNTRIES, PhoneCountry } from '../../services/locationApi';
-import { API_URL } from '../../config';
+import { api } from '../../utils/api';
 import { normalizeText } from '../../utils/text';
 
 // =============================================================================
@@ -159,29 +159,23 @@ export default function ContactDetailsScreen() {
     const fetchProfile = async () => {
       if (!user) return;
       try {
-        const token = await user.getIdToken();
-        const res = await fetch(`${API_URL}/auth/me`, {
-          headers: { Authorization: `Bearer ${token}` },
+        const data = await api.auth.me();
+        dispatch({
+          type: 'SET_PROFILE_PHONE',
+          payload: { phone: data.phone || null, phoneCode: (data as any).phoneCode || null },
         });
-        if (res.ok) {
-          const data = await res.json();
-          dispatch({
-            type: 'SET_PROFILE_PHONE',
-            payload: { phone: data.phone || null, phoneCode: data.phoneCode || null },
-          });
 
-          // Pre-fill if not already filled
-          if (!draft.senderPhone && data.phone) {
-            dispatch({ type: 'SET_PHONE', payload: data.phone });
-            dispatch({ type: 'SET_PHONE_CODE', payload: data.phoneCode || '+1' });
-          }
-
-          // Pre-fill Name if not already filled
-          if (!state.fullName && data.firstName && data.lastName) {
-            dispatch({ type: 'SET_FULL_NAME', payload: `${data.firstName} ${data.lastName}`.trim() });
-          }
+        // Pre-fill if not already filled
+        if (!draft.senderPhone && data.phone) {
+          dispatch({ type: 'SET_PHONE', payload: data.phone });
+          dispatch({ type: 'SET_PHONE_CODE', payload: (data as any).phoneCode || '+1' });
         }
-      } catch (err) {
+
+        // Pre-fill Name if not already filled
+        if (!state.fullName && data.firstName && data.lastName) {
+          dispatch({ type: 'SET_FULL_NAME', payload: `${data.firstName} ${data.lastName}`.trim() });
+        }
+      } catch (err: Error | unknown) {
         console.error('Error fetching profile:', err);
       }
     };
@@ -261,13 +255,8 @@ export default function ContactDetailsScreen() {
   const updateProfilePhone = async () => {
     if (!user) return;
     try {
-      const token = await user.getIdToken();
-      await fetch(`${API_URL}/auth/profile`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: state.phone, phoneCode: state.phoneCode }),
-      });
-    } catch (err) {
+      await api.auth.updateProfile({ phone: state.phone, phoneCode: state.phoneCode });
+    } catch (err: Error | unknown) {
       console.error('Error updating profile phone:', err);
     }
   };

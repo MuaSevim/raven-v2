@@ -34,15 +34,6 @@ export class ShipmentsController {
     @Query('minPrice') minPrice?: string,
     @Query('maxPrice') maxPrice?: string,
   ) {
-    console.log('GET /shipments findAll called with params:', {
-      status,
-      originCountry,
-      destCountry,
-      minWeight,
-      maxWeight,
-      minPrice,
-      maxPrice,
-    });
     return this.shipmentsService.findAll({
       status,
       originCountry,
