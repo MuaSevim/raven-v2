@@ -11,9 +11,11 @@ export class ConversationsService {
    * Get or create a conversation between two users about a shipment
    */
   async getOrCreateConversation(userId: string, userEmail: string, dto: CreateConversationDto) {
-    // Ensure current user exists
     const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!existingUser) {
+      if (!userEmail) {
+        throw new ForbiddenException('User email is required but was not provided.');
+      }
       await this.prisma.user.create({
         data: { id: userId, email: userEmail },
       });
@@ -38,14 +40,10 @@ export class ConversationsService {
       throw new BadRequestException('Cannot create conversation with yourself');
     }
 
-    // Ensure recipient user exists (they might not be in DB yet)
     const recipientId = isSender ? dto.recipientId : shipment.senderId;
     const recipientExists = await this.prisma.user.findUnique({ where: { id: recipientId } });
     if (!recipientExists) {
-      // Create placeholder user - they'll update their profile when they sign in
-      await this.prisma.user.create({
-        data: { id: recipientId, email: `${recipientId}@placeholder.raven` },
-      });
+      throw new NotFoundException('Recipient user not found in the system');
     }
 
     // Try to find existing conversation
