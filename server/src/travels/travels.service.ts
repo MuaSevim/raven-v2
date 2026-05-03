@@ -70,15 +70,20 @@ export class TravelsService {
       if (filters.minWeight) where.availableWeight.gte = filters.minWeight;
       if (filters.maxWeight) where.availableWeight.lte = filters.maxWeight;
     }
+    const dateFilter: Prisma.DateTimeFilter = {};
     if (filters?.fromDate) {
-      where.departureDate = { ...where.departureDate, gte: new Date(filters.fromDate) };
+      dateFilter.gte = new Date(filters.fromDate);
     }
     if (filters?.toDate) {
-      where.departureDate = { ...where.departureDate, lte: new Date(filters.toDate) };
+      dateFilter.lte = new Date(filters.toDate);
     }
 
     // Only show future travels (departure date >= today)
-    where.departureDate = { ...where.departureDate, gte: new Date() };
+    if (!dateFilter.gte || dateFilter.gte < new Date()) {
+      dateFilter.gte = new Date();
+    }
+
+    where.departureDate = dateFilter;
 
     return this.prisma.travel.findMany({
       where,
