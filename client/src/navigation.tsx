@@ -1,8 +1,9 @@
-import React, { useEffect, useCallback } from "react";
+import React, { useEffect, useCallback, useRef } from "react";
 import { ActivityIndicator, View, StyleSheet } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import { NavigationContainer, useNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import * as SplashScreen from "expo-splash-screen";
+import * as Linking from "expo-linking";
 import {
   useFonts,
   Inter_400Regular,
@@ -28,7 +29,9 @@ import {
   SignUpStep2Screen,
   SignUpStep3Screen,
   SignUpStep4Screen,
-  SignUpStep5Screen,
+  EmailVerificationWaitingScreen,
+  ForgotPasswordScreen,
+  EnterNewPasswordScreen,
 } from "./screens/auth";
 
 // Shipment Screens
@@ -71,7 +74,9 @@ export type RootStackParamList = {
   SignUpStep2: undefined;
   SignUpStep3: undefined;
   SignUpStep4: undefined;
-  SignUpStep5: undefined;
+  EmailVerificationWaiting: { email?: string } | undefined;
+  ForgotPassword: { email?: string } | undefined;
+  EnterNewPassword: { oobCode: string };
   Welcome: undefined;
   MainTabs: undefined;
   // Shipment Flow (6 steps)
@@ -113,6 +118,8 @@ SplashScreen.preventAutoHideAsync();
 
 export default function Navigation() {
   const { user, loading, setLoading } = useAuthStore();
+  const navigationRef = useNavigationContainerRef<RootStackParamList>();
+  const pendingUrlRef = useRef<string | null>(null);
 
   const [fontsLoaded] = useFonts({
     Inter_400Regular,
@@ -128,11 +135,47 @@ export default function Navigation() {
     }
   }, [fontsLoaded, setLoading]);
 
+  const handleIncomingUrl = useCallback(
+    (url: string) => {
+      const parsed = Linking.parse(url);
+      const mode = parsed.queryParams?.mode;
+      const oobCode = parsed.queryParams?.oobCode;
+
+      if (mode === "resetPassword" && typeof oobCode === "string") {
+        if (navigationRef.isReady()) {
+          navigationRef.navigate("EnterNewPassword", { oobCode });
+        } else {
+          pendingUrlRef.current = url;
+        }
+      }
+    },
+    [navigationRef]
+  );
+
+  useEffect(() => {
+    const subscription = Linking.addEventListener("url", ({ url }) => {
+      handleIncomingUrl(url);
+    });
+
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        handleIncomingUrl(url);
+      }
+    });
+
+    return () => subscription.remove();
+  }, [handleIncomingUrl]);
+
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded && !loading) {
       await SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, loading]);
+
+    if (pendingUrlRef.current && navigationRef.isReady()) {
+      handleIncomingUrl(pendingUrlRef.current);
+      pendingUrlRef.current = null;
+    }
+  }, [fontsLoaded, loading, handleIncomingUrl, navigationRef]);
 
   if (!fontsLoaded || loading) {
     return (
@@ -142,10 +185,12 @@ export default function Navigation() {
     );
   }
 
+  const isAuthenticated = Boolean(user && user.emailVerified);
+
   return (
-    <NavigationContainer onReady={onLayoutRootView}>
+    <NavigationContainer ref={navigationRef} onReady={onLayoutRootView}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {user ? (
+        {isAuthenticated ? (
           // Authenticated Stack
           <>
             <Stack.Screen name="MainTabs" component={MainTabNavigator} />
@@ -166,6 +211,8 @@ export default function Navigation() {
             <Stack.Screen name="DeliveryTracking" component={DeliveryTrackingScreen} />
             <Stack.Screen name="Profile" component={ProfileScreen} />
             <Stack.Screen name="UpdatePassword" component={UpdatePasswordScreen} />
+            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+            <Stack.Screen name="EnterNewPassword" component={EnterNewPasswordScreen} />
             <Stack.Screen name="Earnings" component={EarningsScreen} />
             <Stack.Screen name="PublicProfile" component={PublicProfileScreen} />
             <Stack.Screen name="Activities" component={ActivitiesScreen} />
@@ -183,7 +230,12 @@ export default function Navigation() {
             <Stack.Screen name="SignUpStep2" component={SignUpStep2Screen} />
             <Stack.Screen name="SignUpStep3" component={SignUpStep3Screen} />
             <Stack.Screen name="SignUpStep4" component={SignUpStep4Screen} />
-            <Stack.Screen name="SignUpStep5" component={SignUpStep5Screen} />
+            <Stack.Screen
+              name="EmailVerificationWaiting"
+              component={EmailVerificationWaitingScreen}
+            />
+            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+            <Stack.Screen name="EnterNewPassword" component={EnterNewPasswordScreen} />
             <Stack.Screen name="Welcome" component={WelcomeScreen} />
           </>
         )}

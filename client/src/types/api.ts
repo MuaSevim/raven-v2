@@ -25,6 +25,10 @@ export interface AuthMeResponse {
   lastName: string;
   email: string;
   phone: string;
+  phoneCode?: string;
+  country?: string;
+  countryCode?: string;
+  city?: string;
   profilePicture?: string;
   createdAt: string;
 }
@@ -37,31 +41,62 @@ export interface CheckEmailResponse {
 // Shipment Types
 export interface Shipment {
   id: string;
-  senderId: string;
-  receiver: {
+  senderId?: string;
+  receiver?: {
     name: string;
     phone: string;
     email?: string;
   };
-  departure: {
+  departure?: {
     location: string;
     latitude: number;
     longitude: number;
   };
-  destination: {
+  destination?: {
     location: string;
     latitude: number;
     longitude: number;
   };
-  status: 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  originCity?: string;
+  originCountry?: string;
+  destCity?: string;
+  destCountry?: string;
+  dateStart?: string;
+  dateEnd?: string;
+  content?: string;
+  packageType?: string;
+  weight?: number;
+  weightUnit?: string;
+  status: 'OPEN' | 'MATCHED' | 'HANDED_OVER' | 'ON_WAY' | 'DELIVERED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   imageUrl?: string;
   price: number;
   currency: string;
-  weight?: number;
   dimensions?: string;
-  description: string;
+  description?: string;
   createdAt: string;
   updatedAt: string;
+  deliveryConfirmedAt?: string | null;
+  handoverConfirmedAt?: string | null;
+  senderConfirmedHandover?: boolean;
+  courierConfirmedHandover?: boolean;
+  senderConfirmedDelivery?: boolean;
+  courierConfirmedDelivery?: boolean;
+  sender?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatar?: string | null;
+    isVerified?: boolean;
+  };
+  courierId?: string | null;
+  courier?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatar?: string | null;
+    isVerified?: boolean;
+  } | null;
+  _count?: { offers: number };
 }
 
 export interface ShipmentOffer {
@@ -102,12 +137,43 @@ export interface Message {
   conversationId: string;
   senderId: string;
   content: string;
+  type?: string;
+  status?: 'SENT' | 'DELIVERED' | 'READ';
+  sender?: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    avatar: string | null;
+  };
   createdAt: string;
 }
 
 export interface Conversation {
   id: string;
-  participants: {
+  status?: string;
+  user1Id?: string;
+  user1?: { id: string; firstName: string | null; lastName: string | null };
+  user2?: { id: string; firstName: string | null; lastName: string | null };
+  otherUser?: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    avatar: string | null;
+    isVerified: boolean;
+  };
+  shipment?: {
+    id: string;
+    originCity?: string;
+    destCity?: string;
+    price?: number;
+    currency?: string;
+    status?: string;
+    senderId?: string;
+  };
+  messages?: Message[];
+  isSender?: boolean;
+  canMatch?: boolean;
+  participants?: {
     id: string;
     firstName: string;
     lastName: string;
@@ -116,8 +182,11 @@ export interface Conversation {
   lastMessage?: {
     content: string;
     createdAt: string;
-  };
-  unread: boolean;
+    status?: string;
+    sender?: { id: string };
+  } | null;
+  unread?: boolean;
+  unreadCount?: number;
   updatedAt: string;
 }
 
@@ -125,16 +194,7 @@ export interface ConversationsResponse {
   data: Conversation[];
 }
 
-export interface ConversationDetailResponse {
-  id: string;
-  participants: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    profilePicture?: string;
-  }[];
-  messages: Message[];
-}
+export type ConversationDetailResponse = Conversation;
 
 export interface UnreadConversationsResponse {
   unread: number;
@@ -147,10 +207,12 @@ export interface MessagesResponse {
 // Payment Types
 export interface PaymentMethod {
   id: string;
-  userId: string;
-  type: 'card' | 'wallet';
-  lastFour?: string;
-  expiryDate?: string;
+  userId?: string;
+  cardType?: string;
+  lastFour: string;
+  expiryMonth?: number;
+  expiryYear?: number;
+  cardHolder?: string;
   isDefault: boolean;
   createdAt: string;
 }
@@ -163,6 +225,7 @@ export interface PaymentTransaction {
   currency: string;
   status: 'PENDING' | 'COMPLETED' | 'FAILED' | 'HELD' | 'RELEASED' | 'REFUNDED';
   description?: string;
+  shipment?: Shipment;
   createdAt: string;
   updatedAt: string;
 }
@@ -196,8 +259,31 @@ export interface PaymentRefundResponse {
 // Travel Types
 export interface Travel {
   id: string;
-  courierId: string;
-  route: {
+  courierId?: string;
+  fromCountry?: string;
+  fromCity?: string;
+  fromAirportCode?: string | null;
+  toCountry?: string;
+  toCity?: string;
+  toAirportCode?: string | null;
+  departureDate?: string;
+  arrivalDate?: string | null;
+  availableWeight?: number;
+  weightUnit?: string;
+  pricePerKg?: number | null;
+  currency?: string;
+  flightNumber?: string | null;
+  status?: string;
+  traveler?: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    avatar: string | null;
+    isVerified: boolean;
+    country: string | null;
+    city: string | null;
+  };
+  route?: {
     departure: {
       location: string;
       latitude: number;
@@ -209,10 +295,8 @@ export interface Travel {
       longitude: number;
     };
   };
-  departureDate: string;
   capacity?: number;
   description?: string;
-  status: 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   createdAt: string;
   updatedAt: string;
 }
@@ -227,16 +311,38 @@ export interface TravelsResponse {
 // User Profile Types
 export interface UserProfile {
   id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
+  firstName: string | null;
+  lastName: string | null;
+  email?: string;
+  phone?: string;
   profilePicture?: string;
+  avatar?: string | null;
+  isVerified?: boolean;
+  country?: string | null;
+  city?: string | null;
+  joinedAt?: string;
   about?: string;
   rating?: number;
   totalShipments?: number;
   totalDeliveries?: number;
-  createdAt: string;
+  createdAt?: string;
+  stats?: {
+    shipmentsPosted: number;
+    deliveriesCompleted: number;
+    averageRating: number;
+    totalReviews: number;
+  };
+  reviews?: {
+    id: string;
+    rating: number;
+    comment: string | null;
+    createdAt: string;
+    reviewer: {
+      firstName: string | null;
+      lastName: string | null;
+      avatar: string | null;
+    };
+  }[];
 }
 
 export interface UserProfileResponse {

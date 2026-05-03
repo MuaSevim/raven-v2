@@ -161,6 +161,13 @@ export default function UpdatePasswordScreen() {
                     {confirmPassword && newPassword !== confirmPassword && (
                         <Text style={styles.errorHint}>Passwords do not match</Text>
                     )}
+
+                    <TouchableOpacity
+                        style={styles.forgotPasswordButton}
+                        onPress={() => navigation.navigate('ForgotPassword', { email: user?.email })}
+                    >
+                        <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                    </TouchableOpacity>
                 </ScrollView>
             </KeyboardAvoidingView>
 
@@ -249,6 +256,15 @@ const styles = StyleSheet.create({
         fontSize: typography.fontSize.xs,
         color: '#EF4444',
         marginTop: spacing.xs,
+    },
+    forgotPasswordButton: {
+        marginTop: spacing.md,
+        alignSelf: 'flex-end',
+    },
+    forgotPasswordText: {
+        fontFamily: typography.fontFamily.medium,
+        fontSize: typography.fontSize.sm,
+        color: colors.textPrimary,
     },
     footer: {
         padding: spacing.lg,

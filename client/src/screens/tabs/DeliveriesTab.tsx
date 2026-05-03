@@ -28,34 +28,10 @@ import {
 } from "lucide-react-native";
 import { useAuthStore } from "../../store/useAuthStore";
 import { api } from "../../utils/api";
+import type { Shipment } from "../../types/api";
 import { colors, typography, spacing, borderRadius } from "../../theme";
 
-interface Shipment {
-  id: string;
-  originCity: string;
-  originCountry: string;
-  destCity: string;
-  destCountry: string;
-  dateStart: string;
-  dateEnd: string;
-  price: number;
-  currency: string;
-  weight: number;
-  weightUnit: string;
-  packageType: string;
-  content: string;
-  status: string;
-  sender: {
-    id: string;
-    firstName: string | null;
-    lastName: string | null;
-    avatar: string | null;
-    isVerified: boolean;
-  };
-  _count?: {
-    offers: number;
-  };
-}
+
 
 // Filter chip component
 interface FilterChipProps {
@@ -207,7 +183,7 @@ export default function DeliveriesTab() {
     try {
       const response = await api.shipments.getAvailableShipments();
       const data = response.data || [];
-      setShipments(data as Shipment[]);
+      setShipments(data);
     } catch (err: Error | unknown) {
       console.error('Error fetching shipments:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to load shipments';
