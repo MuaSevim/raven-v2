@@ -27,42 +27,8 @@ import {
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { api } from '../../utils/api';
+import type { ConversationDetailResponse, Message } from '../../types/api';
 import { colors, typography, spacing, borderRadius } from '../../theme';
-
-interface Message {
-  id: string;
-  content: string;
-  type: string;
-  status: 'SENT' | 'DELIVERED' | 'READ';
-  senderId: string;
-  sender: {
-    id: string;
-    firstName: string | null;
-    lastName: string | null;
-    avatar: string | null;
-  };
-  createdAt: string;
-}
-
-interface Conversation {
-  id: string;
-  status: string; // PENDING, ACTIVE, MATCHED
-  user1: { id: string; firstName: string | null; lastName: string | null };
-  user2: { id: string; firstName: string | null; lastName: string | null };
-  otherUser: { id: string; firstName: string | null; lastName: string | null; isVerified: boolean };
-  shipment: {
-    id: string;
-    originCity: string;
-    destCity: string;
-    price: number;
-    currency: string;
-    status: string;
-    senderId: string;
-  };
-  messages: Message[];
-  isSender: boolean;
-  canMatch: boolean;
-}
 
 interface ChatParams {
   conversationId?: string;
@@ -87,7 +53,7 @@ export default function ChatScreen() {
 
   const params = route.params as ChatParams;
 
-  const [conversation, setConversation] = useState<Conversation | null>(null);
+  const [conversation, setConversation] = useState<ConversationDetailResponse | null>(null);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);

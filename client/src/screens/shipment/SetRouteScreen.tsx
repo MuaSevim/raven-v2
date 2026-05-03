@@ -159,7 +159,7 @@ export default function SetRouteScreen() {
   };
 
   // Filter data based on search query
-  const getFilteredData = () => {
+  const getFilteredData = (): Array<Country | string> => {
     const query = normalizeText(searchQuery);
 
     switch (modalType) {
@@ -179,7 +179,7 @@ export default function SetRouteScreen() {
     }
   };
 
-  const renderModalItem = ({ item }: { item: Record<string, unknown> }) => {
+  const renderModalItem = ({ item }: { item: Country | string }) => {
     if (modalType === 'originCountry' || modalType === 'destCountry') {
       const country = item as Country;
       const isSelected = modalType === 'originCountry'
@@ -348,11 +348,15 @@ export default function SetRouteScreen() {
               <ActivityIndicator size="large" color={colors.textPrimary} />
             </View>
           ) : (
-            <FlatList
+            <FlatList<Country | string>
               data={getFilteredData()}
-              keyExtractor={(item, index) =>
-                typeof item === 'string' ? item : (item as any).iata || (item as any).country || index.toString()
-              }
+              keyExtractor={(item, index) => {
+                if (typeof item === 'string') {
+                  return item;
+                }
+                const country = item as Country;
+                return country.iso2 || country.country || index.toString();
+              }}
               renderItem={renderModalItem}
               contentContainerStyle={styles.modalList}
               ListEmptyComponent={

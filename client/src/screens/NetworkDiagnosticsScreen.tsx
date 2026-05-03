@@ -17,6 +17,7 @@ export default function NetworkDiagnosticsScreen() {
     const navigation = useNavigation();
     const [testing, setTesting] = useState(false);
     const [results, setResults] = useState<TestResult[]>([]);
+    const apiHost = API_URL.replace(/^https?:\/\//, '').split('/')[0];
 
     const runDiagnostics = async () => {
         setTesting(true);
@@ -76,7 +77,7 @@ export default function NetworkDiagnosticsScreen() {
                 'Please check the results and ensure:\n' +
                 '1. Server is running (npm run start:dev)\n' +
                 '2. Device is on the same WiFi network\n' +
-                `3. IP address (${LOCAL_NETWORK_IP}) is correct`
+                `3. API host (${apiHost}) is correct`
             );
         }
     };
@@ -95,7 +96,7 @@ export default function NetworkDiagnosticsScreen() {
                     <Wifi size={24} color={colors.textPrimary} />
                     <View style={styles.infoContent}>
                         <Text style={styles.infoTitle}>Server Configuration</Text>
-                        <Text style={styles.infoText}>IP: {LOCAL_NETWORK_IP}</Text>
+                        <Text style={styles.infoText}>Host: {apiHost}</Text>
                         <Text style={styles.infoText}>URL: {API_URL}</Text>
                     </View>
                 </View>

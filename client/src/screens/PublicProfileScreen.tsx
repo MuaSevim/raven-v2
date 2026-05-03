@@ -14,34 +14,7 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import { colors, typography, spacing, borderRadius } from '../theme';
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../utils/api';
-
-interface UserProfile {
-    id: string;
-    firstName: string | null;
-    lastName: string | null;
-    avatar: string | null;
-    isVerified: boolean;
-    country: string | null;
-    city: string | null;
-    joinedAt: string;
-    stats: {
-        shipmentsPosted: number;
-        deliveriesCompleted: number;
-        averageRating: number;
-        totalReviews: number;
-    };
-    reviews: {
-        id: string;
-        rating: number;
-        comment: string | null;
-        createdAt: string;
-        reviewer: {
-            firstName: string | null;
-            lastName: string | null;
-            avatar: string | null;
-        };
-    }[];
-}
+import type { UserProfile } from '../types/api';
 
 export default function PublicProfileScreen() {
     const navigation = useNavigation<any>();

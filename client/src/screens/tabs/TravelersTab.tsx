@@ -26,34 +26,10 @@ import {
 } from 'lucide-react-native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { api } from '../../utils/api';
+import type { Travel } from '../../types/api';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 
-interface Travel {
-  id: string;
-  fromCountry: string;
-  fromCity: string;
-  fromAirportCode: string | null;
-  toCountry: string;
-  toCity: string;
-  toAirportCode: string | null;
-  departureDate: string;
-  arrivalDate: string | null;
-  availableWeight: number;
-  weightUnit: string;
-  pricePerKg: number | null;
-  currency: string;
-  flightNumber: string | null;
-  status: string;
-  traveler: {
-    id: string;
-    firstName: string | null;
-    lastName: string | null;
-    avatar: string | null;
-    isVerified: boolean;
-    country: string | null;
-    city: string | null;
-  };
-}
+
 
 // Filter chip component
 interface FilterChipProps {
@@ -206,7 +182,7 @@ export default function TravelersTab() {
     try {
       const response = await api.travels.getAll();
       const data = response.data || [];
-      setTravels(data as Travel[]);
+      setTravels(data);
     } catch (err: Error | unknown) {
       console.error('Error fetching travels:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to load travels';

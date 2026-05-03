@@ -71,7 +71,7 @@ export default function SignUpStep1Screen({ navigation }: Props) {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.progressContainer}>
-            <ProgressIndicator totalSteps={5} currentStep={1} />
+            <ProgressIndicator totalSteps={4} currentStep={1} />
           </View>
 
           <View style={styles.content}>

@@ -235,7 +235,7 @@ export default function SignUpStep2Screen({ navigation }: Props) {
 
       <View style={styles.content}>
         <View style={styles.progressContainer}>
-          <ProgressIndicator totalSteps={5} currentStep={2} />
+          <ProgressIndicator totalSteps={4} currentStep={2} />
         </View>
 
         <Text style={styles.title}>What's your birthday?</Text>
