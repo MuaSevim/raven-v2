@@ -13,7 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft, TrendingUp, DollarSign, Package, Star, Calendar } from 'lucide-react-native';
 import { useAuthStore } from '../store/useAuthStore';
 import { colors, typography, spacing, borderRadius } from '../theme';
-import { API_URL } from '../config';
+import { api } from '../utils/api';
 
 const { width } = Dimensions.get('window');
 

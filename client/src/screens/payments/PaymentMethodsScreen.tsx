@@ -20,7 +20,7 @@ import {
 } from 'lucide-react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../../store/useAuthStore';
-import { API_URL } from '../../config';
+import { api } from '../../utils/api';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 
 interface PaymentMethod {
@@ -55,16 +55,10 @@ export default function PaymentMethodsScreen() {
     if (!user) return;
 
     try {
-      const token = await user.getIdToken();
-      const response = await fetch(`${API_URL}/payments/methods`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-
-      if (!response.ok) throw new Error('Failed to load payment methods');
-
-      const data = await response.json();
-      setPaymentMethods(data);
-    } catch (err: any) {
+      const response = await api.payments.getMethods();
+      const data = response.data || [];
+      setPaymentMethods(data as PaymentMethod[]);
+    } catch (err: Error | unknown) {
       console.error('Error fetching payment methods:', err);
     } finally {
       setLoading(false);
@@ -89,18 +83,12 @@ export default function PaymentMethodsScreen() {
     setActionLoading(id);
 
     try {
-      const token = await user.getIdToken();
-      const response = await fetch(`${API_URL}/payments/methods/${id}/default`, {
-        method: 'PATCH',
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-
-      if (!response.ok) throw new Error('Failed to set default');
-
+      await api.payments.setDefaultMethod(id);
       await fetchPaymentMethods();
-    } catch (err: any) {
+    } catch (err: Error | unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to set default';
       console.error('Error setting default:', err);
-      Alert.alert('Error', err.message);
+      Alert.alert('Error', errorMessage);
     } finally {
       setActionLoading(null);
     }
@@ -121,18 +109,12 @@ export default function PaymentMethodsScreen() {
             setActionLoading(id);
 
             try {
-              const token = await user.getIdToken();
-              const response = await fetch(`${API_URL}/payments/methods/${id}`, {
-                method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` },
-              });
-
-              if (!response.ok) throw new Error('Failed to delete card');
-
+              await api.payments.deleteMethod(id);
               await fetchPaymentMethods();
-            } catch (err: any) {
+            } catch (err: Error | unknown) {
+              const errorMessage = err instanceof Error ? err.message : 'Failed to delete card';
               console.error('Error deleting card:', err);
-              Alert.alert('Error', err.message);
+              Alert.alert('Error', errorMessage);
             } finally {
               setActionLoading(null);
             }

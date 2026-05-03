@@ -36,11 +36,13 @@ import {
 import * as ImagePicker from "expo-image-picker";
 import { useAuthStore } from "../store/useAuthStore";
 import { colors, typography, spacing, borderRadius } from "../theme";
-import { API_URL } from "../config";
+import { api } from "../utils/api";
 import { VerificationModal } from "../components/ui";
 import { PHONE_COUNTRIES, PhoneCountry } from "../services/locationApi";
 import { updateEmail } from "firebase/auth";
 import { normalizeText } from "../utils/text";
+import { uploadAvatarImage } from "../services/storage";
+import type { AuthMeResponse } from "../types/api";
 
 // =============================================================================
 // TYPES
@@ -93,40 +95,41 @@ export default function ProfileScreen() {
       const fetchProfile = async () => {
         if (!user) return;
         try {
-          const token = await user.getIdToken();
-          const res = await fetch(`${API_URL}/auth/me`, {
-            headers: { Authorization: `Bearer ${token}` },
+          const data = await api.auth.me();
+          const profile = data as AuthMeResponse;
+          setProfile({
+            firstName: profile.firstName || "",
+            lastName: profile.lastName || "",
+            avatar: profile.profilePicture || null,
+            email: profile.email || "",
+            phone: null,
+            phoneCode: "+1",
+            isVerified: false,
           });
-          if (res.ok) {
-            const data = await res.json();
-            setProfile(data);
-            setFirstName(data.firstName || "");
-            setLastName(data.lastName || "");
-            setEmail(data.email || "");
-            setPhone(data.phone || "");
-            setPhoneCode(data.phoneCode || "+1");
-            setAvatar(data.avatar || null);
+          setFirstName(profile.firstName || "");
+          setLastName(profile.lastName || "");
+          setEmail(profile.email || "");
+          setPhone(profile.phone || "");
+          setPhoneCode("+1");
+          setAvatar(profile.profilePicture || null);
 
-            // Find country code from phone code
-            // Prefer US for +1 if ambiguous, as we don't store ISO code in DB yet
-            let country = PHONE_COUNTRIES.find(
-              (c) => c.dialCode === (data.phoneCode || "+1")
-            );
-            if (data.phoneCode === "+1" || !data.phoneCode) {
-              const us = PHONE_COUNTRIES.find((c) => c.code === "US");
-              if (us) country = us;
-            }
+          // Find country code from phone code
+          // Prefer US for +1 if ambiguous, as we don't store ISO code in DB yet
+          let country = PHONE_COUNTRIES.find(
+            (c) => c.dialCode === "+1"
+          );
+          const us = PHONE_COUNTRIES.find((c) => c.code === "US");
+          if (us) country = us;
 
-            setCountryCode(country?.code || "US");
+          setCountryCode(country?.code || "US");
 
-            setOriginalFirstName(data.firstName || "");
-            setOriginalLastName(data.lastName || "");
-            setOriginalEmail(data.email || "");
-            setOriginalPhone(data.phone || "");
-            setOriginalPhoneCode(data.phoneCode || "+1");
-            setOriginalAvatar(data.avatar || null);
-          }
-        } catch (err) {
+          setOriginalFirstName(profile.firstName || "");
+          setOriginalLastName(profile.lastName || "");
+          setOriginalEmail(profile.email || "");
+          setOriginalPhone(profile.phone || "");
+          setOriginalPhoneCode("+1");
+          setOriginalAvatar(profile.profilePicture || null);
+        } catch (err: Error | unknown) {
           console.error("Error fetching profile:", err);
         } finally {
           setLoading(false);
@@ -149,14 +152,18 @@ export default function ProfileScreen() {
     setSaving(true);
 
     try {
-      const token = await user.getIdToken();
+      let avatarUrl = avatar;
+      if (avatar && (avatar.startsWith("file://") || avatar.startsWith("content://") || avatar.startsWith("ph://"))) {
+        avatarUrl = await uploadAvatarImage(user.uid, avatar);
+      }
 
       // Update email in Firebase if changed
       if (email !== originalEmail) {
         try {
           await updateEmail(user, email);
-        } catch (emailError: any) {
-          if (emailError.code === "auth/requires-recent-login") {
+        } catch (emailError: Error | unknown) {
+          const err = emailError as Record<string, unknown>;
+          if ((err as Record<string, unknown>).code === "auth/requires-recent-login") {
             Alert.alert(
               "Error",
               "Please sign out and sign in again to update your email"
@@ -169,26 +176,14 @@ export default function ProfileScreen() {
       }
 
       // Update profile in backend
-      const res = await fetch(`${API_URL}/auth/profile`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          firstName,
-          lastName,
-          email,
-          phone,
-          phoneCode,
-          avatar,
-        }),
+      await api.auth.updateProfile({
+        firstName,
+        lastName,
+        email,
+        phone,
+        phoneCode,
+        profilePicture: avatarUrl,
       });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to update profile");
-      }
 
       Alert.alert("Success", "Profile updated successfully");
       setOriginalFirstName(firstName);
@@ -196,9 +191,11 @@ export default function ProfileScreen() {
       setOriginalEmail(email);
       setOriginalPhone(phone);
       setOriginalPhoneCode(phoneCode);
-      setOriginalAvatar(avatar);
-    } catch (err: any) {
-      Alert.alert("Error", err.message || "Failed to update profile");
+      setOriginalAvatar(avatarUrl || null);
+      setAvatar(avatarUrl || null);
+    } catch (err: Error | unknown) {
+      const message = (err as Record<string, unknown>).message as string || "Failed to update profile";
+      Alert.alert("Error", message);
     } finally {
       setSaving(false);
     }
@@ -240,13 +237,10 @@ export default function ProfileScreen() {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.5,
-        base64: true,
       });
 
       if (!result.canceled && result.assets[0]) {
-        // Convert to base64 data URI for storage
-        const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
-        setAvatar(base64Image);
+        setAvatar(result.assets[0].uri);
       }
     } catch (error) {
       console.error("Error picking image:", error);
@@ -271,13 +265,10 @@ export default function ProfileScreen() {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.5,
-        base64: true,
       });
 
       if (!result.canceled && result.assets[0]) {
-        // Convert to base64 data URI for storage
-        const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
-        setAvatar(base64Image);
+        setAvatar(result.assets[0].uri);
       }
     } catch (error) {
       console.error("Error taking photo:", error);

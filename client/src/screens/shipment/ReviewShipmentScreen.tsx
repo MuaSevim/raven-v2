@@ -29,7 +29,8 @@ import { useNavigation } from '@react-navigation/native';
 import { StepHeader } from '../../components/shipment/StepComponents';
 import { useShipmentStore } from '../../store/useShipmentStore';
 import { useAuthStore } from '../../store/useAuthStore';
-import { API_URL } from '../../config';
+import { api } from '../../utils/api';
+import { uploadShipmentImage } from '../../services/storage';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 
 const MONTHS = [
@@ -103,8 +104,19 @@ export default function ReviewShipmentScreen() {
     try {
       const token = await user.getIdToken();
 
-      // Prepare shipment data
+      const shipmentId = `ship_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+      let uploadedImageUrl = draft.packageImageUrl;
+      if (!uploadedImageUrl && draft.packageImageUri) {
+        uploadedImageUrl = await uploadShipmentImage(
+          shipmentId,
+          draft.packageImageUri,
+          (percent) => uploadProgress.setValue(percent),
+        );
+      }
+
       const shipmentData = {
+        id: shipmentId,
         // Route
         originCountry: draft.originCountry,
         originCity: draft.originCity,
@@ -115,7 +127,7 @@ export default function ReviewShipmentScreen() {
         weight: parseFloat(draft.weight) || 0,
         weightUnit: draft.weightUnit,
         content: draft.content,
-        imageUrl: draft.packageImageUri, // In production, upload to storage first
+        imageUrl: uploadedImageUrl,
 
         // Dates
         dateStart: draft.dateStart?.toISOString(),
@@ -131,21 +143,7 @@ export default function ReviewShipmentScreen() {
         senderPhoneCode: draft.senderPhoneCode,
       };
 
-      const response = await fetch(`${API_URL}/shipments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(shipmentData),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to create shipment');
-      }
-
-      const createdShipment = await response.json();
+      const createdShipment = await api.shipments.create(shipmentData);
 
       // Reset draft
       resetDraft();

@@ -12,7 +12,8 @@ import { ArrowLeft, Package, MapPin, ArrowRight, Clock, CheckCircle, MessageCirc
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { colors, typography, spacing, borderRadius } from '../theme';
 import { useAuthStore } from '../store/useAuthStore';
-import { API_URL } from '../config';
+import { api } from '../utils/api';
+import type { Shipment, ShipmentOffer, PaymentTransaction } from '../types/api';
 
 interface ActivityItem {
     id: string;
@@ -24,7 +25,7 @@ interface ActivityItem {
     origin: string;
     destination: string;
     date: string;
-    meta?: any;
+    meta?: Record<string, unknown>;
 }
 
 function getCurrencySymbol(currency: string) {
@@ -48,79 +49,52 @@ export default function ActivitiesScreen() {
                 if (!user) return;
 
                 try {
-                    const token = await user.getIdToken();
-                    const headers = { 'Authorization': `Bearer ${token}` };
-
                     // Fetch all data sources
-                    const [shipmentsRes, offersRes, transactionsRes] = await Promise.all([
-                        fetch(`${API_URL}/shipments/my/sent`, { headers }),
-                        fetch(`${API_URL}/shipments/my/offers`, { headers }),
-                        fetch(`${API_URL}/payments/transactions`, { headers }),
+                    const [shipmentsRes, transactionsRes] = await Promise.all([
+                        api.shipments.getMyShipments(),
+                        api.payments.getTransactions(),
                     ]);
 
                     const allActivities: ActivityItem[] = [];
 
                     // Process my shipments
-                    if (shipmentsRes.ok) {
-                        const shipments = await shipmentsRes.json();
-                        shipments.forEach((s: any) => {
-                            allActivities.push({
-                                id: s.id,
-                                type: 'shipment',
-                                title: s.content,
-                                status: s.status,
-                                price: s.price,
-                                currency: s.currency,
-                                origin: s.originCity,
-                                destination: s.destCity,
-                                date: s.createdAt,
-                                meta: { offersCount: s._count?.offers || 0 },
-                            });
+                    const shipments = shipmentsRes.data || [];
+                    shipments.forEach((s: Shipment) => {
+                        allActivities.push({
+                            id: s.id,
+                            type: 'shipment',
+                            title: s.description,
+                            status: s.status,
+                            price: s.price,
+                            currency: s.currency,
+                            origin: s.departure.location,
+                            destination: s.destination.location,
+                            date: s.createdAt,
+                            meta: { offersCount: 0 },
                         });
-                    }
-
-                    // Process offers I made
-                    if (offersRes.ok) {
-                        const offers = await offersRes.json();
-                        offers.forEach((o: any) => {
-                            allActivities.push({
-                                id: o.id,
-                                type: 'offer',
-                                title: o.shipment?.content || 'Offer',
-                                status: o.status,
-                                price: o.proposedPrice || o.shipment?.price || 0,
-                                currency: o.shipment?.currency || 'USD',
-                                origin: o.shipment?.originCity || '',
-                                destination: o.shipment?.destCity || '',
-                                date: o.createdAt,
-                                meta: { shipmentId: o.shipmentId, ownerId: o.shipment?.senderId },
-                            });
-                        });
-                    }
+                    });
 
                     // Process transactions
-                    if (transactionsRes.ok) {
-                        const transactions = await transactionsRes.json();
-                        transactions.forEach((t: any) => {
-                            allActivities.push({
-                                id: t.id,
-                                type: 'transaction',
-                                title: t.shipment?.content || 'Delivery',
-                                status: t.status,
-                                price: t.amount,
-                                currency: t.currency,
-                                origin: t.shipment?.originCity || '',
-                                destination: t.shipment?.destCity || '',
-                                date: t.createdAt,
-                                meta: { role: t.payerId === user.uid ? 'sender' : 'courier', shipmentId: t.shipment?.id },
-                            });
+                    const transactions = transactionsRes.data || [];
+                    transactions.forEach((t: PaymentTransaction) => {
+                        allActivities.push({
+                            id: t.id,
+                            type: 'transaction',
+                            title: 'Delivery',
+                            status: t.status,
+                            price: t.amount,
+                            currency: t.currency,
+                            origin: '',
+                            destination: '',
+                            date: t.createdAt,
+                            meta: { shipmentId: t.shipmentId },
                         });
-                    }
+                    });
 
                     // Sort by date
                     allActivities.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
                     setActivities(allActivities);
-                } catch (err) {
+                } catch (err: Error | unknown) {
                     console.error('Error fetching activities:', err);
                 } finally {
                     setLoading(false);

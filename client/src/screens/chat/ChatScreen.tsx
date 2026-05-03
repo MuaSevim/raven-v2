@@ -26,7 +26,7 @@ import {
 } from 'lucide-react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../../store/useAuthStore';
-import { API_URL } from '../../config';
+import { api } from '../../utils/api';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 
 interface Message {
@@ -98,36 +98,22 @@ export default function ChatScreen() {
     if (!user) return;
 
     try {
-      const token = await user.getIdToken();
-
       // If we have a conversationId, fetch it directly
       if (params.conversationId) {
-        const response = await fetch(`${API_URL}/conversations/${params.conversationId}`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (!response.ok) throw new Error('Failed to load conversation');
-        const data = await response.json();
+        const data = await api.conversations.getById(params.conversationId);
         setConversation(data);
       } else {
         // Create or get conversation
-        const response = await fetch(`${API_URL}/conversations`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            shipmentId: params.shipmentId,
-            recipientId: params.recipientId,
-          }),
+        const data = await api.conversations.create({
+          shipmentId: params.shipmentId,
+          recipientId: params.recipientId,
         });
-        if (!response.ok) throw new Error('Failed to create conversation');
-        const data = await response.json();
         setConversation(data);
       }
-    } catch (err: any) {
+    } catch (err: Error | unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to load conversation';
       console.error('Error loading conversation:', err);
-      Alert.alert('Error', err.message);
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -144,12 +130,8 @@ export default function ChatScreen() {
     const markAsRead = async () => {
       if (!user || !conversation?.id) return;
       try {
-        const token = await user.getIdToken();
-        await fetch(`${API_URL}/conversations/${conversation.id}/read`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-      } catch (err) {
+        await api.conversations.markAsRead(conversation.id);
+      } catch (err: Error | unknown) {
         console.error('Error marking messages as read:', err);
       }
     };
@@ -175,17 +157,7 @@ export default function ChatScreen() {
     setMessage('');
 
     try {
-      const token = await user.getIdToken();
-      const response = await fetch(`${API_URL}/conversations/${conversation.id}/messages`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ content: messageText }),
-      });
-
-      if (!response.ok) throw new Error('Failed to send message');
+      await api.conversations.sendMessage(conversation.id, messageText);
 
       // Refresh conversation
       await fetchOrCreateConversation();
@@ -193,7 +165,7 @@ export default function ChatScreen() {
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
-    } catch (err: any) {
+    } catch (err: Error | unknown) {
       console.error('Error sending message:', err);
       setMessage(messageText); // Restore message
       Alert.alert('Error', 'Failed to send message');
@@ -208,16 +180,9 @@ export default function ChatScreen() {
     setMatching(true);
 
     try {
-      const token = await user.getIdToken();
-
       // Check if user has payment method
-      const paymentResponse = await fetch(`${API_URL}/payments/methods`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-
-      if (!paymentResponse.ok) throw new Error('Failed to check payment methods');
-
-      const paymentMethods = await paymentResponse.json();
+      const paymentMethodsResponse = await api.payments.getMethods();
+      const paymentMethods = paymentMethodsResponse.data || [];
 
       if (paymentMethods.length === 0) {
         setShowMatchModal(false);
@@ -234,45 +199,22 @@ export default function ChatScreen() {
       }
 
       // Hold payment and match
-      const holdResponse = await fetch(`${API_URL}/payments/hold`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          shipmentId: conversation.shipment.id,
-          courierId: conversation.otherUser.id,
-        }),
-      });
-
-      if (!holdResponse.ok) {
-        const error = await holdResponse.json();
-        throw new Error(error.message || 'Failed to process payment');
-      }
-
-      const result = await holdResponse.json();
+      const result = await api.payments.holdPayment(conversation.shipment.id);
 
       // Send system message
-      await fetch(`${API_URL}/conversations/${conversation.id}/messages`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          content: `🎉 Match confirmed! Payment of ${getCurrencySymbol(conversation.shipment.currency)}${conversation.shipment.price} has been held securely.`,
-          type: 'MATCH_ACCEPTED',
-        }),
-      });
+      await api.conversations.sendMessage(
+        conversation.id,
+        `🎉 Match confirmed! Payment of ${getCurrencySymbol(conversation.shipment.currency)}${conversation.shipment.price} has been held securely.`
+      );
 
       setShowMatchModal(false);
       await fetchOrCreateConversation();
 
-      Alert.alert('Success', result.message);
-    } catch (err: any) {
+      Alert.alert('Success', 'Match confirmed! Payment has been held securely.');
+    } catch (err: Error | unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to process match';
       console.error('Error matching:', err);
-      Alert.alert('Error', err.message);
+      Alert.alert('Error', errorMessage);
     } finally {
       setMatching(false);
     }

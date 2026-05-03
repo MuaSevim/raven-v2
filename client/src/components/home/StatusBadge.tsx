@@ -16,7 +16,14 @@ interface StatusBadgeProps {
 // STATUS CONFIG
 // =============================================================================
 
-const STATUS_CONFIG: Record<string, { bg: string; text: string; label: string; Icon: any }> = {
+interface StatusConfig {
+  bg: string;
+  text: string;
+  label: string;
+  Icon: React.ComponentType<{ size: number; color: string }>;
+}
+
+const STATUS_CONFIG: Record<string, StatusConfig> = {
     OPEN: { bg: '#FFF3E0', text: '#FF9800', label: 'OPEN', Icon: Clock },
     MATCHED: { bg: '#E3F2FD', text: '#1976D2', label: 'MATCHED', Icon: CheckCircle },
     HANDED_OVER: { bg: '#E8EAF6', text: '#5C6BC0', label: 'HANDED', Icon: HandHeart },

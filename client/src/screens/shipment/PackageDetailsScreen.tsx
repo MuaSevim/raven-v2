@@ -59,13 +59,10 @@ export default function PackageDetailsScreen() {
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
-        base64: true,
       });
 
       if (!result.canceled && result.assets[0]) {
-        // Convert to base64 data URI for storage
-        const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
-        setImageUri(base64Image);
+        setImageUri(result.assets[0].uri);
       }
     } catch (error) {
       console.error('Error picking image:', error);
@@ -85,13 +82,10 @@ export default function PackageDetailsScreen() {
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
-        base64: true,
       });
 
       if (!result.canceled && result.assets[0]) {
-        // Convert to base64 data URI for storage
-        const base64Image = `data:image/jpeg;base64,${result.assets[0].base64}`;
-        setImageUri(base64Image);
+        setImageUri(result.assets[0].uri);
       }
     } catch (error) {
       console.error('Error taking photo:', error);
@@ -122,6 +116,7 @@ export default function PackageDetailsScreen() {
       weightUnit,
       content,
       packageImageUri: imageUri,
+      packageImageUrl: null,
     });
     navigation.navigate('DeliveryWindow');
   };

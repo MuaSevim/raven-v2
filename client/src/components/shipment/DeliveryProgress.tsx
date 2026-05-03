@@ -17,7 +17,7 @@ interface DeliveryProgressProps {
 interface ProgressStep {
     id: string;
     label: string;
-    icon: any;
+    icon: React.ComponentType<{ size: number; color: string }>;
     isComplete: boolean;
     isActive: boolean;
     timestamp?: string;

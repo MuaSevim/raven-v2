@@ -15,6 +15,8 @@ import { ChevronDown, Search, X, Plane, MapPin, Check } from 'lucide-react-nativ
 import { useNavigation } from '@react-navigation/native';
 import { StepHeader, BottomButton } from '../../components/shipment/StepComponents';
 import { useShipmentStore } from '../../store/useShipmentStore';
+import { useAuthStore } from '../../store/useAuthStore';
+import { api } from '../../utils/api';
 import {
   getAllCountries,
   getCitiesByCountry,
@@ -57,28 +59,19 @@ export default function SetRouteScreen() {
     if (originCountry || originCity) return;
 
     try {
-      const { API_URL } = await import('../../config');
-      const { useAuthStore } = await import('../../store/useAuthStore');
       const user = useAuthStore.getState().user;
 
       if (!user) return;
 
-      const token = await user.getIdToken();
-      const response = await fetch(`${API_URL}/auth/me`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-
-      if (response.ok) {
-        const userData = await response.json();
-        if (userData.country) {
-          setOriginCountry(userData.country);
-          setOriginCountryCode(userData.countryCode || '');
-        }
-        if (userData.city) {
-          setOriginCity(userData.city);
-        }
+      const userData = await api.auth.me();
+      if (userData.country) {
+        setOriginCountry(userData.country);
+        setOriginCountryCode(userData.countryCode || '');
       }
-    } catch (err) {
+      if (userData.city) {
+        setOriginCity(userData.city);
+      }
+    } catch (err: Error | unknown) {
       // Silently fail - pre-fill is a nice-to-have
       console.log('Could not pre-fill user location');
     }
@@ -186,7 +179,7 @@ export default function SetRouteScreen() {
     }
   };
 
-  const renderModalItem = ({ item }: { item: any }) => {
+  const renderModalItem = ({ item }: { item: Record<string, unknown> }) => {
     if (modalType === 'originCountry' || modalType === 'destCountry') {
       const country = item as Country;
       const isSelected = modalType === 'originCountry'

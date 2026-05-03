@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTravelDto } from './dto/create-travel.dto';
 import { UpdateTravelDto } from './dto/update-travel.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class TravelsService {
@@ -53,7 +54,7 @@ export class TravelsService {
     fromDate?: string;
     toDate?: string;
   }) {
-    const where: any = {};
+    const where: Prisma.TravelWhereInput = {};
 
     // Default to ACTIVE travels
     where.status = filters?.status || 'ACTIVE';
@@ -154,16 +155,16 @@ export class TravelsService {
       throw new ForbiddenException('You can only update your own travels');
     }
 
-    const dto = updateTravelDto as any;
+    const { departureDate, arrivalDate } = updateTravelDto;
     return this.prisma.travel.update({
       where: { id },
       data: {
         ...updateTravelDto,
-        departureDate: dto.departureDate
-          ? new Date(dto.departureDate)
+        departureDate: departureDate
+          ? new Date(departureDate)
           : undefined,
-        arrivalDate: dto.arrivalDate
-          ? new Date(dto.arrivalDate)
+        arrivalDate: arrivalDate
+          ? new Date(arrivalDate)
           : undefined,
       },
       include: {
