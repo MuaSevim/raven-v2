@@ -35,6 +35,7 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
   const [password, setPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [isLoading, setIsLoading] = useState(false);
+  const [failedLoginAttempts, setFailedLoginAttempts] = useState(0);
 
   // Check if form is valid for button state
   const isFormValid = email.trim().length > 0 && password.length >= 6;
@@ -73,8 +74,12 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
       const emailLower = email.trim().toLowerCase();
 
       // Sign in directly with Firebase - it will tell us if user doesn't exist
-      await signInWithEmailAndPassword(auth, emailLower, password);
-      // Navigation will automatically switch to Home screen via onAuthStateChanged
+      const credential = await signInWithEmailAndPassword(auth, emailLower, password);
+      setFailedLoginAttempts(0);
+
+      if (!credential.user.emailVerified) {
+        navigation.navigate('EmailVerificationWaiting', { email: emailLower });
+      }
 
     } catch (error: any) {
       // Handle errors
@@ -89,7 +94,8 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
         case 'auth/wrong-password':
         case 'auth/invalid-credential':
           // Password is incorrect or user not found (Firebase combines these for security)
-          passwordError = 'Invalid email or password';
+          passwordError = 'Incorrect credentials. Please try again.';
+          setFailedLoginAttempts((prev) => prev + 1);
           setPassword(''); // Clear password field
           break;
         case 'auth/user-disabled':
@@ -176,6 +182,20 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
               isPassword
             />
 
+            <TouchableOpacity
+              style={styles.forgotPasswordButton}
+              onPress={() => navigation.navigate('ForgotPassword', { email })}
+            >
+              <Text
+                style={[
+                  styles.forgotPasswordText,
+                  failedLoginAttempts >= 3 && styles.forgotPasswordEmphasis,
+                ]}
+              >
+                Forgot my password
+              </Text>
+            </TouchableOpacity>
+
             <Button
               title="Continue"
               onPress={handleSignIn}
@@ -252,6 +272,19 @@ const styles = StyleSheet.create({
   },
   signInButton: {
     marginTop: spacing.md,
+  },
+  forgotPasswordButton: {
+    alignSelf: 'flex-end',
+    marginTop: spacing.sm,
+  },
+  forgotPasswordText: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+  },
+  forgotPasswordEmphasis: {
+    fontFamily: typography.fontFamily.semiBold,
+    color: colors.textPrimary,
   },
   footer: {
     flexDirection: 'row',

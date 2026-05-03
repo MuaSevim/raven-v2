@@ -14,13 +14,14 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Check, X, Eye, EyeOff } from 'lucide-react-native';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { auth } from '../../services/firebaseConfig';
 import { Input, Button, Header, ProgressIndicator } from '../../components/ui';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 import { RootStackParamList } from '../../navigation';
 import { useSignupStore } from '../../store/useSignupStore';
 import { authApi } from '../../services/api';
+import { actionCodeSettings } from '../../services/actionCodeSettings';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'SignUpStep4'>;
@@ -218,16 +219,15 @@ export default function SignUpStep4Screen({ navigation }: Props) {
       // Register user with backend (creates Firebase Auth + DB user)
       await authApi.register(payload);
 
-      // Note: We don't sign in here - user will sign in after email verification in Step 5
-
-      // Send verification code
-      await authApi.sendCode(payload.email);
+      // Sign in to create an authenticated session for verification email
+      const credential = await signInWithEmailAndPassword(auth, payload.email, password);
+      await sendEmailVerification(credential.user, actionCodeSettings);
 
       // Update local store
       updateData({ email: payload.email, password });
 
-      // Navigate to verification
-      navigation.navigate('SignUpStep5');
+      // Navigate to email verification waiting screen
+      navigation.navigate('EmailVerificationWaiting', { email: payload.email });
     } catch (err: any) {
       console.error('Registration error:', err);
       const message = getApiErrorMessage(err);
@@ -289,7 +289,7 @@ export default function SignUpStep4Screen({ navigation }: Props) {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.progressContainer}>
-            <ProgressIndicator totalSteps={5} currentStep={4} />
+            <ProgressIndicator totalSteps={4} currentStep={4} />
           </View>
 
           <Text style={styles.title}>Create your account</Text>

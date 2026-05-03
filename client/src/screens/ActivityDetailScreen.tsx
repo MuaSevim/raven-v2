@@ -32,52 +32,14 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../utils/api';
+import type { Shipment } from '../types/api';
 import { colors, typography, spacing, borderRadius } from '../theme';
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-interface ShipmentDetails {
-  id: string;
-  originCity: string;
-  originCountry: string;
-  destCity: string;
-  destCountry: string;
-  dateStart: string;
-  dateEnd: string;
-  price: number;
-  currency: string;
-  content: string;
-  weight: number;
-  weightUnit: string;
-  imageUrl: string | null;
-  status: string;
-  createdAt: string;
-  // Confirmation tracking
-  senderConfirmedHandover: boolean;
-  courierConfirmedHandover: boolean;
-  senderConfirmedDelivery: boolean;
-  courierConfirmedDelivery: boolean;
-  handoverConfirmedAt: string | null;
-  deliveryConfirmedAt: string | null;
-  sender: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    avatar: string | null;
-    isVerified: boolean;
-  };
-  courierId?: string | null;
-  courier?: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    avatar: string | null;
-    isVerified: boolean;
-  } | null;
-  _count?: { offers: number };
-}
+type ShipmentDetails = Shipment;
 
 // =============================================================================
 // HELPERS
@@ -129,7 +91,7 @@ export default function ActivityDetailScreen() {
 
     try {
       const data = await api.shipments.getById(shipmentId);
-      setShipment(data as ShipmentDetails);
+      setShipment(data);
     } catch (err: Error | unknown) {
       console.error('Error fetching shipment:', err);
     } finally {
@@ -166,12 +128,12 @@ export default function ActivityDetailScreen() {
           onPress: async () => {
             setConfirmingHandover(true);
             try {
-              const token = await user.getIdToken();
-              const result = await shipmentsApi.confirmHandover(token, shipment.id);
+              const result = await api.shipments.confirmHandover(shipment.id);
               setShipment(result.shipment);
               Alert.alert('Success', result.message);
-            } catch (err: any) {
-              Alert.alert('Error', err.response?.data?.message || 'Failed to confirm handover');
+            } catch (err: Error | unknown) {
+              const message = err instanceof Error ? err.message : 'Failed to confirm handover';
+              Alert.alert('Error', message);
             } finally {
               setConfirmingHandover(false);
             }
@@ -194,12 +156,12 @@ export default function ActivityDetailScreen() {
           onPress: async () => {
             setConfirmingDelivery(true);
             try {
-              const token = await user.getIdToken();
-              const result = await shipmentsApi.confirmDelivery(token, shipment.id);
+              const result = await api.shipments.confirmDelivery(shipment.id);
               setShipment(result.shipment);
               Alert.alert('Success', result.message);
-            } catch (err: any) {
-              Alert.alert('Error', err.response?.data?.message || 'Failed to confirm delivery');
+            } catch (err: Error | unknown) {
+              const message = err instanceof Error ? err.message : 'Failed to confirm delivery';
+              Alert.alert('Error', message);
             } finally {
               setConfirmingDelivery(false);
             }

@@ -28,36 +28,14 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { api } from '../../utils/api';
+import type { Shipment } from '../../types/api';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 
 // =============================================================================
 // TYPES
 // =============================================================================
 
-interface ShipmentDetails {
-  id: string;
-  originCity: string;
-  originCountry: string;
-  destCity: string;
-  destCountry: string;
-  dateStart: string;
-  dateEnd: string;
-  price: number;
-  currency: string;
-  content: string;
-  weight: number;
-  weightUnit: string;
-  packageType: string;
-  imageUrl: string | null;
-  status: string;
-  sender: {
-    id: string;
-    firstName: string;
-    lastName: string;
-    avatar: string | null;
-    isVerified: boolean;
-  };
-}
+type ShipmentDetails = Shipment;
 
 interface UserOffer {
   id: string;

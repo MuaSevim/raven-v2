@@ -320,7 +320,7 @@ export default function SignUpStep3Screen({ navigation }: Props) {
 
       <View style={styles.content}>
         <View style={styles.progressContainer}>
-          <ProgressIndicator totalSteps={5} currentStep={3} />
+          <ProgressIndicator totalSteps={4} currentStep={3} />
         </View>
 
         <Text style={styles.title}>Where are you based?</Text>

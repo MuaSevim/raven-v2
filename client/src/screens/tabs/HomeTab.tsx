@@ -106,9 +106,9 @@ export default function HomeTab() {
           status: s.status,
           price: s.price,
           currency: s.currency,
-          origin: s.departure.location,
-          destination: s.destination.location,
-          ownerName: `${s.departure.location}` || 'You',
+          origin: s.originCity || s.departure?.location || 'Unknown',
+          destination: s.destCity || s.destination?.location || 'Unknown',
+          ownerName: `${s.sender?.firstName || ''} ${s.sender?.lastName || ''}`.trim() || 'You',
           isOwner: true,
           createdAt: s.createdAt,
         }));
@@ -136,9 +136,9 @@ export default function HomeTab() {
           status: s.status,
           price: s.price,
           currency: s.currency,
-          origin: s.departure.location,
-          destination: s.destination.location,
-          ownerName: s.departure.location,
+          origin: s.originCity || s.departure?.location || 'Unknown',
+          destination: s.destCity || s.destination?.location || 'Unknown',
+          ownerName: `${s.sender?.firstName || ''} ${s.sender?.lastName || ''}`.trim() || 'Unknown',
           isOwner: false, // User is courier, not owner
           createdAt: s.createdAt,
         }));

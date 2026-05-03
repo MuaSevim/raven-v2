@@ -43,7 +43,7 @@ export const useSignupStore = create<SignupStore>((set) => ({
   setStep: (step) => set({ currentStep: step }),
   
   nextStep: () => set((state) => ({ 
-    currentStep: Math.min(state.currentStep + 1, 5) 
+    currentStep: Math.min(state.currentStep + 1, 4) 
   })),
   
   prevStep: () => set((state) => ({ 

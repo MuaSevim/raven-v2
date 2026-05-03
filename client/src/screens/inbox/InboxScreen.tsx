@@ -21,37 +21,8 @@ import {
 } from 'lucide-react-native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { api } from '../../utils/api';
+import type { Conversation } from '../../types/api';
 import { colors, typography, spacing, borderRadius } from '../../theme';
-
-interface Conversation {
-  id: string;
-  status: string; // PENDING, ACTIVE, MATCHED
-  user1Id: string; // Owner of the shipment
-  otherUser: {
-    id: string;
-    firstName: string | null;
-    lastName: string | null;
-    avatar: string | null;
-    isVerified: boolean;
-  };
-  shipment: {
-    id: string;
-    originCity: string;
-    destCity: string;
-    price: number;
-    currency: string;
-    status: string;
-    senderId?: string;
-  };
-  lastMessage: {
-    content: string;
-    createdAt: string;
-    status: string;
-    sender: { id: string };
-  } | null;
-  unreadCount: number;
-  updatedAt: string;
-}
 
 function formatTime(dateString: string) {
   const date = new Date(dateString);
