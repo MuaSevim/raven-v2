@@ -4,7 +4,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { sendEmailVerification } from "firebase/auth";
 import { auth } from "../../services/firebaseConfig";
-import { actionCodeSettings } from "../../services/actionCodeSettings";
 import { colors, typography, spacing } from "../../theme";
 import { Button } from "../../components/ui";
 import { useAuthStore } from "../../store/useAuthStore";
@@ -33,7 +32,8 @@ export default function EmailVerificationWaitingScreen({ navigation, route }: Pr
       await currentUser.reload();
       if (currentUser.emailVerified) {
         setUser(currentUser);
-        navigation.reset({ index: 0, routes: [{ name: "MainTabs" }] });
+        // The reactive navigator in App.tsx will automatically switch to MainTabs 
+        // since isAuthenticated will now evaluate to true.
       } else {
         Alert.alert("Not Verified", "Email not verified yet. Please check your inbox.");
       }
@@ -54,7 +54,7 @@ export default function EmailVerificationWaitingScreen({ navigation, route }: Pr
     }
 
     try {
-      await sendEmailVerification(currentUser, actionCodeSettings);
+      await sendEmailVerification(currentUser);
       Alert.alert("Sent", "A new verification link has been sent.");
     } catch (error: Error | unknown) {
       const message = error instanceof Error ? error.message : "Failed to resend email";

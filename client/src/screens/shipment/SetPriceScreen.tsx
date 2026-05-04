@@ -22,7 +22,7 @@ const CURRENCIES = [
   { code: 'SEK', symbol: 'kr', name: 'Swedish Krona' },
 ];
 
-const MIN_PRICE = 10;
+const MIN_PRICE = 15;
 const MAX_PRICE = 500;
 const STEP = 5;
 
@@ -135,36 +135,38 @@ export default function SetPriceScreen() {
         </Text>
 
         {/* Currency Selector */}
-        <TouchableOpacity
-          style={styles.currencySelector}
-          onPress={() => setShowCurrencyPicker(!showCurrencyPicker)}
-        >
-          <Text style={styles.currencyLabel}>Currency</Text>
-          <View style={styles.currencyValue}>
-            <Text style={styles.currencyText}>{currency}</Text>
-          </View>
-        </TouchableOpacity>
+        <View style={{ zIndex: 10 }}>
+          <TouchableOpacity
+            style={styles.currencySelector}
+            onPress={() => setShowCurrencyPicker(!showCurrencyPicker)}
+          >
+            <Text style={styles.currencyLabel}>Currency</Text>
+            <View style={styles.currencyValue}>
+              <Text style={styles.currencyText}>{currency}</Text>
+            </View>
+          </TouchableOpacity>
 
-        {showCurrencyPicker && (
-          <View style={styles.currencyPicker}>
-            {CURRENCIES.map((c) => (
-              <TouchableOpacity
-                key={c.code}
-                style={[
-                  styles.currencyOption,
-                  currency === c.code && styles.currencyOptionSelected,
-                ]}
-                onPress={() => {
-                  setCurrency(c.code);
-                  setShowCurrencyPicker(false);
-                }}
-              >
-                <Text style={styles.currencyOptionSymbol}>{c.symbol}</Text>
-                <Text style={styles.currencyOptionText}>{c.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+          {showCurrencyPicker && (
+            <View style={styles.currencyPickerOverlay}>
+              {CURRENCIES.map((c) => (
+                <TouchableOpacity
+                  key={c.code}
+                  style={[
+                    styles.currencyOption,
+                    currency === c.code && styles.currencyOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setCurrency(c.code);
+                    setShowCurrencyPicker(false);
+                  }}
+                >
+                  <Text style={styles.currencyOptionSymbol}>{c.symbol}</Text>
+                  <Text style={styles.currencyOptionText}>{c.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+        </View>
 
         {/* Price Display */}
         {/* Price Display */}
@@ -191,12 +193,14 @@ export default function SetPriceScreen() {
           </TouchableOpacity>
 
           <View
-            style={styles.sliderTrack}
+            style={styles.sliderTouchArea}
             onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
             {...panResponder.panHandlers}
           >
-            <View style={[styles.sliderFill, { width: `${progressPercent}%` }]} />
-            <View style={[styles.sliderThumb, { left: `${progressPercent}%` }]} />
+            <View style={styles.sliderTrack}>
+              <View style={[styles.sliderFill, { width: `${progressPercent}%` }]} />
+              <View style={[styles.sliderThumb, { left: `${progressPercent}%` }]} />
+            </View>
           </View>
 
           <TouchableOpacity
@@ -305,13 +309,21 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     color: colors.textPrimary,
   },
-  currencyPicker: {
+  currencyPickerOverlay: {
+    position: 'absolute',
+    top: 60,
+    left: 0,
+    right: 0,
     backgroundColor: colors.background,
     borderRadius: borderRadius.lg,
     borderWidth: 1,
     borderColor: colors.border,
-    marginBottom: spacing.md,
-    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+    zIndex: 100,
   },
   currencyOption: {
     flexDirection: 'row',
@@ -369,8 +381,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  sliderTrack: {
+  sliderTouchArea: {
     flex: 1,
+    height: 44,
+    justifyContent: 'center',
+  },
+  sliderTrack: {
     height: 6,
     backgroundColor: colors.backgroundSecondary,
     borderRadius: 3,

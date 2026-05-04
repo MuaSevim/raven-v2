@@ -165,12 +165,12 @@ export default function ChatScreen() {
       }
 
       // Hold payment and match
-      const result = await api.payments.holdPayment(conversation.shipment.id);
+      const result = await api.payments.holdPayment(conversation.shipment?.id || '');
 
       // Send system message
       await api.conversations.sendMessage(
         conversation.id,
-        `🎉 Match confirmed! Payment of ${getCurrencySymbol(conversation.shipment.currency)}${conversation.shipment.price} has been held securely.`
+        `🎉 Match confirmed! Payment of ${getCurrencySymbol(conversation.shipment?.currency || 'USD')}${conversation.shipment?.price || 0} has been held securely.`
       );
 
       setShowMatchModal(false);
@@ -252,7 +252,7 @@ export default function ChatScreen() {
 
             <TouchableOpacity
               style={styles.headerInfo}
-              onPress={() => conversation && navigation.navigate('PublicProfile', { userId: conversation.otherUser.id })}
+              onPress={() => conversation && navigation.navigate('PublicProfile', { userId: conversation.otherUser?.id })}
             >
               <View style={styles.headerName}>
                 <Text style={styles.recipientName} numberOfLines={1}>
@@ -264,7 +264,7 @@ export default function ChatScreen() {
               </View>
               {conversation && (
                 <Text style={styles.routeText}>
-                  {conversation.shipment.originCity} → {conversation.shipment.destCity}
+                  {conversation.shipment?.originCity} → {conversation.shipment?.destCity}
                 </Text>
               )}
             </TouchableOpacity>
@@ -275,10 +275,10 @@ export default function ChatScreen() {
             style={styles.infoButton}
             onPress={() => {
               if (!conversation) return;
-              if (conversation.shipment.status === 'OPEN') {
-                navigation.navigate('ShipmentDetail', { shipmentId: conversation.shipment.id });
+              if (conversation.shipment?.status === 'OPEN') {
+                navigation.navigate('ShipmentDetail', { shipmentId: conversation.shipment?.id });
               } else {
-                navigation.navigate('ActivityDetail', { shipmentId: conversation.shipment.id });
+                navigation.navigate('ActivityDetail', { shipmentId: conversation.shipment?.id });
               }
             }}
           >
@@ -373,8 +373,8 @@ export default function ChatScreen() {
               <View>
                 <Text style={styles.modalPriceLabel}>Payment will be held</Text>
                 <Text style={styles.modalPriceValue}>
-                  {getCurrencySymbol(conversation?.shipment.currency || 'USD')}
-                  {conversation?.shipment.price || 0}
+                  {getCurrencySymbol(conversation?.shipment?.currency || 'USD')}
+                  {conversation?.shipment?.price || 0}
                 </Text>
               </View>
             </View>

@@ -140,7 +140,7 @@ export default function PublicProfileScreen() {
                     )}
 
                     <Text style={styles.memberSince}>
-                        Member since {formatDate(profile.joinedAt)}
+                        Member since {formatDate(profile.joinedAt || new Date().toISOString())}
                     </Text>
                 </View>
 
@@ -148,20 +148,20 @@ export default function PublicProfileScreen() {
                 <View style={styles.statsSection}>
                     <View style={styles.statCard}>
                         <Package size={24} color={colors.textPrimary} strokeWidth={1.5} />
-                        <Text style={styles.statNumber}>{profile.stats.shipmentsPosted}</Text>
+                        <Text style={styles.statNumber}>{profile.stats?.shipmentsPosted || 0}</Text>
                         <Text style={styles.statLabel}>Packages Sent</Text>
                     </View>
 
                     <View style={styles.statCard}>
                         <Plane size={24} color={colors.textPrimary} strokeWidth={1.5} />
-                        <Text style={styles.statNumber}>{profile.stats.deliveriesCompleted}</Text>
+                        <Text style={styles.statNumber}>{profile.stats?.deliveriesCompleted || 0}</Text>
                         <Text style={styles.statLabel}>Deliveries Made</Text>
                     </View>
 
                     <View style={styles.statCard}>
                         <Star size={24} color="#F59E0B" fill="#F59E0B" />
                         <Text style={styles.statNumber}>
-                            {profile.stats.averageRating > 0 ? profile.stats.averageRating.toFixed(1) : '—'}
+                            {(profile.stats?.averageRating || 0) > 0 ? profile.stats?.averageRating?.toFixed(1) : '—'}
                         </Text>
                         <Text style={styles.statLabel}>Rating</Text>
                     </View>
@@ -170,10 +170,10 @@ export default function PublicProfileScreen() {
                 {/* Reviews */}
                 <View style={styles.reviewsSection}>
                     <Text style={styles.sectionTitle}>
-                        Reviews ({profile.stats.totalReviews})
+                        Reviews ({profile.stats?.totalReviews || 0})
                     </Text>
 
-                    {profile.reviews.length === 0 ? (
+                    {!(profile.reviews?.length) ? (
                         <View style={styles.emptyReviews}>
                             <Text style={styles.emptyText}>No reviews yet</Text>
                         </View>

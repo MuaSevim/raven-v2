@@ -102,24 +102,24 @@ export default function ProfileScreen() {
             lastName: profile.lastName || "",
             avatar: profile.profilePicture || null,
             email: profile.email || "",
-            phone: null,
-            phoneCode: "+1",
+            phone: profile.phone || null,
+            phoneCode: profile.phoneCode || "+1",
             isVerified: false,
           });
           setFirstName(profile.firstName || "");
           setLastName(profile.lastName || "");
           setEmail(profile.email || "");
           setPhone(profile.phone || "");
-          setPhoneCode("+1");
+          setPhoneCode(profile.phoneCode || "+1");
           setAvatar(profile.profilePicture || null);
 
           // Find country code from phone code
           // Prefer US for +1 if ambiguous, as we don't store ISO code in DB yet
           let country = PHONE_COUNTRIES.find(
-            (c) => c.dialCode === "+1"
+            (c) => c.dialCode === (profile.phoneCode || "+1")
           );
           const us = PHONE_COUNTRIES.find((c) => c.code === "US");
-          if (us) country = us;
+          if (us && (!country || (profile.phoneCode || "+1") === "+1")) country = us;
 
           setCountryCode(country?.code || "US");
 
@@ -127,7 +127,7 @@ export default function ProfileScreen() {
           setOriginalLastName(profile.lastName || "");
           setOriginalEmail(profile.email || "");
           setOriginalPhone(profile.phone || "");
-          setOriginalPhoneCode("+1");
+          setOriginalPhoneCode(profile.phoneCode || "+1");
           setOriginalAvatar(profile.profilePicture || null);
         } catch (err: Error | unknown) {
           console.error("Error fetching profile:", err);
@@ -756,7 +756,7 @@ const styles = StyleSheet.create({
     color: "#EF4444",
   },
   bottomPadding: {
-    height: spacing.xl * 2,
+    height: spacing.xl * 4,
   },
   // Modal styles
   modalOverlay: {
@@ -768,7 +768,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
     borderTopLeftRadius: borderRadius.xl,
     borderTopRightRadius: borderRadius.xl,
-    maxHeight: "80%",
+    height: "80%",
     paddingTop: spacing.lg,
   },
   modalHeader: {

@@ -6,13 +6,16 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  TouchableOpacity,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Input, Button, Header, ProgressIndicator } from '../../components/ui';
-import { colors, typography, spacing } from '../../theme';
+import { colors, typography, spacing, borderRadius } from '../../theme';
 import { RootStackParamList } from '../../navigation';
 import { useSignupStore } from '../../store/useSignupStore';
+import { useGoogleAuth } from '../../services/authServices';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'SignUpStep1'>;
@@ -23,6 +26,16 @@ export default function SignUpStep1Screen({ navigation }: Props) {
   const [firstName, setFirstName] = useState(data.firstName);
   const [lastName, setLastName] = useState(data.lastName);
   const [errors, setErrors] = useState<{ firstName?: string; lastName?: string }>({});
+  const { promptAsync: promptGoogleAuth, isLoading: isGoogleLoading } = useGoogleAuth();
+
+  const handleGoogleSignUp = async () => {
+    const result = await promptGoogleAuth();
+    if (result.success) {
+      // The auth listener in App.tsx or navigation setup will handle the redirect
+    } else if (result.error && result.error !== 'Authentication cancelled or failed') {
+      Alert.alert('Google Sign-Up Error', String(result.error));
+    }
+  };
 
   // Check if form is valid for enabling Next button
   const isFormValid = firstName.trim().length >= 2 && lastName.trim().length >= 2;
@@ -106,7 +119,24 @@ export default function SignUpStep1Screen({ navigation }: Props) {
         </ScrollView>
         
         <View style={styles.footer}>
-          <Button title="Next" onPress={handleNext} disabled={!isFormValid} />
+          <Button title="Next" onPress={handleNext} disabled={!isFormValid || isGoogleLoading} />
+          
+          <View style={styles.dividerContainer}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <TouchableOpacity 
+            style={styles.googleButton} 
+            onPress={handleGoogleSignUp}
+            disabled={isGoogleLoading}
+          >
+            <View style={styles.googleIconContainer}>
+              <Text style={styles.googleIconText}>G</Text>
+            </View>
+            <Text style={styles.googleButtonText}>Continue with Google</Text>
+          </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -141,5 +171,48 @@ const styles = StyleSheet.create({
   footer: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.lg,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  dividerText: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    marginHorizontal: spacing.md,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.md,
+  },
+  googleIconContainer: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.sm,
+  },
+  googleIconText: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: 18,
+    color: '#4285F4',
+  },
+  googleButtonText: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize.base,
+    color: colors.textPrimary,
   },
 });

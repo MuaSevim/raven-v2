@@ -116,7 +116,7 @@ export default function PaymentMethodsScreen() {
   };
 
   const renderCard = ({ item }: { item: PaymentMethod }) => {
-    const cardColor = cardColors[item.cardType] || cardColors.unknown;
+    const cardColor = cardColors[item.cardType || 'unknown'] || cardColors.unknown;
     const isActionLoading = actionLoading === item.id;
 
     return (
@@ -133,7 +133,7 @@ export default function PaymentMethodsScreen() {
           <View style={styles.cardInfo}>
             <View style={styles.cardHeader}>
               <Text style={styles.cardType}>
-                {item.cardType.charAt(0).toUpperCase() + item.cardType.slice(1)}
+                {(item.cardType || 'Unknown').charAt(0).toUpperCase() + (item.cardType || 'unknown').slice(1)}
               </Text>
               {item.isDefault && (
                 <View style={styles.defaultBadge}>
@@ -144,7 +144,7 @@ export default function PaymentMethodsScreen() {
             </View>
             <Text style={styles.cardNumber}>•••• {item.lastFour}</Text>
             <Text style={styles.cardExpiry}>
-              Expires {item.expiryMonth.toString().padStart(2, '0')}/{item.expiryYear.toString().slice(-2)}
+              Expires {(item.expiryMonth || 0).toString().padStart(2, '0')}/{(item.expiryYear || 0).toString().slice(-2)}
             </Text>
           </View>
         </TouchableOpacity>

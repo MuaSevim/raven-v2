@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  TextInput,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -132,11 +133,11 @@ function ShipmentCard({ shipment, onPress }: ShipmentCardProps) {
         <View style={styles.weightContainer}>
           <Calendar size={14} color={colors.textSecondary} />
           <Text style={styles.weightText}>
-            {formatDate(shipment.dateStart)} - {formatDate(shipment.dateEnd)}
+            {formatDate(shipment.dateStart || new Date().toISOString())} - {formatDate(shipment.dateEnd || new Date().toISOString())}
           </Text>
         </View>
         <View style={styles.weightContainer}>
-          {getTypeIcon(shipment.packageType)}
+          {getTypeIcon(shipment.packageType || '')}
           <Text style={styles.weightText}>{shipment.weight} {shipment.weightUnit}</Text>
         </View>
       </View>
@@ -171,6 +172,8 @@ export default function DeliveriesTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
+  const [originSearch, setOriginSearch] = useState("");
+  const [destSearch, setDestSearch] = useState("");
 
   const fetchShipments = async (showRefresh = false) => {
     if (!user) return;
@@ -237,15 +240,16 @@ export default function DeliveriesTab() {
     },
   ];
 
-  // Filter shipments: hide matched/delivered/cancelled and apply sorting
   const filteredShipments = [...shipments]
     .filter(s => s.status !== 'DELIVERED' && s.status !== 'CANCELLED' && s.status !== 'MATCHED')
+    .filter(s => !originSearch || (s.originCity && s.originCity.toLowerCase().includes(originSearch.toLowerCase())))
+    .filter(s => !destSearch || (s.destCity && s.destCity.toLowerCase().includes(destSearch.toLowerCase())))
     .sort((a, b) => {
       switch (activeFilter) {
         case 'weight':
-          return b.weight - a.weight;
+          return (b.weight || 0) - (a.weight || 0);
         case 'date':
-          return new Date(a.dateStart).getTime() - new Date(b.dateStart).getTime();
+          return new Date(a.dateStart || 0).getTime() - new Date(b.dateStart || 0).getTime();
         case 'price':
           return b.price - a.price;
         case 'status':
@@ -260,14 +264,40 @@ export default function DeliveriesTab() {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>Shipments</Text>
-        <TouchableOpacity style={styles.addButton} onPress={handleAddDelivery}>
-          <Plus size={20} color={colors.textInverse} strokeWidth={2} />
-        </TouchableOpacity>
+        {shipments.length > 0 && (
+          <TouchableOpacity style={styles.addButton} onPress={handleAddDelivery}>
+            <Plus size={20} color={colors.textInverse} strokeWidth={2} />
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* Filter Section */}
       <View style={styles.filterSection}>
         <Text style={styles.sectionLabel}>Filter options</Text>
+        
+        {/* Location Search */}
+        <View style={styles.searchRow}>
+          <View style={styles.searchInputContainer}>
+            <Text style={styles.searchIcon}>📍</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Origin..."
+              placeholderTextColor={colors.textTertiary}
+              value={originSearch}
+              onChangeText={setOriginSearch}
+            />
+          </View>
+          <View style={styles.searchInputContainer}>
+            <Text style={styles.searchIcon}>🏁</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Destination..."
+              placeholderTextColor={colors.textTertiary}
+              value={destSearch}
+              onChangeText={setDestSearch}
+            />
+          </View>
+        </View>
+
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -286,11 +316,13 @@ export default function DeliveriesTab() {
       </View>
 
       {/* Section Header */}
-      <View style={styles.listHeader}>
-        <Text style={styles.sectionLabel}>
-          {filteredShipments.length} available shipment{filteredShipments.length !== 1 ? 's' : ''}
-        </Text>
-      </View>
+      {filteredShipments.length > 0 && (
+        <View style={styles.listHeader}>
+          <Text style={styles.sectionLabel}>
+            {filteredShipments.length} available shipment{filteredShipments.length !== 1 ? 's' : ''}
+          </Text>
+        </View>
+      )}
 
       {/* Content */}
       {loading ? (
@@ -556,5 +588,29 @@ const styles = StyleSheet.create({
   statusText: {
     fontFamily: typography.fontFamily.medium,
     fontSize: typography.fontSize.xs,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  searchInputContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.sm,
+    height: 36,
+  },
+  searchIcon: {
+    fontSize: 14,
+    marginRight: spacing.xs,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.sm,
+    color: colors.textPrimary,
   },
 });

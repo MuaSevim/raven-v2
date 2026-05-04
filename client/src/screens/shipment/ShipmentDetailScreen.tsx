@@ -127,7 +127,7 @@ export default function ShipmentDetailScreen() {
     if (!shipment || !userOffer) return;
     navigation.navigate('Chat', {
       shipmentId: shipment.id,
-      recipientId: shipment.sender.id,
+      recipientId: shipment.sender?.id,
     });
   };
 
@@ -157,9 +157,9 @@ export default function ShipmentDetailScreen() {
     );
   }
 
-  const isMySender = shipment.sender.id === user?.uid;
+  const isMySender = shipment.sender?.id === user?.uid;
   const currencySymbol = getCurrencySymbol(shipment.currency);
-  const senderName = `${shipment.sender.firstName || ''} ${shipment.sender.lastName || ''}`.trim() || 'Unknown';
+  const senderName = `${shipment.sender?.firstName || ''} ${shipment.sender?.lastName || ''}`.trim() || 'Unknown';
   const platformFee = Math.round(shipment.price * 0.15);
   const travelerReceives = shipment.price - platformFee;
 
@@ -210,7 +210,7 @@ export default function ShipmentDetailScreen() {
             <View style={styles.deliveryWindow}>
               <Calendar size={16} color={colors.textSecondary} />
               <Text style={styles.deliveryWindowText}>
-                {formatDate(shipment.dateStart)} - {formatDate(shipment.dateEnd)}
+                {formatDate(shipment.dateStart || new Date().toISOString())} - {formatDate(shipment.dateEnd || new Date().toISOString())}
               </Text>
             </View>
           </View>
@@ -290,19 +290,19 @@ export default function ShipmentDetailScreen() {
           <Text style={styles.cardTitle}>Posted By</Text>
           <TouchableOpacity
             style={styles.senderRow}
-            onPress={() => navigation.navigate('PublicProfile', { userId: shipment.sender.id })}
+            onPress={() => navigation.navigate('PublicProfile', { userId: shipment.sender?.id })}
           >
-            {shipment.sender.avatar ? (
-              <Image source={{ uri: shipment.sender.avatar }} style={styles.avatar} />
+            {shipment.sender?.avatar ? (
+              <Image source={{ uri: shipment.sender?.avatar }} style={styles.avatar} />
             ) : (
               <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarInitial}>{(shipment.sender.firstName || 'U')[0]}</Text>
+                <Text style={styles.avatarInitial}>{(shipment.sender?.firstName || 'U')[0]}</Text>
               </View>
             )}
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <Text style={styles.senderName}>{senderName}</Text>
-                {shipment.sender.isVerified && <BadgeCheck size={14} color={colors.textPrimary} fill={colors.background} />}
+                {shipment.sender?.isVerified && <BadgeCheck size={14} color={colors.textPrimary} fill={colors.background} />}
               </View>
               <Text style={styles.senderRole}>Member since 2025</Text>
             </View>

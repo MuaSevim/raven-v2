@@ -14,10 +14,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../services/firebaseConfig';
+import { authApi } from '../../services/api';
 import { Input, Button } from '../../components/ui';
-import { colors, typography, spacing } from '../../theme';
+import { colors, typography, spacing, borderRadius } from '../../theme';
 import { RootStackParamList } from '../../navigation';
 import { useSignupStore } from '../../store/useSignupStore';
+import { useGoogleAuth } from '../../services/authServices';
 
 type SignInScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'SignIn'>;
@@ -36,9 +38,19 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [failedLoginAttempts, setFailedLoginAttempts] = useState(0);
+  const { promptAsync: promptGoogleAuth, isLoading: isGoogleLoading } = useGoogleAuth();
 
   // Check if form is valid for button state
   const isFormValid = email.trim().length > 0 && password.length >= 6;
+
+  const handleGoogleSignIn = async () => {
+    const result = await promptGoogleAuth();
+    if (result.success) {
+      // The auth listener in App.tsx or navigation setup will handle the redirect
+    } else if (result.error && result.error !== 'Authentication cancelled or failed') {
+      Alert.alert('Google Sign-In Error', String(result.error));
+    }
+  };
 
 
   const handleSignIn = async () => {
@@ -73,7 +85,20 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
     try {
       const emailLower = email.trim().toLowerCase();
 
-      // Sign in directly with Firebase - it will tell us if user doesn't exist
+      // Check if email exists in our system first
+      try {
+        const { exists } = await authApi.checkEmail(emailLower);
+        if (!exists) {
+          setErrors({ email: "Account doesn't exist" });
+          setIsLoading(false);
+          return;
+        }
+      } catch (checkError) {
+        console.error('Email check error:', checkError);
+        // If check fails, we still try to proceed with Firebase
+      }
+
+      // Sign in directly with Firebase
       const credential = await signInWithEmailAndPassword(auth, emailLower, password);
       setFailedLoginAttempts(0);
 
@@ -89,7 +114,7 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
       switch (error.code) {
         case 'auth/user-not-found':
           // No account with this email
-          emailError = 'No account found with this email';
+          emailError = "Account doesn't exist";
           break;
         case 'auth/wrong-password':
         case 'auth/invalid-credential':
@@ -200,9 +225,26 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
               title="Continue"
               onPress={handleSignIn}
               loading={isLoading}
-              disabled={!isFormValid}
+              disabled={!isFormValid || isGoogleLoading}
               style={styles.signInButton}
             />
+
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>or</Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <TouchableOpacity 
+              style={styles.googleButton} 
+              onPress={handleGoogleSignIn}
+              disabled={isLoading || isGoogleLoading}
+            >
+              <View style={styles.googleIconContainer}>
+                <Text style={styles.googleIconText}>G</Text>
+              </View>
+              <Text style={styles.googleButtonText}>Continue with Google</Text>
+            </TouchableOpacity>
           </View>
 
           {/* Footer */}
@@ -275,11 +317,11 @@ const styles = StyleSheet.create({
   },
   forgotPasswordButton: {
     alignSelf: 'flex-end',
-    marginTop: spacing.sm,
+    marginTop: spacing.xs,
   },
   forgotPasswordText: {
     fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.sm,
+    fontSize: typography.fontSize.xs,
     color: colors.textSecondary,
   },
   forgotPasswordEmphasis: {
@@ -302,5 +344,48 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     color: colors.textPrimary,
     textDecorationLine: 'underline',
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.xl,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border,
+  },
+  dividerText: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    marginHorizontal: spacing.md,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.md,
+  },
+  googleIconContainer: {
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.sm,
+  },
+  googleIconText: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: 18,
+    color: '#4285F4',
+  },
+  googleButtonText: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize.base,
+    color: colors.textPrimary,
   },
 });

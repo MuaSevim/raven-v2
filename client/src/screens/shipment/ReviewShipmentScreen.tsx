@@ -145,31 +145,8 @@ export default function ReviewShipmentScreen() {
 
       const createdShipment = await api.shipments.create(shipmentData);
 
-      // Reset draft
-      resetDraft();
-
-      // Navigate to deliveries tab with success
-      navigation.reset({
-        index: 0,
-        routes: [
-          {
-            name: 'MainTabs',
-            state: {
-              routes: [{ name: 'DeliveriesTab' }],
-              index: 0,
-            }
-          }
-        ],
-      });
-
-      // Show success message
-      setTimeout(() => {
-        Alert.alert(
-          '🎉 Shipment Published!',
-          'Your delivery request is now live. Travelers can start making offers.',
-          [{ text: 'Great!' }]
-        );
-      }, 500);
+      // Navigate to success screen
+      navigation.navigate('DeliveryPosted', { shipment: createdShipment });
 
     } catch (error: any) {
       console.error('Error creating shipment:', error);

@@ -212,7 +212,7 @@ export default function ActivityDetailScreen() {
     );
   }
 
-  const isMySender = shipment.sender.id === user?.uid;
+  const isMySender = shipment.sender?.id === user?.uid;
   const currencySymbol = getCurrencySymbol(shipment.currency);
   const currentStatusIndex = STATUS_FLOW.indexOf(shipment.status);
   const ravenUser = shipment.courier;
@@ -304,7 +304,7 @@ export default function ActivityDetailScreen() {
           <View style={styles.dateRow}>
             <Calendar size={18} color={colors.textSecondary} strokeWidth={1.5} />
             <Text style={styles.dateText}>
-              {formatDate(shipment.dateStart)} - {formatDate(shipment.dateEnd)}
+              {formatDate(shipment.dateStart || new Date().toISOString())} - {formatDate(shipment.dateEnd || new Date().toISOString())}
             </Text>
           </View>
         </View>
