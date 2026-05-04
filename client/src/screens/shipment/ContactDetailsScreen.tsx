@@ -206,7 +206,12 @@ export default function ContactDetailsScreen() {
     dispatch({ type: 'SET_RECEIVER_PHONE', payload: cleaned });
   };
 
+  const isSubmittingRef = React.useRef(false);
+
   const handleNext = async () => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+
     // Check if phone number changed from profile
     const phoneChanged = state.profilePhone && state.phone !== state.profilePhone;
     const phoneIsNew = !state.profilePhone && state.phone;
@@ -218,13 +223,14 @@ export default function ContactDetailsScreen() {
         [
           {
             text: 'No, just for this shipment',
-            onPress: () => proceedToNext(),
+            onPress: () => { proceedToNext(); isSubmittingRef.current = false; },
           },
           {
             text: 'Yes, update my profile',
             onPress: async () => {
               await updateProfilePhone();
               proceedToNext();
+              isSubmittingRef.current = false;
             },
           },
         ]
@@ -236,19 +242,21 @@ export default function ContactDetailsScreen() {
         [
           {
             text: 'No',
-            onPress: () => proceedToNext(),
+            onPress: () => { proceedToNext(); isSubmittingRef.current = false; },
           },
           {
             text: 'Yes',
             onPress: async () => {
               await updateProfilePhone();
               proceedToNext();
+              isSubmittingRef.current = false;
             },
           },
         ]
       );
     } else {
       proceedToNext();
+      isSubmittingRef.current = false;
     }
   };
 

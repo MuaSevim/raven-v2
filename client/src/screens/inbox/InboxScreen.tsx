@@ -50,17 +50,17 @@ function ConversationItem({
   currentUserId: string;
   onPress: () => void;
 }) {
-  const otherName = `${conversation.otherUser.firstName || ''} ${conversation.otherUser.lastName || ''}`.trim() || 'Unknown';
-  const isUnread = conversation.unreadCount > 0;
+  const otherName = `${conversation.otherUser?.firstName || ''} ${conversation.otherUser?.lastName || ''}`.trim() || 'Unknown';
+  const isUnread = (conversation.unreadCount || 0) > 0;
   const lastMessagePreview = conversation.lastMessage?.content || 'Start a conversation';
-  const isMyMessage = conversation.lastMessage?.sender.id === currentUserId;
+  const isMyMessage = conversation.lastMessage?.sender?.id === currentUserId;
 
   // Determine if current user is the shipment owner
   const isOwner = conversation.user1Id === currentUserId;
 
   // Get status indicator
   const getStatusInfo = () => {
-    if (conversation.shipment.status === 'MATCHED') {
+    if (conversation.shipment?.status === 'MATCHED') {
       return { label: 'Matched', color: '#22C55E' };
     }
     if (conversation.status === 'PENDING') {
@@ -84,8 +84,8 @@ function ConversationItem({
     >
       {/* Avatar */}
       <View style={styles.avatarContainer}>
-        {conversation.otherUser.avatar ? (
-          <Image source={{ uri: conversation.otherUser.avatar }} style={styles.avatar} />
+        {conversation.otherUser?.avatar ? (
+          <Image source={{ uri: conversation.otherUser?.avatar }} style={styles.avatar} />
         ) : (
           <View style={styles.avatar}>
             <Text style={styles.avatarText}>
@@ -114,7 +114,7 @@ function ConversationItem({
         <View style={styles.routeBadge}>
           <Package size={10} color={colors.textTertiary} />
           <Text style={styles.routeText}>
-            {conversation.shipment.originCity} → {conversation.shipment.destCity}
+            {conversation.shipment?.originCity || 'Unknown'} → {conversation.shipment?.destCity || 'Unknown'}
           </Text>
           {statusInfo && (
             <View style={[styles.statusBadgeSmall, { backgroundColor: statusInfo.color + '20' }]}>
@@ -146,7 +146,7 @@ function ConversationItem({
           </View>
           {isUnread && (
             <View style={styles.unreadBadge}>
-              <Text style={styles.unreadText}>{conversation.unreadCount}</Text>
+              <Text style={styles.unreadText}>{conversation.unreadCount || 0}</Text>
             </View>
           )}
         </View>
@@ -194,9 +194,9 @@ export default function InboxScreen() {
   const handleConversationPress = (conversation: Conversation) => {
     navigation.navigate('Chat', {
       conversationId: conversation.id,
-      shipmentId: conversation.shipment.id,
-      recipientId: conversation.otherUser.id,
-      recipientName: `${conversation.otherUser.firstName || ''} ${conversation.otherUser.lastName || ''}`.trim(),
+      shipmentId: conversation.shipment?.id,
+      recipientId: conversation.otherUser?.id,
+      recipientName: `${conversation.otherUser?.firstName || ''} ${conversation.otherUser?.lastName || ''}`.trim(),
     });
   };
 

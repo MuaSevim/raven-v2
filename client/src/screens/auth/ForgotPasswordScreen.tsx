@@ -12,7 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../../services/firebaseConfig";
-import { actionCodeSettings } from "../../services/actionCodeSettings";
+import { authApi } from "../../services/api";
 import { Input, Button, Header } from "../../components/ui";
 import { colors, typography, spacing } from "../../theme";
 import { RootStackParamList } from "../../navigation";
@@ -35,12 +35,34 @@ export default function ForgotPasswordScreen({ navigation, route }: Props) {
 
     setLoading(true);
     try {
-      await sendPasswordResetEmail(auth, trimmed, actionCodeSettings);
-      Alert.alert("Sent", "We sent a password reset link to your email.", [
+      // Check if email exists in our system first
+      try {
+        const { exists } = await authApi.checkEmail(trimmed);
+        if (!exists) {
+          Alert.alert("Error", "Account doesn't exist");
+          setLoading(false);
+          return;
+        }
+      } catch (checkError) {
+        console.error('Email check error:', checkError);
+        // If check fails, we still try to proceed with Firebase
+      }
+
+      await sendPasswordResetEmail(auth, trimmed);
+      Alert.alert("Success", "A password reset link has been sent to your email.", [
         { text: "OK", onPress: () => navigation.navigate("SignIn") },
       ]);
     } catch (error: Error | unknown) {
-      const message = error instanceof Error ? error.message : "Failed to send reset link";
+      let message = "Failed to send reset link";
+      if (error && typeof error === 'object' && 'code' in error) {
+        if ((error as any).code === 'auth/user-not-found') {
+          message = "Account doesn't exist";
+        } else {
+          message = (error as any).message;
+        }
+      } else if (error instanceof Error) {
+        message = error.message;
+      }
       Alert.alert("Error", message);
     } finally {
       setLoading(false);

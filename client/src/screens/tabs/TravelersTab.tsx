@@ -76,7 +76,7 @@ interface TravelerCardProps {
 
 function TravelerCard({ travel, onPress }: TravelerCardProps) {
   const travelerName = `${travel.traveler?.firstName || ''} ${travel.traveler?.lastName || ''}`.trim() || 'Unknown';
-  const currencySymbol = getCurrencySymbol(travel.currency);
+  const currencySymbol = getCurrencySymbol(travel.currency || 'USD');
 
   return (
     <TouchableOpacity
@@ -143,7 +143,7 @@ function TravelerCard({ travel, onPress }: TravelerCardProps) {
       <View style={styles.detailsRow}>
         <View style={styles.detailItem}>
           <Calendar size={14} color={colors.textSecondary} />
-          <Text style={styles.detailText}>{formatDate(travel.departureDate)}</Text>
+          <Text style={styles.detailText}>{formatDate(travel.departureDate || new Date().toISOString())}</Text>
         </View>
         <View style={styles.detailItem}>
           <Scale size={14} color={colors.textSecondary} />
@@ -226,9 +226,9 @@ export default function TravelersTab() {
   const filteredTravels = [...travels].sort((a, b) => {
     switch (activeFilter) {
       case 'date':
-        return new Date(a.departureDate).getTime() - new Date(b.departureDate).getTime();
+        return new Date(a.departureDate || 0).getTime() - new Date(b.departureDate || 0).getTime();
       case 'capacity':
-        return b.availableWeight - a.availableWeight;
+        return (b.availableWeight || 0) - (a.availableWeight || 0);
       case 'price':
         return (a.pricePerKg || 0) - (b.pricePerKg || 0);
       case 'verified':

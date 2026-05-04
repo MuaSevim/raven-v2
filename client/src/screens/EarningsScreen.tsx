@@ -51,30 +51,60 @@ export default function EarningsScreen() {
     }, []);
 
     const fetchEarnings = async () => {
-        // For MVP/Demo, using test data
-        // In production, this would fetch from: `${API_URL}/earnings`
+        try {
+            const deliveriesRes = await api.shipments.getMyDeliveries();
+            const deliveries = deliveriesRes.data || [];
 
-        setTimeout(() => {
-            setEarnings({
-                totalEarnings: 2847.50,
-                totalDeliveries: 23,
-                averageRating: 4.8,
-                monthlyEarnings: [
-                    { month: 'Aug', amount: 420 },
-                    { month: 'Sep', amount: 680 },
-                    { month: 'Oct', amount: 520 },
-                    { month: 'Nov', amount: 790 },
-                    { month: 'Dec', amount: 437.50 },
-                ],
-                recentDeliveries: [
-                    { id: '1', route: 'NYC → LA', amount: 125.00, date: '2 days ago', status: 'DELIVERED' },
-                    { id: '2', route: 'London → Paris', amount: 89.50, date: '5 days ago', status: 'DELIVERED' },
-                    { id: '3', route: 'Tokyo → Seoul', amount: 156.00, date: '1 week ago', status: 'DELIVERED' },
-                    { id: '4', route: 'Berlin → Rome', amount: 67.00, date: '2 weeks ago', status: 'DELIVERED' },
-                ],
+            // Calculate total earnings from completed deliveries
+            const completedDeliveries = deliveries.filter(d => d.status === 'COMPLETED' || d.status === 'DELIVERED');
+            
+            const totalDeliveries = completedDeliveries.length;
+            const totalEarnings = completedDeliveries.reduce((sum, d) => sum + (d.price || 0), 0);
+            
+            // Generate monthly earnings data based on deliveries
+            const monthlyMap: Record<string, number> = {};
+            completedDeliveries.forEach(d => {
+                const date = new Date(d.updatedAt || d.createdAt);
+                const month = date.toLocaleString('default', { month: 'short' });
+                monthlyMap[month] = (monthlyMap[month] || 0) + (d.price || 0);
             });
+
+            // Convert to array
+            let monthlyEarnings = Object.entries(monthlyMap).map(([month, amount]) => ({ month, amount }));
+            if (monthlyEarnings.length === 0) {
+                // Default empty data
+                const currentMonth = new Date().toLocaleString('default', { month: 'short' });
+                monthlyEarnings = [{ month: currentMonth, amount: 0 }];
+            }
+
+            // Get recent deliveries
+            const recentDeliveries = completedDeliveries.slice(0, 5).map(d => ({
+                id: d.id,
+                route: `${d.originCity || 'Unknown'} → ${d.destCity || 'Unknown'}`,
+                amount: d.price || 0,
+                date: new Date(d.updatedAt || d.createdAt).toLocaleDateString(),
+                status: d.status,
+            }));
+
+            setEarnings({
+                totalEarnings,
+                totalDeliveries,
+                averageRating: 5.0,
+                monthlyEarnings,
+                recentDeliveries,
+            });
+        } catch (error) {
+            console.error('Failed to fetch earnings:', error);
+            setEarnings({
+                totalEarnings: 0,
+                totalDeliveries: 0,
+                averageRating: 0,
+                monthlyEarnings: [{ month: new Date().toLocaleString('default', { month: 'short' }), amount: 0 }],
+                recentDeliveries: [],
+            });
+        } finally {
             setLoading(false);
-        }, 800);
+        }
     };
 
     const maxEarning = earnings ? Math.max(...earnings.monthlyEarnings.map(e => e.amount)) : 0;
