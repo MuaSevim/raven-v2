@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateConversationDto, SendMessageDto } from './dto/conversation.dto';
-import { MessageCategory } from '@prisma/client';
+import { MessageCategory, ConversationStatus } from '@prisma/client';
 
 @Injectable()
 export class ConversationsService {
@@ -123,11 +123,13 @@ export class ConversationsService {
   /**
    * Get all conversations for a user (Inbox)
    */
-  async getUserConversations(userId: string) {
+  async getUserConversations(userId: string, take = 50, skip = 0) {
     const conversations = await this.prisma.conversation.findMany({
       where: {
         OR: [{ user1Id: userId }, { user2Id: userId }],
       },
+      take,
+      skip,
       include: {
         user1: {
           select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
@@ -151,28 +153,38 @@ export class ConversationsService {
       orderBy: { updatedAt: 'desc' },
     });
 
-    // Add unread count and format for client
-    return Promise.all(
-      conversations.map(async (conv) => {
-        const unreadCount = await this.prisma.message.count({
-          where: {
-            conversationId: conv.id,
-            senderId: { not: userId },
-            isRead: false,
-          },
-        });
+    if (conversations.length === 0) return [];
 
-        // Determine the "other" user for display
-        const otherUser = conv.user1Id === userId ? conv.user2 : conv.user1;
+    // Get unread counts for all conversations in a single query
+    const conversationIds = conversations.map((c) => c.id);
+    const unreadCounts = await this.prisma.message.groupBy({
+      by: ['conversationId'],
+      where: {
+        conversationId: { in: conversationIds },
+        senderId: { not: userId },
+        isRead: false,
+      },
+      _count: {
+        conversationId: true,
+      },
+    });
 
-        return {
-          ...conv,
-          otherUser,
-          unreadCount,
-          lastMessage: conv.messages[0] || null,
-        };
-      })
+    const unreadMap = new Map(
+      unreadCounts.map((item) => [item.conversationId, item._count.conversationId])
     );
+
+    // Format for client
+    return conversations.map((conv) => {
+      const otherUser = conv.user1Id === userId ? conv.user2 : conv.user1;
+      const unreadCount = unreadMap.get(conv.id) || 0;
+
+      return {
+        ...conv,
+        otherUser,
+        unreadCount,
+        lastMessage: conv.messages[0] || null,
+      };
+    });
   }
 
   /**
@@ -264,7 +276,7 @@ export class ConversationsService {
 
     // Check if owner is responding - if so, activate the conversation
     const isOwner = conversation.shipment.senderId === userId;
-    const shouldActivate = isOwner && conversation.status === 'PENDING';
+    const shouldActivate = isOwner && conversation.status === ConversationStatus.PENDING;
 
     // Create message
     const message = await this.prisma.message.create({
@@ -287,7 +299,7 @@ export class ConversationsService {
       data: {
         lastMessage: dto.content,
         lastMessageAt: new Date(),
-        ...(shouldActivate && { status: 'ACTIVE' }),
+        ...(shouldActivate && { status: ConversationStatus.ACTIVE }),
       },
     });
 
@@ -338,10 +350,9 @@ export class ConversationsService {
       where: {
         conversationId,
         senderId: { not: userId },
-        status: { not: 'READ' },
+        isRead: false,
       },
       data: {
-        status: 'READ',
         isRead: true,
       },
     });

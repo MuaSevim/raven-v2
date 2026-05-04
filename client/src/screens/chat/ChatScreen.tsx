@@ -165,7 +165,10 @@ export default function ChatScreen() {
       }
 
       // Hold payment and match
-      const result = await api.payments.holdPayment(conversation.shipment?.id || '');
+      const result = await api.payments.holdPayment(
+        conversation.shipment?.id || '',
+        conversation.otherUser?.id || ''
+      );
 
       // Send system message
       await api.conversations.sendMessage(

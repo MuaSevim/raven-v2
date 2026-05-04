@@ -88,6 +88,14 @@ export class PrismaService implements OnModuleInit, OnModuleDestroy {
     return this.prisma.transaction;
   }
 
+  get userReview() {
+    return this.prisma.userReview;
+  }
+
+  get verificationCode() {
+    return this.prisma.verificationCode;
+  }
+
   // Transaction support
   get $transaction() {
     return this.prisma.$transaction.bind(this.prisma);

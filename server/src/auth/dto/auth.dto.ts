@@ -6,7 +6,6 @@ import {
   MinLength,
   Min,
   Max,
-  IsIn,
 } from 'class-validator';
 
 export class CreateUserDto {
@@ -138,10 +137,6 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   phoneCode?: string;
-
-  @IsOptional()
-  @IsIn(['SENDER', 'COURIER'])
-  role?: 'SENDER' | 'COURIER';
 }
 
 export class VerifyEmailDto {

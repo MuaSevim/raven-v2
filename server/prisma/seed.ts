@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, OfferStatus, TravelStatus } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import * as dotenv from 'dotenv';
@@ -343,9 +343,9 @@ async function main() {
     const offeringCouriers = [...courierUsers].sort(() => Math.random() - 0.5).slice(0, numOffers);
 
     for (const courier of offeringCouriers) {
-      const offerStatuses = shipment.status === 'MATCHED'
-        ? ['ACCEPTED', 'REJECTED', 'REJECTED']
-        : ['PENDING', 'PENDING', 'PENDING'];
+      const offerStatuses: OfferStatus[] = shipment.status === 'MATCHED'
+        ? [OfferStatus.ACCEPTED, OfferStatus.REJECTED, OfferStatus.REJECTED]
+        : [OfferStatus.PENDING, OfferStatus.PENDING, OfferStatus.PENDING];
 
       await prisma.shipmentOffer.create({
         data: {
@@ -403,7 +403,7 @@ async function main() {
           pricePerKg: randomBetween(5, 25),
           currency: randomFrom(['USD', 'EUR', 'GBP']),
           flightNumber: randomFrom(flightNumbers),
-          status: 'ACTIVE',
+          status: TravelStatus.ACTIVE,
           travelerId: courier.id,
         },
       });

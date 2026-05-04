@@ -18,9 +18,12 @@ export class UsersService {
                 lastName: true,
                 avatar: true,
                 isVerified: true,
+                verificationStatus: true,
                 country: true,
                 city: true,
+                bio: true,
                 joinedAt: true,
+                lastLoginAt: true,
             },
         });
 
@@ -41,21 +44,36 @@ export class UsersService {
             },
         });
 
-        // Get reviews (placeholder - we'll add UserReview model later)
-        // For now, return empty reviews
-        const reviews: any[] = [];
-        const averageRating = 0;
-        const totalReviews = 0;
+        // Get reviews
+        const reviewsData = await this.prisma.userReview.findMany({
+            where: { revieweeId: userId },
+            include: {
+                reviewer: {
+                    select: {
+                        id: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
+                    },
+                },
+            },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const totalReviews = reviewsData.length;
+        const averageRating = totalReviews > 0 
+            ? reviewsData.reduce((acc, curr) => acc + curr.rating, 0) / totalReviews 
+            : 0;
 
         return {
             ...user,
             stats: {
                 shipmentsPosted,
                 deliveriesCompleted,
-                averageRating,
+                averageRating: Number(averageRating.toFixed(1)),
                 totalReviews,
             },
-            reviews,
+            reviews: reviewsData,
         };
     }
 }

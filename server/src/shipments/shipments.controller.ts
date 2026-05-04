@@ -84,15 +84,7 @@ export class ShipmentsController {
     return this.shipmentsService.createOffer(id, req.user.uid, createOfferDto);
   }
 
-  @Patch('offers/:offerId/accept')
-  acceptOffer(@Request() req, @Param('offerId') offerId: string) {
-    return this.shipmentsService.acceptOffer(offerId, req.user.uid);
-  }
 
-  @Patch('offers/:offerId/reject')
-  rejectOffer(@Request() req, @Param('offerId') offerId: string) {
-    return this.shipmentsService.rejectOffer(offerId, req.user.uid);
-  }
 
   @Get(':id/my-offer')
   getMyOffer(@Request() req, @Param('id') id: string) {

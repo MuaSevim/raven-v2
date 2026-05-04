@@ -41,6 +41,31 @@ enum TransactionStatus {
   FAILED
 }
 
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+enum TravelStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum ConversationStatus {
+  PENDING
+  ACTIVE
+  MATCHED
+}
+
+enum VerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
 model User {
   id          String    @id // Firebase UID
   email       String    @unique
@@ -63,9 +88,16 @@ model User {
   
   // Profile
   avatar      String?
+  bio         String?
   
   // Verification
-  isVerified  Boolean   @default(false)
+  isVerified         Boolean            @default(false)
+  verificationStatus VerificationStatus @default(UNVERIFIED)
+  documentUrl        String?
+  selfieUrl          String?
+  
+  // Session
+  lastLoginAt        DateTime?
   
   // Timestamps
   joinedAt    DateTime  @default(now()) @map("created_at")
@@ -86,6 +118,10 @@ model User {
   paymentMethods        PaymentMethod[]
   transactionsAsPayer   Transaction[] @relation("PayerTransactions")
   transactionsAsPayee   Transaction[] @relation("PayeeTransactions")
+  
+  // Reviews
+  reviewsReceived       UserReview[]  @relation("Reviewee")
+  reviewsGiven          UserReview[]  @relation("Reviewer")
 }
 
 model Shipment {
@@ -137,6 +173,13 @@ model Shipment {
   handoverConfirmedAt       DateTime?
   deliveryConfirmedAt       DateTime?
   
+  // Handover Info
+  senderHandoverImageUrl    String?
+  courierHandoverImageUrl   String?
+  
+  // Reviews
+  reviews                   UserReview[]
+
   // Relations
   senderId        String
   sender          User      @relation("SenderShipments", fields: [senderId], references: [id])
@@ -165,7 +208,7 @@ model ShipmentOffer {
   message     String
   
   // Status
-  status      String    @default("PENDING") // PENDING, ACCEPTED, REJECTED
+  status      OfferStatus @default(PENDING)
   
   // Relations
   shipmentId  String
@@ -214,7 +257,7 @@ model Travel {
   flightNumber    String?
   
   // Status
-  status          String    @default("ACTIVE") // ACTIVE, COMPLETED, CANCELLED
+  status          TravelStatus @default(ACTIVE)
   
   // Relations
   travelerId      String
@@ -246,7 +289,7 @@ model Conversation {
   shipment    Shipment  @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
   
   // Conversation status: PENDING (courier waiting for owner), ACTIVE (owner responded), MATCHED (deal confirmed)
-  status      String    @default("PENDING")
+  status      ConversationStatus @default(PENDING)
   
   // Last message preview
   lastMessage String?
@@ -275,11 +318,7 @@ model Message {
   // Message type
   type            MessageCategory @default(TEXT)
   
-  // Message delivery status for read receipts
-  // SENT = message created, DELIVERED = recipient notified, READ = recipient opened chat
-  status          String    @default("SENT")
-  
-  // Read status (legacy, use status instead)
+  // Read status
   isRead          Boolean   @default(false)
   
   // Relations
@@ -333,29 +372,51 @@ model Transaction {
   
   // Status
   status          TransactionStatus @default(PENDING)
-  
-  // Description
   description     String?
+  
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
   
   // Relations
   payerId         String
   payer           User      @relation("PayerTransactions", fields: [payerId], references: [id])
   
-  payeeId         String?   // Courier (null until delivery complete)
-  payee           User?     @relation("PayeeTransactions", fields: [payeeId], references: [id])
+  payeeId         String
+  payee           User      @relation("PayeeTransactions", fields: [payeeId], references: [id])
   
-  shipmentId      String    @unique
-  shipment        Shipment  @relation(fields: [shipmentId], references: [id])
+  shipmentId      String?   @unique
+  shipment        Shipment? @relation(fields: [shipmentId], references: [id], onDelete: SetNull)
   
   paymentMethodId String?
-  paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id])
-  
-  // Timestamps
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  paymentMethod   PaymentMethod? @relation(fields: [paymentMethodId], references: [id], onDelete: SetNull)
 
   @@index([payerId])
   @@index([payeeId])
   @@index([shipmentId])
   @@index([status])
+}
+
+model UserReview {
+  id          String   @id @default(cuid())
+  rating      Int      // 1 to 5
+  comment     String?
+  createdAt   DateTime @default(now())
+  
+  reviewerId  String
+  reviewer    User     @relation("Reviewer", fields: [reviewerId], references: [id])
+  
+  revieweeId  String
+  reviewee    User     @relation("Reviewee", fields: [revieweeId], references: [id])
+  
+  shipmentId  String?
+  shipment    Shipment? @relation(fields: [shipmentId], references: [id])
+}
+
+model VerificationCode {
+  id        String   @id @default(cuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }

@@ -19,9 +19,12 @@ async function bootstrap() {
     }),
   );
 
-  // Enable CORS for mobile app
+  // CORS: mobile apps don't send Origin headers, so this only affects browsers.
+  // Lock down to prevent cross-site request abuse from arbitrary websites.
   app.enableCors({
-    origin: true,
+    origin: process.env.CORS_ALLOWED_ORIGINS
+      ? process.env.CORS_ALLOWED_ORIGINS.split(',')
+      : false,
     credentials: true,
   });
 

@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTravelDto } from './dto/create-travel.dto';
 import { UpdateTravelDto } from './dto/update-travel.dto';
-import { Prisma } from '@prisma/client';
+import { Prisma, TravelStatus } from '@prisma/client';
 
 @Injectable()
 export class TravelsService {
@@ -11,15 +11,7 @@ export class TravelsService {
   async create(userId: string, userEmail: string, createTravelDto: CreateTravelDto) {
     const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!existingUser) {
-      if (!userEmail) {
-        throw new ForbiddenException('User email is required but was not provided.');
-      }
-      await this.prisma.user.create({
-        data: {
-          id: userId,
-          email: userEmail,
-        },
-      });
+      throw new NotFoundException('User not found. Please complete registration first.');
     }
 
     return this.prisma.travel.create({
@@ -55,11 +47,13 @@ export class TravelsService {
     maxWeight?: number;
     fromDate?: string;
     toDate?: string;
+    take?: number;
+    skip?: number;
   }) {
     const where: Prisma.TravelWhereInput = {};
 
     // Default to ACTIVE travels
-    where.status = filters?.status || 'ACTIVE';
+    where.status = (filters?.status as TravelStatus) || TravelStatus.ACTIVE;
 
     if (filters?.fromCity) {
       where.fromCity = { contains: filters.fromCity, mode: 'insensitive' };
@@ -87,6 +81,8 @@ export class TravelsService {
 
     return this.prisma.travel.findMany({
       where,
+      take: filters?.take ?? 50,
+      skip: filters?.skip ?? 0,
       include: {
         traveler: {
           select: {
@@ -129,9 +125,11 @@ export class TravelsService {
     return travel;
   }
 
-  async findByUser(userId: string) {
+  async findByUser(userId: string, take = 50, skip = 0) {
     return this.prisma.travel.findMany({
       where: { travelerId: userId },
+      take,
+      skip,
       include: {
         traveler: {
           select: {
@@ -219,7 +217,7 @@ export class TravelsService {
 
     return this.prisma.travel.update({
       where: { id },
-      data: { status: 'CANCELLED' },
+      data: { status: TravelStatus.CANCELLED },
     });
   }
 }

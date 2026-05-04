@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AddPaymentMethodDto, HoldPaymentDto } from './dto/payment.dto';
-import { ShipmentStatus, TransactionStatus } from '@prisma/client';
+import { ShipmentStatus, TransactionStatus, OfferStatus, ConversationStatus } from '@prisma/client';
 
 @Injectable()
 export class PaymentsService {
@@ -214,6 +214,32 @@ export class PaymentsService {
         status: ShipmentStatus.MATCHED,
         courierId: dto.courierId,
       },
+    });
+
+    // Unify Match path: Update any existing offers
+    const offer = await this.prisma.shipmentOffer.findFirst({
+      where: { shipmentId: dto.shipmentId, courierId: dto.courierId }
+    });
+    if (offer) {
+      await this.prisma.shipmentOffer.update({
+        where: { id: offer.id },
+        data: { status: OfferStatus.ACCEPTED }
+      });
+    }
+    // Reject all other offers
+    await this.prisma.shipmentOffer.updateMany({
+      where: { shipmentId: dto.shipmentId, courierId: { not: dto.courierId } },
+      data: { status: OfferStatus.REJECTED }
+    });
+
+    // Update conversation status
+    await this.prisma.conversation.updateMany({
+      where: {
+        shipmentId: dto.shipmentId,
+        user1Id: { in: [userId, dto.courierId] },
+        user2Id: { in: [userId, dto.courierId] },
+      },
+      data: { status: ConversationStatus.MATCHED }
     });
 
     return {

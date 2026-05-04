@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/commo
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateShipmentDto } from './dto/create-shipment.dto';
 import { CreateOfferDto } from './dto/create-offer.dto';
-import { MessageCategory, ShipmentStatus, TransactionStatus, Prisma } from '@prisma/client';
+import { MessageCategory, ShipmentStatus, TransactionStatus, OfferStatus, ConversationStatus, Prisma } from '@prisma/client';
 
 @Injectable()
 export class ShipmentsService {
@@ -97,10 +97,15 @@ export class ShipmentsService {
     maxWeight?: number;
     minPrice?: number;
     maxPrice?: number;
+    take?: number;
+    skip?: number;
   }) {
     const where: Prisma.ShipmentWhereInput = {};
 
-    where.status = this.normalizeShipmentStatusFilter(filters?.status);
+    // Default: only show OPEN, non-expired shipments
+    where.status = this.normalizeShipmentStatusFilter(filters?.status) ?? ShipmentStatus.OPEN;
+    where.dateEnd = { gte: new Date() };
+
     if (filters?.originCountry) {
       where.originCountry = { contains: filters.originCountry, mode: 'insensitive' };
     }
@@ -120,6 +125,8 @@ export class ShipmentsService {
 
     return this.prisma.shipment.findMany({
       where,
+      take: filters?.take ?? 50,
+      skip: filters?.skip ?? 0,
       include: {
         sender: {
           select: {
@@ -186,13 +193,15 @@ export class ShipmentsService {
     return shipment;
   }
 
-  async findByUser(userId: string, role: 'sender' | 'courier') {
+  async findByUser(userId: string, role: 'sender' | 'courier', take = 50, skip = 0) {
     const where = role === 'sender'
       ? { senderId: userId }
       : { courierId: userId };
 
     return this.prisma.shipment.findMany({
       where,
+      take,
+      skip,
       include: {
         sender: {
           select: {
@@ -223,9 +232,11 @@ export class ShipmentsService {
   /**
    * Get all offers made by a user
    */
-  async findOffersByUser(userId: string) {
+  async findOffersByUser(userId: string, take = 50, skip = 0) {
     return this.prisma.shipmentOffer.findMany({
       where: { courierId: userId },
+      take,
+      skip,
       include: {
         shipment: {
           select: {
@@ -369,81 +380,7 @@ export class ShipmentsService {
     return offer;
   }
 
-  async acceptOffer(offerId: string, senderId: string) {
-    const offer = await this.prisma.shipmentOffer.findUnique({
-      where: { id: offerId },
-      include: { shipment: true },
-    });
 
-    if (!offer) {
-      throw new NotFoundException('Offer not found');
-    }
-
-    if (offer.shipment.senderId !== senderId) {
-      throw new ForbiddenException('Only the sender can accept offers');
-    }
-
-    if (offer.shipment.status !== ShipmentStatus.OPEN) {
-      throw new ForbiddenException('This shipment is no longer open');
-    }
-
-    // Accept the offer and update shipment
-    await this.prisma.$transaction([
-      // Update the offer status
-      this.prisma.shipmentOffer.update({
-        where: { id: offerId },
-        data: { status: 'ACCEPTED' },
-      }),
-      // Reject all other offers
-      this.prisma.shipmentOffer.updateMany({
-        where: { shipmentId: offer.shipmentId, id: { not: offerId } },
-        data: { status: 'REJECTED' },
-      }),
-      // Update shipment with courier
-      this.prisma.shipment.update({
-        where: { id: offer.shipmentId },
-        data: {
-          courierId: offer.courierId,
-          status: ShipmentStatus.MATCHED,
-        },
-      }),
-    ]);
-
-    // Update the conversation status to MATCHED
-    const [user1Id, user2Id] = [offer.courierId, senderId].sort();
-    await this.prisma.conversation.updateMany({
-      where: {
-        shipmentId: offer.shipmentId,
-        user1Id,
-        user2Id,
-      },
-      data: {
-        status: 'MATCHED',
-      },
-    });
-
-    return this.findOne(offer.shipmentId);
-  }
-
-  async rejectOffer(offerId: string, senderId: string) {
-    const offer = await this.prisma.shipmentOffer.findUnique({
-      where: { id: offerId },
-      include: { shipment: true },
-    });
-
-    if (!offer) {
-      throw new NotFoundException('Offer not found');
-    }
-
-    if (offer.shipment.senderId !== senderId) {
-      throw new ForbiddenException('Only the sender can reject offers');
-    }
-
-    return this.prisma.shipmentOffer.update({
-      where: { id: offerId },
-      data: { status: 'REJECTED' },
-    });
-  }
 
   async getUserOfferOnShipment(shipmentId: string, userId: string) {
     const offer = await this.prisma.shipmentOffer.findFirst({

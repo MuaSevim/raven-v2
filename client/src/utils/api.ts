@@ -310,10 +310,10 @@ export const api = {
         method: 'GET',
       }),
 
-    holdPayment: (shipmentId: string) =>
+    holdPayment: (shipmentId: string, courierId: string) =>
       apiRequest<PaymentHoldResponse>('/payments/hold', {
         method: 'POST',
-        body: JSON.stringify({ shipmentId }),
+        body: JSON.stringify({ shipmentId, courierId }),
       }),
 
     releasePayment: (shipmentId: string) =>
