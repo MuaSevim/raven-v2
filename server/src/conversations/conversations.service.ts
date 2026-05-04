@@ -14,9 +14,7 @@ export class ConversationsService {
     // Ensure current user exists
     const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!existingUser) {
-      await this.prisma.user.create({
-        data: { id: userId, email: userEmail },
-      });
+      throw new NotFoundException('User not found');
     }
 
     // Check if shipment exists
@@ -42,10 +40,7 @@ export class ConversationsService {
     const recipientId = isSender ? dto.recipientId : shipment.senderId;
     const recipientExists = await this.prisma.user.findUnique({ where: { id: recipientId } });
     if (!recipientExists) {
-      // Create placeholder user - they'll update their profile when they sign in
-      await this.prisma.user.create({
-        data: { id: recipientId, email: `${recipientId}@placeholder.raven` },
-      });
+      throw new NotFoundException('Recipient user not found');
     }
 
     // Try to find existing conversation

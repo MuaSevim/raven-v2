@@ -3,11 +3,9 @@ import {
   Post,
   Get,
   Put,
-  Patch,
   Body,
   UseGuards,
   Req,
-  Headers,
   Query,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
@@ -16,7 +14,6 @@ import {
   CreateUserDto,
   SyncUserDto,
   UpdateUserDto,
-  VerifyEmailDto,
 } from './dto/auth.dto';
 
 @Controller('auth')
@@ -30,12 +27,8 @@ export class AuthController {
   @Post('register')
   async register(@Body() dto: CreateUserDto) {
     const user = await this.authService.registerUser(dto);
-
-    // Generate verification code
-    await this.authService.generateVerificationCode(dto.email);
-
     return {
-      message: 'User registered. Please verify your email.',
+      message: 'User registered successfully.',
       user: {
         id: user.id,
         email: user.email,
@@ -53,26 +46,6 @@ export class AuthController {
   async checkEmail(@Query('email') email: string) {
     const exists = await this.authService.checkEmailExists(email);
     return { exists };
-  }
-
-  /**
-   * Send verification code to email
-   * POST /auth/send-code
-   */
-  @Post('send-code')
-  async sendCode(@Body('email') email: string) {
-    await this.authService.generateVerificationCode(email);
-    return { message: 'Verification code sent' };
-  }
-
-  /**
-   * Verify email with code
-   * POST /auth/verify
-   */
-  @Post('verify')
-  async verifyEmail(@Body() dto: VerifyEmailDto) {
-    const verified = await this.authService.verifyEmail(dto.email, dto.code);
-    return { verified, message: 'Email verified successfully' };
   }
 
   /**
@@ -109,17 +82,6 @@ export class AuthController {
   async updateMe(@Req() req: any, @Body() dto: UpdateUserDto) {
     const user = await this.authService.updateUser(req.user.uid, dto);
     return { user };
-  }
-
-  /**
-   * Update current user profile (PATCH)
-   * PATCH /auth/profile
-   */
-  @Patch('profile')
-  @UseGuards(FirebaseAuthGuard)
-  async updateProfile(@Req() req: any, @Body() dto: UpdateUserDto) {
-    const user = await this.authService.updateUser(req.user.uid, dto);
-    return user;
   }
 }
 

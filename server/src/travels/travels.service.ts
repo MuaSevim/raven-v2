@@ -12,12 +12,7 @@ export class TravelsService {
     // Ensure user exists in database
     const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!existingUser) {
-      await this.prisma.user.create({
-        data: {
-          id: userId,
-          email: userEmail || `${userId}@placeholder.com`,
-        },
-      });
+      throw new NotFoundException('User not found');
     }
 
     return this.prisma.travel.create({
@@ -70,20 +65,18 @@ export class TravelsService {
       if (filters.minWeight) where.availableWeight.gte = filters.minWeight;
       if (filters.maxWeight) where.availableWeight.lte = filters.maxWeight;
     }
-    const dateFilter: Prisma.DateTimeFilter = {};
-    if (filters?.fromDate) {
-      dateFilter.gte = new Date(filters.fromDate);
+    if (filters?.fromDate || filters?.toDate) {
+      where.departureDate = {};
+      if (filters.fromDate) {
+        where.departureDate.gte = new Date(filters.fromDate);
+      }
+      if (filters.toDate) {
+        where.departureDate.lte = new Date(filters.toDate);
+      }
+    } else {
+      // Only show future travels (departure date >= today)
+      where.departureDate = { gte: new Date() };
     }
-    if (filters?.toDate) {
-      dateFilter.lte = new Date(filters.toDate);
-    }
-
-    // Only show future travels (departure date >= today)
-    if (!dateFilter.gte || dateFilter.gte < new Date()) {
-      dateFilter.gte = new Date();
-    }
-
-    where.departureDate = dateFilter;
 
     return this.prisma.travel.findMany({
       where,
