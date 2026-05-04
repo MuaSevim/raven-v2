@@ -47,17 +47,7 @@ export class ShipmentsService {
     const existingUser = await this.prisma.user.findUnique({ where: { id: senderId } });
 
     if (!existingUser) {
-      if (!senderEmail) {
-        throw new ForbiddenException('Sender email is required but was not provided.');
-      }
-      await this.prisma.user.create({
-        data: {
-          id: senderId,
-          email: senderEmail,
-          firstName: firstName || null,
-          lastName: lastName || null,
-        },
-      });
+      throw new NotFoundException('Sender not found');
     } else if (firstName || lastName) {
       // Update name if provided and user doesn't have one
       await this.prisma.user.update({

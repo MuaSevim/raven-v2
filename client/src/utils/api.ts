@@ -174,8 +174,8 @@ export const api = {
       apiRequest<AuthMeResponse>('/auth/me', { method: 'GET' }),
 
     updateProfile: (data: Record<string, unknown>) =>
-      apiRequest<User>('/auth/profile', {
-        method: 'PATCH',
+      apiRequest<User>('/auth/me', {
+        method: 'PUT',
         body: JSON.stringify(data),
       }),
 

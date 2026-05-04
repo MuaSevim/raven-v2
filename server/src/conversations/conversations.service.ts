@@ -13,12 +13,7 @@ export class ConversationsService {
   async getOrCreateConversation(userId: string, userEmail: string, dto: CreateConversationDto) {
     const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!existingUser) {
-      if (!userEmail) {
-        throw new ForbiddenException('User email is required but was not provided.');
-      }
-      await this.prisma.user.create({
-        data: { id: userId, email: userEmail },
-      });
+      throw new NotFoundException('User not found');
     }
 
     // Check if shipment exists
@@ -43,7 +38,7 @@ export class ConversationsService {
     const recipientId = isSender ? dto.recipientId : shipment.senderId;
     const recipientExists = await this.prisma.user.findUnique({ where: { id: recipientId } });
     if (!recipientExists) {
-      throw new NotFoundException('Recipient user not found in the system');
+      throw new NotFoundException('Recipient user not found');
     }
 
     // Try to find existing conversation

@@ -72,23 +72,18 @@ export class TravelsService {
       if (filters.minWeight) where.availableWeight.gte = filters.minWeight;
       if (filters.maxWeight) where.availableWeight.lte = filters.maxWeight;
     }
-    const departureDateFilter: Prisma.DateTimeFilter = {};
-    if (filters?.fromDate) {
-      departureDateFilter.gte = new Date(filters.fromDate);
-    }
-    if (filters?.toDate) {
-      departureDateFilter.lte = new Date(filters.toDate);
-    }
-
-    // Only show future travels (departure date >= today)
-    const now = new Date();
-    if (departureDateFilter.gte) {
-      const gteDate = new Date(departureDateFilter.gte);
-      departureDateFilter.gte = new Date(Math.max(gteDate.getTime(), now.getTime()));
+    if (filters?.fromDate || filters?.toDate) {
+      where.departureDate = {};
+      if (filters.fromDate) {
+        where.departureDate.gte = new Date(filters.fromDate);
+      }
+      if (filters.toDate) {
+        where.departureDate.lte = new Date(filters.toDate);
+      }
     } else {
-      departureDateFilter.gte = now;
+      // Only show future travels (departure date >= today)
+      where.departureDate = { gte: new Date() };
     }
-    where.departureDate = departureDateFilter;
 
     return this.prisma.travel.findMany({
       where,

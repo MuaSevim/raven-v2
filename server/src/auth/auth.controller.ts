@@ -3,7 +3,6 @@ import {
   Post,
   Get,
   Put,
-  Patch,
   Body,
   UseGuards,
   Req,
@@ -33,7 +32,7 @@ export class AuthController {
     const user = await this.authService.registerUser(dto);
 
     return {
-      message: 'User registered. Please verify your email.',
+      message: 'User registered successfully.',
       user: {
         id: user.id,
         email: user.email,
@@ -89,18 +88,6 @@ export class AuthController {
     return user;
   }
 
-  /**
-   * Update current user profile (alternative)
-   * PATCH /auth/profile
-   *
-   * Alias for PUT /auth/me — kept for backward compatibility
-   * with the secondary client API layer (utils/api.ts).
-   */
-  @Patch('profile')
-  @UseGuards(FirebaseAuthGuard)
-  async updateProfile(@Req() req: any, @Body() dto: UpdateUserDto) {
-    const user = await this.authService.updateUser(req.user.uid, dto);
-    return user;
-  }
+  
 }
 
