@@ -149,21 +149,40 @@ export default function ProfileScreen() {
 
   const handleSave = async () => {
     if (!user || !hasChanges) return;
-    setSaving(true);
 
+    if (email !== originalEmail) {
+      Alert.alert(
+        "Email Update",
+        "Changing your email will require you to verify the new email address and sign in again. Do you want to continue?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Continue",
+            onPress: () => performSave(true),
+          },
+        ]
+      );
+      return;
+    }
+
+    await performSave(false);
+  };
+
+  const performSave = async (emailChanged: boolean) => {
+    if (!user) return;
+    setSaving(true);
     try {
       let avatarUrl = avatar;
       if (avatar && (avatar.startsWith("file://") || avatar.startsWith("content://") || avatar.startsWith("ph://"))) {
         avatarUrl = await uploadAvatarImage(user.uid, avatar);
       }
 
-      // Update email in Firebase if changed
-      if (email !== originalEmail) {
+      if (emailChanged) {
         try {
           await updateEmail(user, email);
         } catch (emailError: Error | unknown) {
           const err = emailError as Record<string, unknown>;
-          if ((err as Record<string, unknown>).code === "auth/requires-recent-login") {
+          if (err.code === "auth/requires-recent-login") {
             Alert.alert(
               "Error",
               "Please sign out and sign in again to update your email"
@@ -184,6 +203,12 @@ export default function ProfileScreen() {
         phoneCode,
         profilePicture: avatarUrl,
       });
+
+      if (emailChanged) {
+        // Sign out manually so they know what happened, navigation will handle the rest
+        await signOut();
+        return;
+      }
 
       Alert.alert("Success", "Profile updated successfully");
       setOriginalFirstName(firstName);
