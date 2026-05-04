@@ -23,10 +23,14 @@ export class AuthController {
   /**
    * Register a new user with email/password
    * POST /auth/register
+   *
+   * Email verification is handled by Firebase's native email link flow
+   * on the client side (sendEmailVerification + actionCodeSettings).
    */
   @Post('register')
   async register(@Body() dto: CreateUserDto) {
     const user = await this.authService.registerUser(dto);
+
     return {
       message: 'User registered successfully.',
       user: {
@@ -81,7 +85,9 @@ export class AuthController {
   @UseGuards(FirebaseAuthGuard)
   async updateMe(@Req() req: any, @Body() dto: UpdateUserDto) {
     const user = await this.authService.updateUser(req.user.uid, dto);
-    return { user };
+    return user;
   }
+
+  
 }
 

@@ -11,7 +11,6 @@ export class ConversationsService {
    * Get or create a conversation between two users about a shipment
    */
   async getOrCreateConversation(userId: string, userEmail: string, dto: CreateConversationDto) {
-    // Ensure current user exists
     const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!existingUser) {
       throw new NotFoundException('User not found');
@@ -36,7 +35,6 @@ export class ConversationsService {
       throw new BadRequestException('Cannot create conversation with yourself');
     }
 
-    // Ensure recipient user exists (they might not be in DB yet)
     const recipientId = isSender ? dto.recipientId : shipment.senderId;
     const recipientExists = await this.prisma.user.findUnique({ where: { id: recipientId } });
     if (!recipientExists) {

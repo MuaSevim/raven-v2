@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { initializeFirebase, getFirebaseAdmin } from './firebase-admin';
 import { CreateUserDto, SyncUserDto, UpdateUserDto } from './dto/auth.dto';
 
+
 @Injectable()
 export class AuthService implements OnModuleInit {
   constructor(private prisma: PrismaService) { }
@@ -206,6 +207,7 @@ export class AuthService implements OnModuleInit {
 
     return this.mapUserForClient(user)!;
   }
+
 
   /**
    * Check if email is already registered

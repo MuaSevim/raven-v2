@@ -9,10 +9,17 @@ export class TravelsService {
   constructor(private prisma: PrismaService) { }
 
   async create(userId: string, userEmail: string, createTravelDto: CreateTravelDto) {
-    // Ensure user exists in database
     const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!existingUser) {
-      throw new NotFoundException('User not found');
+      if (!userEmail) {
+        throw new ForbiddenException('User email is required but was not provided.');
+      }
+      await this.prisma.user.create({
+        data: {
+          id: userId,
+          email: userEmail,
+        },
+      });
     }
 
     return this.prisma.travel.create({
