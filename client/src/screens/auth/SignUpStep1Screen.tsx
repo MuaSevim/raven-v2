@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Input, Button, Header, ProgressIndicator } from '../../components/ui';
-import { colors, typography, spacing } from '../../theme';
+import { colors, typography, spacing, borderRadius } from '../../theme';
 import { RootStackParamList } from '../../navigation';
 import { useSignupStore } from '../../store/useSignupStore';
 import { useGoogleAuth } from '../../services/authServices';

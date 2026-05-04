@@ -16,7 +16,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../services/firebaseConfig';
 import { authApi } from '../../services/api';
 import { Input, Button } from '../../components/ui';
-import { colors, typography, spacing } from '../../theme';
+import { colors, typography, spacing, borderRadius } from '../../theme';
 import { RootStackParamList } from '../../navigation';
 import { useSignupStore } from '../../store/useSignupStore';
 import { useGoogleAuth } from '../../services/authServices';
