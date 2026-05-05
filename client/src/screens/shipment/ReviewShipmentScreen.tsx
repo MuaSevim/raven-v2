@@ -92,6 +92,33 @@ export default function ReviewShipmentScreen() {
       return;
     }
 
+    const weightValue = parseFloat(draft.weight);
+    const validationErrors: string[] = [];
+    if (!draft.originCountry || !draft.originCity || !draft.destCountry || !draft.destCity) {
+      validationErrors.push('route');
+    }
+    if (!draft.content || !Number.isFinite(weightValue) || weightValue < 0.1) {
+      validationErrors.push('package details');
+    }
+    if (!draft.dateStart || !draft.dateEnd) {
+      validationErrors.push('delivery window');
+    } else if (draft.dateEnd < draft.dateStart) {
+      validationErrors.push('delivery window (end before start)');
+    }
+    if (!draft.price || draft.price < 1) {
+      validationErrors.push('price');
+    }
+    if (!draft.senderFullName || !draft.senderPhone) {
+      validationErrors.push('contact details');
+    }
+    if (validationErrors.length > 0) {
+      Alert.alert(
+        'Missing information',
+        `Please review: ${validationErrors.join(', ')}.`
+      );
+      return;
+    }
+
     setLoading(true);
 
     // Animate progress
@@ -102,8 +129,6 @@ export default function ReviewShipmentScreen() {
     }).start();
 
     try {
-      const token = await user.getIdToken();
-
       const shipmentId = `ship_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 
       let uploadedImageUrl = draft.packageImageUrl;
@@ -124,14 +149,14 @@ export default function ReviewShipmentScreen() {
         destCity: draft.destCity,
 
         // Package
-        weight: parseFloat(draft.weight) || 0,
+        weight: weightValue,
         weightUnit: draft.weightUnit,
         content: draft.content,
         imageUrl: uploadedImageUrl,
 
         // Dates
-        dateStart: draft.dateStart?.toISOString(),
-        dateEnd: draft.dateEnd?.toISOString(),
+        dateStart: draft.dateStart.toISOString(),
+        dateEnd: draft.dateEnd.toISOString(),
 
         // Pricing
         price: draft.price,

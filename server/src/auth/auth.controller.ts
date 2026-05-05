@@ -53,6 +53,16 @@ export class AuthController {
   }
 
   /**
+   * Check if email already exists
+   * POST /auth/check-email
+   */
+  @Post('check-email')
+  async checkEmailPost(@Body('email') email: string) {
+    const exists = await this.authService.checkEmailExists(email);
+    return { exists };
+  }
+
+  /**
    * Sync user from Firebase (for social logins)
    * POST /auth/sync
    */

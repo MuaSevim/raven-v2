@@ -261,11 +261,14 @@ export default function ContactDetailsScreen() {
   };
 
   const updateProfilePhone = async () => {
-    if (!user) return;
+    if (!user) return false;
     try {
       await api.auth.updateProfile({ phone: state.phone, phoneCode: state.phoneCode });
+      return true;
     } catch (err: Error | unknown) {
       console.error('Error updating profile phone:', err);
+      Alert.alert('Error', 'Failed to update your phone number.');
+      return false;
     }
   };
 

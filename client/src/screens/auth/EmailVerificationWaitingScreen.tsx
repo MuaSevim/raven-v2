@@ -4,6 +4,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { sendEmailVerification } from "firebase/auth";
 import { auth } from "../../services/firebaseConfig";
+import { actionCodeSettings } from "../../services/actionCodeSettings";
 import { colors, typography, spacing } from "../../theme";
 import { Button } from "../../components/ui";
 import { useAuthStore } from "../../store/useAuthStore";
@@ -54,7 +55,7 @@ export default function EmailVerificationWaitingScreen({ navigation, route }: Pr
     }
 
     try {
-      await sendEmailVerification(currentUser);
+      await sendEmailVerification(currentUser, actionCodeSettings);
       Alert.alert("Sent", "A new verification link has been sent.");
     } catch (error: Error | unknown) {
       const message = error instanceof Error ? error.message : "Failed to resend email";

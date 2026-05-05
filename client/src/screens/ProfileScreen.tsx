@@ -39,10 +39,11 @@ import { colors, typography, spacing, borderRadius } from "../theme";
 import { api } from "../utils/api";
 import { VerificationModal } from "../components/ui";
 import { PHONE_COUNTRIES, PhoneCountry } from "../services/locationApi";
-import { updateEmail } from "firebase/auth";
+import { updateEmail, sendEmailVerification } from "firebase/auth";
 import { normalizeText } from "../utils/text";
 import { uploadAvatarImage } from "../services/storage";
 import type { AuthMeResponse } from "../types/api";
+import { actionCodeSettings } from "../services/actionCodeSettings";
 
 // =============================================================================
 // TYPES
@@ -97,10 +98,11 @@ export default function ProfileScreen() {
         try {
           const data = await api.auth.me();
           const profile = data as AuthMeResponse;
+          const avatarUrl = profile.avatar || profile.profilePicture || null;
           setProfile({
             firstName: profile.firstName || "",
             lastName: profile.lastName || "",
-            avatar: profile.profilePicture || null,
+            avatar: avatarUrl,
             email: profile.email || "",
             phone: profile.phone || null,
             phoneCode: profile.phoneCode || "+1",
@@ -111,7 +113,7 @@ export default function ProfileScreen() {
           setEmail(profile.email || "");
           setPhone(profile.phone || "");
           setPhoneCode(profile.phoneCode || "+1");
-          setAvatar(profile.profilePicture || null);
+          setAvatar(avatarUrl);
 
           // Find country code from phone code
           // Prefer US for +1 if ambiguous, as we don't store ISO code in DB yet
@@ -128,7 +130,7 @@ export default function ProfileScreen() {
           setOriginalEmail(profile.email || "");
           setOriginalPhone(profile.phone || "");
           setOriginalPhoneCode(profile.phoneCode || "+1");
-          setOriginalAvatar(profile.profilePicture || null);
+          setOriginalAvatar(avatarUrl);
         } catch (err: Error | unknown) {
           console.error("Error fetching profile:", err);
         } finally {
@@ -158,9 +160,12 @@ export default function ProfileScreen() {
       }
 
       // Update email in Firebase if changed
+      let emailChanged = false;
       if (email !== originalEmail) {
         try {
           await updateEmail(user, email);
+          await sendEmailVerification(user, actionCodeSettings);
+          emailChanged = true;
         } catch (emailError: Error | unknown) {
           const err = emailError as Record<string, unknown>;
           if ((err as Record<string, unknown>).code === "auth/requires-recent-login") {
@@ -176,13 +181,14 @@ export default function ProfileScreen() {
       }
 
       // Update profile in backend
+      const avatarPayload = avatarUrl === null ? '' : avatarUrl;
       await api.auth.updateProfile({
         firstName,
         lastName,
         email,
         phone,
         phoneCode,
-        profilePicture: avatarUrl,
+        avatar: avatarPayload,
       });
 
       Alert.alert("Success", "Profile updated successfully");
@@ -193,6 +199,10 @@ export default function ProfileScreen() {
       setOriginalPhoneCode(phoneCode);
       setOriginalAvatar(avatarUrl || null);
       setAvatar(avatarUrl || null);
+
+      if (emailChanged) {
+        navigation.navigate("EmailVerificationWaiting", { email });
+      }
     } catch (err: Error | unknown) {
       const message = (err as Record<string, unknown>).message as string || "Failed to update profile";
       Alert.alert("Error", message);

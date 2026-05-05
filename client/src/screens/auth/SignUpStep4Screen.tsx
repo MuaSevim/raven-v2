@@ -21,6 +21,7 @@ import { colors, typography, spacing, borderRadius } from '../../theme';
 import { RootStackParamList } from '../../navigation';
 import { useSignupStore } from '../../store/useSignupStore';
 import { authApi } from '../../services/api';
+import { actionCodeSettings } from '../../services/actionCodeSettings';
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'SignUpStep4'>;
@@ -220,7 +221,7 @@ export default function SignUpStep4Screen({ navigation }: Props) {
 
       // Sign in to create an authenticated session for verification email
       const credential = await signInWithEmailAndPassword(auth, payload.email, password);
-      await sendEmailVerification(credential.user);
+      await sendEmailVerification(credential.user, actionCodeSettings);
 
       // Update local store
       updateData({ email: payload.email, password });

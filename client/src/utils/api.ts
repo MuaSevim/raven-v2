@@ -186,9 +186,8 @@ export const api = {
       }),
 
     checkEmail: (email: string) =>
-      apiRequest<CheckEmailResponse>('/auth/check-email', {
-        method: 'POST',
-        body: JSON.stringify({ email }),
+      apiRequest<CheckEmailResponse>(`/auth/check-email?email=${encodeURIComponent(email)}`, {
+        method: 'GET',
       }),
   },
 

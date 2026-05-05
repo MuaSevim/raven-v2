@@ -250,6 +250,17 @@ export class AuthService implements OnModuleInit {
     const { birthDay, birthMonth, birthYear, avatar, ...rest } = dto;
     const dateOfBirth = this.buildDateOfBirth(birthDay, birthMonth, birthYear);
 
+    if (rest.email) {
+      const normalizedEmail = rest.email.toLowerCase().trim();
+      const existingUser = await this.prisma.user.findUnique({
+        where: { email: normalizedEmail },
+      });
+      if (existingUser && existingUser.id !== uid) {
+        throw new BadRequestException('Email already registered');
+      }
+      rest.email = normalizedEmail;
+    }
+
     const user = await this.prisma.user.update({
       where: { id: uid },
       data: {

@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { auth } from "../../services/firebaseConfig";
+import { actionCodeSettings } from "../../services/actionCodeSettings";
 import { authApi } from "../../services/api";
 import { Input, Button, Header } from "../../components/ui";
 import { colors, typography, spacing } from "../../theme";
@@ -48,7 +49,7 @@ export default function ForgotPasswordScreen({ navigation, route }: Props) {
         // If check fails, we still try to proceed with Firebase
       }
 
-      await sendPasswordResetEmail(auth, trimmed);
+      await sendPasswordResetEmail(auth, trimmed, actionCodeSettings);
       Alert.alert("Success", "A password reset link has been sent to your email.", [
         { text: "OK", onPress: () => navigation.navigate("SignIn") },
       ]);

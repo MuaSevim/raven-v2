@@ -10,6 +10,7 @@ export interface User {
   lastName: string;
   email: string;
   phone: string;
+  avatar?: string | null;
   profilePicture?: string;
   createdAt: string;
 }
@@ -29,6 +30,7 @@ export interface AuthMeResponse {
   country?: string;
   countryCode?: string;
   city?: string;
+  avatar?: string | null;
   profilePicture?: string;
   createdAt: string;
 }

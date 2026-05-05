@@ -4,6 +4,7 @@ import { NavigationContainer, useNavigationContainerRef } from "@react-navigatio
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import * as SplashScreen from "expo-splash-screen";
 import * as Linking from "expo-linking";
+import { applyActionCode } from "firebase/auth";
 import {
   useFonts,
   Inter_400Regular,
@@ -67,6 +68,7 @@ import {
   PrivacyPolicyScreen,
   HelpSupportScreen,
 } from "./screens/settings";
+import { auth } from "./services/firebaseConfig";
 
 export type RootStackParamList = {
   SignIn: undefined;
@@ -148,6 +150,14 @@ export default function Navigation() {
           pendingUrlRef.current = url;
         }
       }
+
+      if (mode === "verifyEmail" && typeof oobCode === "string") {
+        applyActionCode(auth, oobCode)
+          .then(() => auth.currentUser?.reload())
+          .catch(() => {
+            // Swallow errors; user can still tap "I've Verified" manually.
+          });
+      }
     },
     [navigationRef]
   );
@@ -185,12 +195,19 @@ export default function Navigation() {
     );
   }
 
-  const isAuthenticated = Boolean(user && user.emailVerified);
+  const hasUser = Boolean(user);
+  const isVerified = Boolean(user?.emailVerified);
 
   return (
     <NavigationContainer ref={navigationRef} onReady={onLayoutRootView}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {isAuthenticated ? (
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          animation: "slide_from_right",
+          gestureEnabled: true,
+        }}
+      >
+        {hasUser && isVerified ? (
           // Authenticated Stack
           <>
             <Stack.Screen name="MainTabs" component={MainTabNavigator} />
@@ -221,6 +238,17 @@ export default function Navigation() {
             <Stack.Screen name="About" component={AboutScreen} />
             <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
             <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
+          </>
+        ) : hasUser && !isVerified ? (
+          // Email verification pending stack
+          <>
+            <Stack.Screen
+              name="EmailVerificationWaiting"
+              component={EmailVerificationWaitingScreen}
+            />
+            <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+            <Stack.Screen name="EnterNewPassword" component={EnterNewPasswordScreen} />
+            <Stack.Screen name="SignIn" component={SignInScreen} />
           </>
         ) : (
           // Auth Stack
