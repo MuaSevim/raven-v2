@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -9,8 +9,8 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import {
   MapPin,
   Plane,
@@ -24,22 +24,32 @@ import {
   Check,
   Edit3,
   ChevronRight,
-} from 'lucide-react-native';
-import { useNavigation } from '@react-navigation/native';
-import { StepHeader } from '../../components/shipment/StepComponents';
-import { useShipmentStore } from '../../store/useShipmentStore';
-import { useAuthStore } from '../../store/useAuthStore';
-import { api } from '../../utils/api';
-import { uploadShipmentImage } from '../../services/storage';
-import { colors, typography, spacing, borderRadius } from '../../theme';
+} from "lucide-react-native";
+import { useNavigation } from "@react-navigation/native";
+import { StepHeader } from "../../components/shipment/StepComponents";
+import { useShipmentStore } from "../../store/useShipmentStore";
+import { useAuthStore } from "../../store/useAuthStore";
+import { api } from "../../utils/api";
+import { uploadShipmentImage } from "../../services/storage";
+import { colors, typography, spacing, borderRadius } from "../../theme";
 
 const MONTHS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
 ];
 
 function formatDate(date: Date | null): string {
-  if (!date) return 'Not set';
+  if (!date) return "Not set";
   return `${MONTHS[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
 }
 
@@ -79,42 +89,51 @@ export default function ReviewShipmentScreen() {
 
   const getCurrencySymbol = () => {
     switch (draft.currency) {
-      case 'EUR': return '€';
-      case 'GBP': return '£';
-      case 'SEK': return 'kr';
-      default: return '$';
+      case "EUR":
+        return "€";
+      case "GBP":
+        return "£";
+      case "SEK":
+        return "kr";
+      default:
+        return "$";
     }
   };
 
   const handlePublish = async () => {
     if (!user) {
-      Alert.alert('Error', 'You must be logged in to create a shipment');
+      Alert.alert("Error", "You must be logged in to create a shipment");
       return;
     }
 
     const weightValue = parseFloat(draft.weight);
     const validationErrors: string[] = [];
-    if (!draft.originCountry || !draft.originCity || !draft.destCountry || !draft.destCity) {
-      validationErrors.push('route');
+    if (
+      !draft.originCountry ||
+      !draft.originCity ||
+      !draft.destCountry ||
+      !draft.destCity
+    ) {
+      validationErrors.push("route");
     }
     if (!draft.content || !Number.isFinite(weightValue) || weightValue < 0.1) {
-      validationErrors.push('package details');
+      validationErrors.push("package details");
     }
     if (!draft.dateStart || !draft.dateEnd) {
-      validationErrors.push('delivery window');
+      validationErrors.push("delivery window");
     } else if (draft.dateEnd < draft.dateStart) {
-      validationErrors.push('delivery window (end before start)');
+      validationErrors.push("delivery window (end before start)");
     }
     if (!draft.price || draft.price < 1) {
-      validationErrors.push('price');
+      validationErrors.push("price");
     }
     if (!draft.senderFullName || !draft.senderPhone) {
-      validationErrors.push('contact details');
+      validationErrors.push("contact details");
     }
     if (validationErrors.length > 0) {
       Alert.alert(
-        'Missing information',
-        `Please review: ${validationErrors.join(', ')}.`
+        "Missing information",
+        `Please review: ${validationErrors.join(", ")}.`,
       );
       return;
     }
@@ -155,8 +174,10 @@ export default function ReviewShipmentScreen() {
         imageUrl: uploadedImageUrl,
 
         // Dates
-        dateStart: draft.dateStart.toISOString(),
-        dateEnd: draft.dateEnd.toISOString(),
+        dateStart: draft.dateStart?.toISOString() || new Date().toISOString(),
+        dateEnd:
+          draft.dateEnd?.toISOString() ||
+          new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(), // Default to 4 days delivery window
 
         // Pricing
         price: draft.price,
@@ -172,11 +193,13 @@ export default function ReviewShipmentScreen() {
       resetDraft();
 
       // Navigate to success screen
-      navigation.navigate('DeliveryPosted', { shipment: createdShipment });
-
+      navigation.navigate("DeliveryPosted", { shipment: createdShipment });
     } catch (error: any) {
-      console.error('Error creating shipment:', error);
-      Alert.alert('Error', error.message || 'Failed to publish shipment. Please try again.');
+      console.error("Error creating shipment:", error);
+      Alert.alert(
+        "Error",
+        error.message || "Failed to publish shipment. Please try again.",
+      );
     } finally {
       setLoading(false);
       uploadProgress.setValue(0);
@@ -188,7 +211,7 @@ export default function ReviewShipmentScreen() {
   };
 
   const handleClose = () => {
-    navigation.navigate('MainTabs');
+    navigation.navigate("MainTabs");
   };
 
   const navigateToStep = (screen: string) => {
@@ -218,7 +241,7 @@ export default function ReviewShipmentScreen() {
                 {
                   width: uploadProgress.interpolate({
                     inputRange: [0, 100],
-                    outputRange: ['0%', '100%'],
+                    outputRange: ["0%", "100%"],
                   }),
                 },
               ]}
@@ -230,7 +253,7 @@ export default function ReviewShipmentScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={["top"]}>
       <StepHeader
         title="Review & Publish"
         currentStep={6}
@@ -253,26 +276,32 @@ export default function ReviewShipmentScreen() {
         <ReviewSection
           icon={<MapPin size={20} color={colors.textPrimary} strokeWidth={2} />}
           title="Route"
-          onEdit={() => navigateToStep('SetRoute')}
+          onEdit={() => navigateToStep("SetRoute")}
         >
           <View style={styles.routeItem}>
             <Text style={styles.routeLabel}>From</Text>
-            <Text style={styles.routeValue}>{draft.originCity}, {draft.originCountry}</Text>
+            <Text style={styles.routeValue}>
+              {draft.originCity}, {draft.originCountry}
+            </Text>
           </View>
           <View style={styles.routeDivider}>
             <ChevronRight size={16} color={colors.textTertiary} />
           </View>
           <View style={styles.routeItem}>
             <Text style={styles.routeLabel}>To</Text>
-            <Text style={styles.routeValue}>{draft.destCity}, {draft.destCountry}</Text>
+            <Text style={styles.routeValue}>
+              {draft.destCity}, {draft.destCountry}
+            </Text>
           </View>
         </ReviewSection>
 
         {/* Package */}
         <ReviewSection
-          icon={<Package size={20} color={colors.textPrimary} strokeWidth={2} />}
+          icon={
+            <Package size={20} color={colors.textPrimary} strokeWidth={2} />
+          }
           title="Package"
-          onEdit={() => navigateToStep('PackageDetails')}
+          onEdit={() => navigateToStep("PackageDetails")}
         >
           <View style={styles.packageRow}>
             {draft.packageImageUri && (
@@ -294,14 +323,18 @@ export default function ReviewShipmentScreen() {
 
         {/* Delivery Window */}
         <ReviewSection
-          icon={<Calendar size={20} color={colors.textPrimary} strokeWidth={2} />}
+          icon={
+            <Calendar size={20} color={colors.textPrimary} strokeWidth={2} />
+          }
           title="Delivery Window"
-          onEdit={() => navigateToStep('DeliveryWindow')}
+          onEdit={() => navigateToStep("DeliveryWindow")}
         >
           <View style={styles.dateRow}>
             <View style={styles.dateItem}>
               <Text style={styles.dateLabel}>From</Text>
-              <Text style={styles.dateValue}>{formatDate(draft.dateStart)}</Text>
+              <Text style={styles.dateValue}>
+                {formatDate(draft.dateStart)}
+              </Text>
             </View>
             <View style={styles.dateDivider} />
             <View style={styles.dateItem}>
@@ -313,15 +346,19 @@ export default function ReviewShipmentScreen() {
 
         {/* Price */}
         <ReviewSection
-          icon={<DollarSign size={20} color={colors.textPrimary} strokeWidth={2} />}
+          icon={
+            <DollarSign size={20} color={colors.textPrimary} strokeWidth={2} />
+          }
           title="Your Offer"
-          onEdit={() => navigateToStep('SetPrice')}
+          onEdit={() => navigateToStep("SetPrice")}
         >
           <Text style={styles.priceValue}>
-            {getCurrencySymbol()}{draft.price}
+            {getCurrencySymbol()}
+            {draft.price}
           </Text>
           <Text style={styles.priceNote}>
-            Traveler will receive {getCurrencySymbol()}{Math.round(draft.price * 0.85)} after platform fee
+            Traveler will receive {getCurrencySymbol()}
+            {Math.round(draft.price * 0.85)} after platform fee
           </Text>
         </ReviewSection>
 
@@ -329,7 +366,7 @@ export default function ReviewShipmentScreen() {
         <ReviewSection
           icon={<User size={20} color={colors.textPrimary} strokeWidth={2} />}
           title="Contact Details"
-          onEdit={() => navigateToStep('ContactDetails')}
+          onEdit={() => navigateToStep("ContactDetails")}
         >
           <View style={styles.contactItem}>
             <User size={16} color={colors.textSecondary} />
@@ -341,7 +378,9 @@ export default function ReviewShipmentScreen() {
           </View>
           <View style={styles.contactItem}>
             <Phone size={16} color={colors.textSecondary} />
-            <Text style={styles.contactText}>{draft.senderPhoneCode} {draft.senderPhone}</Text>
+            <Text style={styles.contactText}>
+              {draft.senderPhoneCode} {draft.senderPhone}
+            </Text>
           </View>
         </ReviewSection>
       </ScrollView>
@@ -393,14 +432,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: spacing.md,
   },
   sectionIconTitle: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
   },
   sectionTitle: {
@@ -429,14 +468,14 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   airportBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.xs,
     backgroundColor: colors.background,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.md,
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     marginTop: spacing.sm,
   },
   airportText: {
@@ -453,7 +492,7 @@ const styles = StyleSheet.create({
   },
   // Package
   packageRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: spacing.md,
   },
   packageImage: {
@@ -479,8 +518,8 @@ const styles = StyleSheet.create({
   },
   // Date
   dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   dateItem: {
     flex: 1,
@@ -505,7 +544,7 @@ const styles = StyleSheet.create({
   // Price
   priceValue: {
     fontFamily: typography.fontFamily.bold,
-    fontSize: typography.fontSize['2xl'],
+    fontSize: typography.fontSize["2xl"],
     color: colors.textPrimary,
   },
   priceNote: {
@@ -516,8 +555,8 @@ const styles = StyleSheet.create({
   },
   // Contact
   contactItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: spacing.sm,
     marginBottom: spacing.xs,
   },
@@ -534,9 +573,9 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
   },
   publishButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: spacing.sm,
     backgroundColor: colors.textPrimary,
     borderRadius: borderRadius.lg,
@@ -551,28 +590,28 @@ const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
     backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingContent: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingHorizontal: spacing.xl,
   },
   loadingAnimation: {
     width: 120,
     height: 120,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: spacing.xl,
   },
   loadingCircle: {
-    position: 'absolute',
+    position: "absolute",
     width: 80,
     height: 80,
     borderRadius: 40,
     backgroundColor: colors.backgroundSecondary,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
   },
   loadingTitle: {
     fontFamily: typography.fontFamily.semiBold,
@@ -584,18 +623,18 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.regular,
     fontSize: typography.fontSize.base,
     color: colors.textSecondary,
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: spacing.xl,
   },
   progressContainer: {
-    width: '100%',
+    width: "100%",
     height: 4,
     backgroundColor: colors.backgroundSecondary,
     borderRadius: 2,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   progressBar: {
-    height: '100%',
+    height: "100%",
     backgroundColor: colors.textPrimary,
     borderRadius: 2,
   },
