@@ -35,7 +35,13 @@ export default function PackageDetailsScreen() {
   const [imageUri, setImageUri] = useState<string | null>(draft.packageImageUri);
   const [showUnitPicker, setShowUnitPicker] = useState(false);
 
-  const canProceed = weight.length > 0 && parseFloat(weight) > 0 && content.length > 0 && imageUri !== null;
+  const weightValue = parseFloat(weight);
+  const canProceed =
+    Number.isFinite(weightValue) &&
+    weightValue >= 0.1 &&
+    weightValue <= 50 &&
+    content.length > 0 &&
+    imageUri !== null;
 
   const handleWeightChange = (value: string) => {
     // Allow only numbers and one decimal point

@@ -22,6 +22,7 @@ import { StepHeader, BottomButton } from '../../components/shipment/StepComponen
 import { PHONE_COUNTRIES, PhoneCountry } from '../../services/locationApi';
 import { api } from '../../utils/api';
 import { normalizeText } from '../../utils/text';
+import type { AuthMeResponse } from '../../types/api';
 
 // =============================================================================
 // TYPES
@@ -67,6 +68,9 @@ type Action =
   | { type: 'SET_SEARCH_QUERY'; payload: string }
   | { type: 'SELECT_COUNTRY'; payload: PhoneCountry }
   | { type: 'INIT_FROM_DRAFT'; payload: Partial<State> };
+
+const getCountryByDial = (dialCode?: string | null) =>
+  PHONE_COUNTRIES.find((country) => country.dialCode === dialCode);
 
 // =============================================================================
 // REDUCER
@@ -134,16 +138,26 @@ export default function ContactDetailsScreen() {
   const { draft, setDraft, totalSteps } = useShipmentStore();
   const { user } = useAuthStore();
 
+  const initialCountry =
+    PHONE_COUNTRIES.find((c) => c.code === draft.senderCountryCode) ||
+    getCountryByDial(draft.senderPhoneCode) ||
+    PHONE_COUNTRIES.find((c) => c.code === 'US') ||
+    PHONE_COUNTRIES[0];
+
+  const initialReceiverCountry =
+    getCountryByDial(draft.receiverPhoneCode) ||
+    initialCountry;
+
   const [state, dispatch] = useReducer(reducer, {
     fullName: draft.senderFullName || '',
     email: draft.senderEmail || user?.email || '',
     phone: draft.senderPhone || '',
-    phoneCode: draft.senderPhoneCode || '+1',
-    countryCode: draft.senderCountryCode || 'US',
+    phoneCode: draft.senderPhoneCode || initialCountry?.dialCode || '+1',
+    countryCode: draft.senderCountryCode || initialCountry?.code || 'US',
     receiverName: draft.receiverFullName || '',
     receiverPhone: draft.receiverPhone || '',
-    receiverPhoneCode: draft.receiverPhoneCode || '+1',
-    receiverCountryCode: 'US',
+    receiverPhoneCode: draft.receiverPhoneCode || initialReceiverCountry?.dialCode || '+1',
+    receiverCountryCode: initialReceiverCountry?.code || 'US',
     profilePhone: null,
     profilePhoneCode: null,
     showCountryPicker: false,
@@ -159,16 +173,23 @@ export default function ContactDetailsScreen() {
     const fetchProfile = async () => {
       if (!user) return;
       try {
-        const data = await api.auth.me();
+        const data = await api.auth.me() as AuthMeResponse;
         dispatch({
           type: 'SET_PROFILE_PHONE',
-          payload: { phone: data.phone || null, phoneCode: (data as any).phoneCode || null },
+          payload: { phone: data.phone || null, phoneCode: data.phoneCode || null },
         });
 
         // Pre-fill if not already filled
         if (!draft.senderPhone && data.phone) {
           dispatch({ type: 'SET_PHONE', payload: data.phone });
-          dispatch({ type: 'SET_PHONE_CODE', payload: (data as any).phoneCode || '+1' });
+          dispatch({ type: 'SET_PHONE_CODE', payload: data.phoneCode || '+1' });
+        }
+
+        if (!draft.senderCountryCode && data.phoneCode) {
+          const dialCountry = getCountryByDial(data.phoneCode);
+          if (dialCountry) {
+            dispatch({ type: 'SET_COUNTRY_CODE', payload: dialCountry.code });
+          }
         }
 
         // Pre-fill Name if not already filled

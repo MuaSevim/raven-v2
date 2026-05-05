@@ -86,8 +86,10 @@ export default function DeliveryWindowScreen() {
       setStartDate(null);
       setEndDate(null);
     } else {
-      // Set end date
-      setEndDate(selectedDate);
+      // Set end date to end of day to avoid filtering as expired
+      const endOfDay = new Date(selectedDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      setEndDate(endOfDay);
     }
   };
 

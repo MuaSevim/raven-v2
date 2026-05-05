@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -13,13 +13,17 @@ import { Minus, Plus, DollarSign, Info } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StepHeader, BottomButton } from '../../components/shipment/StepComponents';
 import { useShipmentStore } from '../../store/useShipmentStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import { colors, typography, spacing, borderRadius } from '../../theme';
+import { api } from '../../utils/api';
+import type { AuthMeResponse } from '../../types/api';
 
 const CURRENCIES = [
   { code: 'USD', symbol: '$', name: 'US Dollar' },
   { code: 'EUR', symbol: '€', name: 'Euro' },
   { code: 'GBP', symbol: '£', name: 'British Pound' },
   { code: 'SEK', symbol: 'kr', name: 'Swedish Krona' },
+  { code: 'TRY', symbol: '₺', name: 'Turkish Lira' },
 ];
 
 const MIN_PRICE = 15;
@@ -29,11 +33,13 @@ const STEP = 5;
 export default function SetPriceScreen() {
   const navigation = useNavigation<any>();
   const { draft, setDraft, totalSteps } = useShipmentStore();
+  const { user } = useAuthStore();
 
   const [price, setPrice] = useState(draft.price || 50);
   const [currency, setCurrency] = useState(draft.currency || 'USD');
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [sliderWidth, setSliderWidth] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
 
   const startPriceRef = React.useRef(0);
 
@@ -41,7 +47,10 @@ export default function SetPriceScreen() {
     PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
+      onStartShouldSetPanResponderCapture: () => true,
+      onMoveShouldSetPanResponderCapture: () => true,
       onPanResponderGrant: (evt) => {
+        setIsDragging(true);
         // Calculate initial price based on touch position
         if (sliderWidth > 0) {
           const touchX = evt.nativeEvent.locationX;
@@ -63,10 +72,53 @@ export default function SetPriceScreen() {
           setPrice(newPrice);
         }
       },
-      onPanResponderRelease: () => { },
+      onPanResponderRelease: () => {
+        setIsDragging(false);
+      },
+      onPanResponderTerminate: () => {
+        setIsDragging(false);
+      },
       onPanResponderTerminationRequest: () => false,
     })
   ).current;
+
+  useEffect(() => {
+    const hydrateCurrencyFromProfile = async () => {
+      if (!user) return;
+      if (draft.currency && draft.currency !== 'USD') return;
+      try {
+        const profile = await api.auth.me() as AuthMeResponse;
+        const countryCode = profile.countryCode || '';
+        const countryName = profile.country || '';
+        const normalizedCountry = countryName.trim().toLowerCase();
+        const currencyByCountry: Record<string, string> = {
+          tr: 'TRY',
+          turkey: 'TRY',
+          us: 'USD',
+          gb: 'GBP',
+          uk: 'GBP',
+          se: 'SEK',
+          de: 'EUR',
+          fr: 'EUR',
+          es: 'EUR',
+          it: 'EUR',
+          nl: 'EUR',
+        };
+
+        const resolvedCurrency =
+          currencyByCountry[countryCode.toLowerCase()] ||
+          currencyByCountry[normalizedCountry];
+
+        if (resolvedCurrency && resolvedCurrency !== currency) {
+          setCurrency(resolvedCurrency);
+        }
+      } catch (err: Error | unknown) {
+        console.error('Failed to load currency from profile:', err);
+      }
+    };
+
+    hydrateCurrencyFromProfile();
+  }, [user, draft.currency, currency]);
 
   const canProceed = price >= MIN_PRICE;
 
@@ -124,7 +176,7 @@ export default function SetPriceScreen() {
         onBack={handleBack}
       />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.content} showsVerticalScrollIndicator={false} scrollEnabled={!isDragging}>
         <View style={styles.sectionHeader}>
           <DollarSign size={20} color={colors.textPrimary} strokeWidth={2} />
           <Text style={styles.sectionTitle}>How much will you pay?</Text>

@@ -169,6 +169,7 @@ export default function ReviewShipmentScreen() {
       };
 
       const createdShipment = await api.shipments.create(shipmentData);
+      resetDraft();
 
       // Navigate to success screen
       navigation.navigate('DeliveryPosted', { shipment: createdShipment });

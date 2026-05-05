@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -344,12 +344,16 @@ export default function ProfileScreen() {
     setSearchQuery("");
   };
 
-  const filteredCountries = PHONE_COUNTRIES.filter(
-    (country) =>
-      normalizeText(country.name).includes(normalizeText(searchQuery)) ||
-      country.dialCode.includes(searchQuery) ||
-      normalizeText(country.code).includes(normalizeText(searchQuery))
-  );
+  const filteredCountries = useMemo(() => {
+    if (!showCountryPicker) return [];
+    const normalizedQuery = normalizeText(searchQuery);
+    return PHONE_COUNTRIES.filter(
+      (country) =>
+        normalizeText(country.name).includes(normalizedQuery) ||
+        country.dialCode.includes(searchQuery) ||
+        normalizeText(country.code).includes(normalizedQuery)
+    );
+  }, [showCountryPicker, searchQuery]);
 
   const selectedCountry = PHONE_COUNTRIES.find((c) => c.code === countryCode);
 

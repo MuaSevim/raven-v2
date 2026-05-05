@@ -172,8 +172,9 @@ export default function DeliveriesTab() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
-  const [originSearch, setOriginSearch] = useState("");
-  const [destSearch, setDestSearch] = useState("");
+  const [showRouteModal, setShowRouteModal] = useState(false);
+  const [routeFilter, setRouteFilter] = useState({ origin: '', destination: '' });
+  const [routeDraft, setRouteDraft] = useState({ origin: '', destination: '' });
 
   const fetchShipments = async (showRefresh = false) => {
     if (!user) return;
@@ -240,10 +241,23 @@ export default function DeliveriesTab() {
     },
   ];
 
+  const normalizedOrigin = routeFilter.origin.trim().toLowerCase();
+  const normalizedDestination = routeFilter.destination.trim().toLowerCase();
+
   const filteredShipments = [...shipments]
     .filter(s => s.status !== 'DELIVERED' && s.status !== 'CANCELLED' && s.status !== 'MATCHED')
-    .filter(s => !originSearch || (s.originCity && s.originCity.toLowerCase().includes(originSearch.toLowerCase())))
-    .filter(s => !destSearch || (s.destCity && s.destCity.toLowerCase().includes(destSearch.toLowerCase())))
+    .filter(s => {
+      if (!normalizedOrigin) return true;
+      const originCity = s.originCity?.toLowerCase() || '';
+      const originCountry = s.originCountry?.toLowerCase() || '';
+      return originCity.includes(normalizedOrigin) || originCountry.includes(normalizedOrigin);
+    })
+    .filter(s => {
+      if (!normalizedDestination) return true;
+      const destCity = s.destCity?.toLowerCase() || '';
+      const destCountry = s.destCountry?.toLowerCase() || '';
+      return destCity.includes(normalizedDestination) || destCountry.includes(normalizedDestination);
+    })
     .sort((a, b) => {
       switch (activeFilter) {
         case 'weight':
@@ -274,29 +288,20 @@ export default function DeliveriesTab() {
       <View style={styles.filterSection}>
         <Text style={styles.sectionLabel}>Filter options</Text>
         
-        {/* Location Search */}
-        <View style={styles.searchRow}>
-          <View style={styles.searchInputContainer}>
-            <Text style={styles.searchIcon}>📍</Text>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Origin..."
-              placeholderTextColor={colors.textTertiary}
-              value={originSearch}
-              onChangeText={setOriginSearch}
-            />
-          </View>
-          <View style={styles.searchInputContainer}>
-            <Text style={styles.searchIcon}>🏁</Text>
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Destination..."
-              placeholderTextColor={colors.textTertiary}
-              value={destSearch}
-              onChangeText={setDestSearch}
-            />
-          </View>
-        </View>
+        <TouchableOpacity
+          style={styles.routeButton}
+          onPress={() => {
+            setRouteDraft(routeFilter);
+            setShowRouteModal(true);
+          }}
+        >
+          <Text style={styles.routeButtonLabel}>Route</Text>
+          <Text style={styles.routeButtonValue}>
+            {routeFilter.origin || routeFilter.destination
+              ? `${routeFilter.origin || 'From'} → ${routeFilter.destination || 'To'}`
+              : 'Choose origin and destination'}
+          </Text>
+        </TouchableOpacity>
 
         <ScrollView
           horizontal
@@ -370,6 +375,62 @@ export default function DeliveriesTab() {
           }
         />
       )}
+
+      <Modal
+        visible={showRouteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowRouteModal(false)}
+      >
+        <View style={styles.routeModalOverlay}>
+          <View style={styles.routeModalContent}>
+            <Text style={styles.routeModalTitle}>Select Route</Text>
+
+            <Text style={styles.routeModalLabel}>From (origin)</Text>
+            <TextInput
+              style={styles.routeModalInput}
+              placeholder="Country or city"
+              placeholderTextColor={colors.textTertiary}
+              value={routeDraft.origin}
+              onChangeText={(value) => setRouteDraft((prev) => ({ ...prev, origin: value }))}
+            />
+
+            <Text style={styles.routeModalLabel}>To (destination)</Text>
+            <TextInput
+              style={styles.routeModalInput}
+              placeholder="Country or city"
+              placeholderTextColor={colors.textTertiary}
+              value={routeDraft.destination}
+              onChangeText={(value) => setRouteDraft((prev) => ({ ...prev, destination: value }))}
+            />
+
+            <View style={styles.routeModalActions}>
+              <TouchableOpacity
+                style={[styles.routeModalButton, styles.routeModalClear]}
+                onPress={() => {
+                  setRouteFilter({ origin: '', destination: '' });
+                  setRouteDraft({ origin: '', destination: '' });
+                  setShowRouteModal(false);
+                }}
+              >
+                <Text style={styles.routeModalClearText}>Clear</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.routeModalButton, styles.routeModalApply]}
+                onPress={() => {
+                  setRouteFilter({
+                    origin: routeDraft.origin.trim(),
+                    destination: routeDraft.destination.trim(),
+                  });
+                  setShowRouteModal(false);
+                }}
+              >
+                <Text style={styles.routeModalApplyText}>Apply</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -402,6 +463,24 @@ const styles = StyleSheet.create({
   filterSection: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
+  },
+  routeButton: {
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.md,
+  },
+  routeButtonLabel: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  routeButtonValue: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize.base,
+    color: colors.textPrimary,
   },
   sectionLabel: {
     fontFamily: typography.fontFamily.medium,
@@ -442,6 +521,66 @@ const styles = StyleSheet.create({
   listContent: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.xl * 2,
+  },
+  routeModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  routeModalContent: {
+    backgroundColor: colors.background,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+  },
+  routeModalTitle: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize.lg,
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+  routeModalLabel: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  routeModalInput: {
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.base,
+    color: colors.textPrimary,
+    marginBottom: spacing.md,
+  },
+  routeModalActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.md,
+  },
+  routeModalButton: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+  },
+  routeModalClear: {
+    backgroundColor: colors.backgroundSecondary,
+  },
+  routeModalApply: {
+    backgroundColor: colors.textPrimary,
+  },
+  routeModalClearText: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.fontSize.base,
+    color: colors.textPrimary,
+  },
+  routeModalApplyText: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.fontSize.base,
+    color: colors.textInverse,
   },
   centerContainer: {
     flex: 1,

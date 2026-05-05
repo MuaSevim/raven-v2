@@ -139,17 +139,31 @@ async function apiRequest<T>(
 ): Promise<T> {
   const authHeader = await getAuthHeader();
   const url = `${API_URL}${endpoint}`;
+  const method = options.method || 'GET';
 
-  const response = await fetchWithTimeout(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...authHeader,
-      ...(options.headers || {}),
-    },
-  });
+  try {
+    const response = await fetchWithTimeout(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeader,
+        ...(options.headers || {}),
+      },
+    });
 
-  return parseResponse<T>(response);
+    return parseResponse<T>(response);
+  } catch (error: Error | ApiError | unknown) {
+    const err = error as ApiError & { statusCode?: number; path?: string };
+    console.error('API request failed', {
+      method,
+      endpoint,
+      message: err?.message || 'Unknown error',
+      code: err?.code,
+      statusCode: err?.statusCode,
+      path: err?.path,
+    });
+    throw error;
+  }
 }
 
 /**
