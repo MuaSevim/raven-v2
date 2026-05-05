@@ -219,15 +219,15 @@ export default function SignUpStep4Screen({ navigation }: Props) {
       // Register user with backend (creates Firebase Auth + DB user)
       await authApi.register(payload);
 
-      // Sign in to create an authenticated session for verification email
+      // Sign in — this triggers the auth state listener in navigation.tsx
+      // which automatically switches to the EmailVerificationWaiting stack.
+      // Do NOT call navigation.navigate() here — that causes a double transition.
       const credential = await signInWithEmailAndPassword(auth, payload.email, password);
       await sendEmailVerification(credential.user, actionCodeSettings);
 
       // Update local store
       updateData({ email: payload.email, password });
-
-      // Navigate to email verification waiting screen
-      navigation.navigate('EmailVerificationWaiting', { email: payload.email });
+      // navigation is handled by the auth listener — no manual navigate needed
     } catch (err: any) {
       console.error('Registration error:', err);
       const message = getApiErrorMessage(err);

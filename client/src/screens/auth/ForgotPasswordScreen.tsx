@@ -7,15 +7,17 @@ import {
   Platform,
   ScrollView,
   Alert,
+  TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { sendPasswordResetEmail } from "firebase/auth";
+import { Check } from "lucide-react-native";
 import { auth } from "../../services/firebaseConfig";
 import { actionCodeSettings } from "../../services/actionCodeSettings";
 import { authApi } from "../../services/api";
 import { Input, Button, Header } from "../../components/ui";
-import { colors, typography, spacing } from "../../theme";
+import { colors, typography, spacing, borderRadius } from "../../theme";
 import { RootStackParamList } from "../../navigation";
 
 type Props = {
@@ -26,6 +28,7 @@ type Props = {
 export default function ForgotPasswordScreen({ navigation, route }: Props) {
   const [email, setEmail] = useState(route.params?.email || "");
   const [loading, setLoading] = useState(false);
+  const [linkSent, setLinkSent] = useState(false);
 
   const handleSendReset = async () => {
     const trimmed = email.trim().toLowerCase();
@@ -50,9 +53,7 @@ export default function ForgotPasswordScreen({ navigation, route }: Props) {
       }
 
       await sendPasswordResetEmail(auth, trimmed, actionCodeSettings);
-      Alert.alert("Success", "A password reset link has been sent to your email.", [
-        { text: "OK", onPress: () => navigation.navigate("SignIn") },
-      ]);
+      setLinkSent(true);
     } catch (error: Error | unknown) {
       let message = "Failed to send reset link";
       if (error && typeof error === 'object' && 'code' in error) {
@@ -69,6 +70,44 @@ export default function ForgotPasswordScreen({ navigation, route }: Props) {
       setLoading(false);
     }
   };
+
+  const handleResend = async () => {
+    setLinkSent(false);
+    await handleSendReset();
+  };
+
+  if (linkSent) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <Header title="Raven" showBack onBack={() => navigation.goBack()} />
+
+        <View style={styles.sentContent}>
+          <View style={styles.checkCircle}>
+            <Check size={32} color={colors.textInverse} strokeWidth={3} />
+          </View>
+
+          <Text style={styles.sentTitle}>Check your email</Text>
+          <Text style={styles.sentSubtitle}>
+            We've sent a password reset link to{"\n"}
+            <Text style={styles.sentEmail}>{email.trim().toLowerCase()}</Text>
+          </Text>
+
+          <TouchableOpacity
+            style={styles.doneButton}
+            onPress={() => navigation.navigate("SignIn")}
+          >
+            <Text style={styles.doneButtonText}>Done ✓</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={handleResend} disabled={loading}>
+            <Text style={styles.resendText}>
+              {loading ? "Sending..." : "Didn't receive it? Resend link"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -136,5 +175,57 @@ const styles = StyleSheet.create({
   },
   button: {
     marginTop: spacing.md,
+  },
+  // Sent state styles
+  sentContent: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: spacing.xl,
+  },
+  checkCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: colors.textPrimary,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: spacing.xl,
+  },
+  sentTitle: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize["2xl"],
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  sentSubtitle: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    textAlign: "center",
+    lineHeight: 22,
+    marginBottom: spacing.xl,
+  },
+  sentEmail: {
+    fontFamily: typography.fontFamily.semiBold,
+    color: colors.textPrimary,
+  },
+  doneButton: {
+    backgroundColor: colors.textPrimary,
+    borderRadius: borderRadius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl * 2,
+    marginBottom: spacing.lg,
+  },
+  doneButtonText: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize.base,
+    color: colors.textInverse,
+  },
+  resendText: {
+    fontFamily: typography.fontFamily.medium,
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    textDecorationLine: "underline",
   },
 });

@@ -123,12 +123,19 @@ export default function SetRouteScreen() {
       setOriginCountry(country.country);
       setOriginCountryCode(country.iso2);
       setOriginCity(''); // Reset city when country changes
+      setModalType('originCity');
+      setSearchQuery('');
+      loadCities(country.country);
+      return;
     } else {
       setDestCountry(country.country);
       setDestCountryCode(country.iso2);
       setDestCity(''); // Reset city when country changes
+      setModalType('destCity');
+      setSearchQuery('');
+      loadCities(country.country);
+      return;
     }
-    closeModal();
   };
 
   const handleSelectCity = (city: string, isOrigin: boolean) => {

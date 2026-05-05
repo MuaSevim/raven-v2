@@ -24,8 +24,8 @@ const CURRENCIES = [
 ];
 
 const MIN_PRICE = 15;
-const MAX_PRICE = 500;
-const STEP = 5;
+const MAX_PRICE = 100;
+const STEP = 1;
 
 export default function SetPriceScreen() {
   const navigation = useNavigation<any>();
@@ -115,8 +115,8 @@ export default function SetPriceScreen() {
   // Calculate progress percentage for the visual bar
   const progressPercent = ((price - MIN_PRICE) / (MAX_PRICE - MIN_PRICE)) * 100;
 
-  // Platform fee calculation (5%)
-  const platformFee = Math.round(price * 0.05);
+  // Platform fee calculation (10%)
+  const platformFee = Math.round(price * 0.10);
   const travelerReceives = price - platformFee;
 
   return (
@@ -215,7 +215,7 @@ export default function SetPriceScreen() {
           </View>
           <View style={styles.feeRow}>
             <View style={styles.feeLabelWithInfo}>
-              <Text style={styles.feeLabel}>Platform fee (5%)</Text>
+              <Text style={styles.feeLabel}>Platform fee (10%)</Text>
               <Info size={14} color={colors.textTertiary} />
             </View>
             <Text style={styles.feeValueMinus}>-{getCurrencySymbol()}{platformFee}</Text>

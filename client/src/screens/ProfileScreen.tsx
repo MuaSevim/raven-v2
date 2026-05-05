@@ -203,7 +203,9 @@ export default function ProfileScreen() {
         avatar: avatarPayload,
       });
 
-      Alert.alert("Success", "Profile updated successfully");
+      Alert.alert("Success", "Profile updated successfully", [
+        { text: "OK", onPress: () => navigation.goBack() },
+      ]);
       setOriginalFirstName(firstName);
       setOriginalLastName(lastName);
       if (emailChanged) setOriginalEmail(email);
@@ -212,9 +214,8 @@ export default function ProfileScreen() {
       setOriginalAvatar(avatarUrl || null);
       setAvatar(avatarUrl || null);
 
-      if (emailChanged) {
-        navigation.navigate("EmailVerificationWaiting", { email });
-      }
+      // If email changed, the auth state change automatically handles
+      // redirecting to email verification — no manual navigate needed.
     } catch (err: any) {
       const message = err?.message || "Failed to update profile";
       Alert.alert("Error", String(message));

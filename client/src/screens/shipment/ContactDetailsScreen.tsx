@@ -162,13 +162,14 @@ export default function ContactDetailsScreen() {
     PHONE_COUNTRIES.find((c) => c.code === draft.destCountryCode) ||
     undefined;
 
+  // Sender country: use their own stored code — NOT the destination
   const initialCountry =
-    destinationCountry ||
     PHONE_COUNTRIES.find((c) => c.code === draft.senderCountryCode) ||
     getCountryByDial(draft.senderPhoneCode, draft.senderCountryCode) ||
     PHONE_COUNTRIES.find((c) => c.code === 'US') ||
     PHONE_COUNTRIES[0];
 
+  // Receiver country: default to destination country (receiver is there)
   const initialReceiverCountry =
     destinationCountry ||
     getCountryByDial(draft.receiverPhoneCode, draft.destCountryCode) ||
@@ -211,9 +212,13 @@ export default function ContactDetailsScreen() {
           payload: { phone: data.phone || null, phoneCode: data.phoneCode || null },
         });
 
-        // Pre-fill if not already filled
+        // Pre-fill sender phone if not already set
         if (!draft.senderPhone && data.phone) {
           dispatch({ type: 'SET_PHONE', payload: data.phone });
+          // Set ISO country code FIRST so getCountryByDial can match correctly
+          if (data.countryCode) {
+            dispatch({ type: 'SET_COUNTRY_CODE', payload: data.countryCode });
+          }
           dispatch({ type: 'SET_PHONE_CODE', payload: data.phoneCode || '+1' });
         }
 

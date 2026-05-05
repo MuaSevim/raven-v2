@@ -119,8 +119,8 @@ async function parseResponse<T>(response: Response): Promise<T> {
     throw errorData;
   }
 
-  if (!text) {
-    return {} as T;
+  if (!text || text === 'null') {
+    return null as unknown as T;
   }
 
   try {

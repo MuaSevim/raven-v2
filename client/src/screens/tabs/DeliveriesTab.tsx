@@ -594,11 +594,12 @@ export default function DeliveriesTab() {
 
       <Modal
         visible={showRouteModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
+        transparent
+        animationType="fade"
         onRequestClose={() => setShowRouteModal(false)}
       >
-        <SafeAreaView style={styles.routePickerContainer}>
+        <View style={styles.routeModalOverlay}>
+          <View style={styles.routeModalContent}>
             <View style={styles.routeModalHeader}>
               <Text style={styles.routeModalTitle}>Set the Route</Text>
               <TouchableOpacity
@@ -731,14 +732,14 @@ export default function DeliveriesTab() {
                 <Text style={styles.routeModalApplyText}>Apply</Text>
               </TouchableOpacity>
             </View>
-        </SafeAreaView>
+          </View>
+        </View>
       </Modal>
 
-      {routeModalType !== null && (
+      {routeModalType && (
         <Modal
-          visible={true}
+          visible
           animationType="slide"
-          transparent={false}
           onRequestClose={closeRouteModal}
         >
           <SafeAreaView style={styles.routePickerContainer}>

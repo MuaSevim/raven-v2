@@ -19,7 +19,6 @@ import { Input, Button } from '../../components/ui';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 import { RootStackParamList } from '../../navigation';
 import { useSignupStore } from '../../store/useSignupStore';
-import { useGoogleAuth } from '../../services/authServices';
 
 type SignInScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'SignIn'>;
@@ -38,19 +37,11 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [isLoading, setIsLoading] = useState(false);
   const [failedLoginAttempts, setFailedLoginAttempts] = useState(0);
-  const { promptAsync: promptGoogleAuth, isLoading: isGoogleLoading } = useGoogleAuth();
 
   // Check if form is valid for button state
   const isFormValid = email.trim().length > 0 && password.length >= 6;
 
-  const handleGoogleSignIn = async () => {
-    const result = await promptGoogleAuth();
-    if (result.success) {
-      // The auth listener in App.tsx or navigation setup will handle the redirect
-    } else if (result.error && result.error !== 'Authentication cancelled or failed') {
-      Alert.alert('Google Sign-In Error', String(result.error));
-    }
-  };
+
 
 
   const handleSignIn = async () => {
@@ -174,7 +165,7 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
               />
             </View>
             <Text style={styles.brandName}>RAVEN</Text>
-            <Text style={styles.tagline}>"Flying has never been cheaper"</Text>
+            <Text style={styles.tagline}>"Delivery has never been easier"</Text>
           </View>
 
           {/* Form Section */}
@@ -225,26 +216,11 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
               title="Continue"
               onPress={handleSignIn}
               loading={isLoading}
-              disabled={!isFormValid || isGoogleLoading}
+              disabled={!isFormValid}
               style={styles.signInButton}
             />
 
-            <View style={styles.dividerContainer}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
-              <View style={styles.dividerLine} />
-            </View>
 
-            <TouchableOpacity 
-              style={styles.googleButton} 
-              onPress={handleGoogleSignIn}
-              disabled={isLoading || isGoogleLoading}
-            >
-              <View style={styles.googleIconContainer}>
-                <Text style={styles.googleIconText}>G</Text>
-              </View>
-              <Text style={styles.googleButtonText}>Continue with Google</Text>
-            </TouchableOpacity>
           </View>
 
           {/* Footer */}
@@ -297,7 +273,7 @@ const styles = StyleSheet.create({
   },
   tagline: {
     fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.sm,
+    fontSize: typography.fontSize.xs,
     color: colors.textSecondary,
     marginTop: spacing.xs,
   },

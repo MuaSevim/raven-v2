@@ -24,11 +24,13 @@ export async function getAllCountries(): Promise<Country[]> {
   try {
     const response = await axios.get(`${COUNTRIES_API_BASE}/countries/iso`);
     if (response.data.error) throw new Error(response.data.msg);
-    return response.data.data.map((item: any) => ({
-      country: item.name,
-      iso2: item.Iso2,
-      iso3: item.Iso3,
-    }));
+    return response.data.data
+      .map((item: any) => ({
+        country: item.name,
+        iso2: item.Iso2,
+        iso3: item.Iso3,
+      }))
+      .filter((c: Country) => c.country !== 'Antarctica');
   } catch (error) {
     console.error('Error fetching countries:', error);
     throw error;

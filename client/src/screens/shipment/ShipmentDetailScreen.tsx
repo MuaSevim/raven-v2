@@ -228,7 +228,7 @@ export default function ShipmentDetailScreen() {
   const isMySender = shipment.sender?.id === user?.uid;
   const currencySymbol = getCurrencySymbol(shipment.currency);
   const senderName = `${shipment.sender?.firstName || ''} ${shipment.sender?.lastName || ''}`.trim() || 'Unknown';
-  const platformFee = Math.round(shipment.price * 0.05);
+  const platformFee = Math.round(shipment.price * 0.10);
   const travelerReceives = shipment.price - platformFee;
 
   return (
@@ -348,7 +348,7 @@ export default function ShipmentDetailScreen() {
           </View>
 
           <View style={styles.breakdownRow}>
-            <Text style={styles.breakdownLabel}>Platform fee (5%)</Text>
+            <Text style={styles.breakdownLabel}>Platform fee (10%)</Text>
             <Text style={[styles.breakdownValue, styles.breakdownValueNegative]}>-{currencySymbol}{platformFee}</Text>
           </View>
         </View>

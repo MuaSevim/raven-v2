@@ -140,12 +140,7 @@ export default function ReviewShipmentScreen() {
 
     setLoading(true);
 
-    // Animate progress
-    Animated.timing(uploadProgress, {
-      toValue: 100,
-      duration: 2000,
-      useNativeDriver: false,
-    }).start();
+    uploadProgress.setValue(0);
 
     try {
       const shipmentId = `ship_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -157,6 +152,8 @@ export default function ReviewShipmentScreen() {
           draft.packageImageUri,
           (percent) => uploadProgress.setValue(percent),
         );
+      } else {
+        uploadProgress.setValue(100);
       }
 
       const shipmentData = {
@@ -174,10 +171,8 @@ export default function ReviewShipmentScreen() {
         imageUrl: uploadedImageUrl,
 
         // Dates
-        dateStart: draft.dateStart?.toISOString() || new Date().toISOString(),
-        dateEnd:
-          draft.dateEnd?.toISOString() ||
-          new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(), // Default to 4 days delivery window
+        dateStart: draft.dateStart.toISOString(),
+        dateEnd: draft.dateEnd.toISOString(),
 
         // Pricing
         price: draft.price,
@@ -358,7 +353,7 @@ export default function ReviewShipmentScreen() {
           </Text>
           <Text style={styles.priceNote}>
             Traveler will receive {getCurrencySymbol()}
-            {Math.round(draft.price * 0.85)} after platform fee
+            {Math.round(draft.price * 0.90)} after platform fee
           </Text>
         </ReviewSection>
 
