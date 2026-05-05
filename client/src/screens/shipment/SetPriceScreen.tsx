@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
-  PanResponder,
   Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -37,36 +36,42 @@ export default function SetPriceScreen() {
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [sliderWidth, setSliderWidth] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const sliderLeftRef = React.useRef(0);
+  const sliderRef = React.useRef<View>(null);
 
-  const updatePriceFromPosition = (x: number) => {
+  const updatePriceFromPosition = useCallback((x: number) => {
     if (sliderWidth <= 0) return;
     const percent = Math.max(0, Math.min(1, x / sliderWidth));
-    const newPrice = Math.round(MIN_PRICE + percent * (MAX_PRICE - MIN_PRICE));
-    setPrice(newPrice);
+    const raw = MIN_PRICE + percent * (MAX_PRICE - MIN_PRICE);
+    const snapped = Math.round(raw / STEP) * STEP;
+    setPrice(Math.max(MIN_PRICE, Math.min(MAX_PRICE, snapped)));
+  }, [sliderWidth]);
+
+  const handleSliderLayout = (e: any) => {
+    setSliderWidth(e.nativeEvent.layout.width);
+    // Measure absolute position on screen
+    if (sliderRef.current) {
+      sliderRef.current.measure((_x: number, _y: number, _w: number, _h: number, pageX: number) => {
+        sliderLeftRef.current = pageX;
+      });
+    }
   };
 
-  const panResponder = React.useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onStartShouldSetPanResponderCapture: () => true,
-      onMoveShouldSetPanResponderCapture: () => true,
-      onPanResponderGrant: (evt) => {
-        setIsDragging(true);
-        updatePriceFromPosition(evt.nativeEvent.locationX);
-      },
-      onPanResponderMove: (evt) => {
-        updatePriceFromPosition(evt.nativeEvent.locationX);
-      },
-      onPanResponderRelease: () => {
-        setIsDragging(false);
-      },
-      onPanResponderTerminate: () => {
-        setIsDragging(false);
-      },
-      onPanResponderTerminationRequest: () => false,
-    })
-  ).current;
+  const handleSliderStart = (event: any) => {
+    setIsDragging(true);
+    const localX = event.nativeEvent.pageX - sliderLeftRef.current;
+    updatePriceFromPosition(localX);
+  };
+
+  const handleSliderMove = (event: any) => {
+    if (!isDragging) return;
+    const localX = event.nativeEvent.pageX - sliderLeftRef.current;
+    updatePriceFromPosition(localX);
+  };
+
+  const handleSliderEnd = () => {
+    setIsDragging(false);
+  };
 
   const canProceed = price >= MIN_PRICE;
 
@@ -110,8 +115,8 @@ export default function SetPriceScreen() {
   // Calculate progress percentage for the visual bar
   const progressPercent = ((price - MIN_PRICE) / (MAX_PRICE - MIN_PRICE)) * 100;
 
-  // Platform fee calculation (15%)
-  const platformFee = Math.round(price * 0.15);
+  // Platform fee calculation (5%)
+  const platformFee = Math.round(price * 0.05);
   const travelerReceives = price - platformFee;
 
   return (
@@ -172,9 +177,15 @@ export default function SetPriceScreen() {
           </TouchableOpacity>
 
           <View
+            ref={sliderRef}
             style={styles.sliderTouchArea}
-            onLayout={(e) => setSliderWidth(e.nativeEvent.layout.width)}
-            {...panResponder.panHandlers}
+            onLayout={handleSliderLayout}
+            onStartShouldSetResponder={() => true}
+            onMoveShouldSetResponder={() => true}
+            onResponderGrant={handleSliderStart}
+            onResponderMove={handleSliderMove}
+            onResponderRelease={handleSliderEnd}
+            onResponderTerminate={handleSliderEnd}
           >
             <View style={styles.sliderTrack}>
               <View style={[styles.sliderFill, { width: `${progressPercent}%` }]} />
@@ -204,7 +215,7 @@ export default function SetPriceScreen() {
           </View>
           <View style={styles.feeRow}>
             <View style={styles.feeLabelWithInfo}>
-              <Text style={styles.feeLabel}>Platform fee (15%)</Text>
+              <Text style={styles.feeLabel}>Platform fee (5%)</Text>
               <Info size={14} color={colors.textTertiary} />
             </View>
             <Text style={styles.feeValueMinus}>-{getCurrencySymbol()}{platformFee}</Text>

@@ -1,5 +1,6 @@
 import { storage } from './firebaseConfig';
 import { getDownloadURL, ref, uploadBytesResumable } from 'firebase/storage';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 const buildShipmentImagePath = (shipmentId: string, fileName: string) =>
   `shipments/${shipmentId}/${fileName}`;
@@ -21,6 +22,22 @@ const fetchBlob = async (uri: string): Promise<Blob> => {
   return response.blob();
 };
 
+const compressImage = async (uri: string, maxWidth: number, compress: number) => {
+  try {
+    const result = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: maxWidth } }],
+      {
+        compress,
+        format: ImageManipulator.SaveFormat.JPEG,
+      },
+    );
+    return result.uri;
+  } catch {
+    return uri;
+  }
+};
+
 export const uploadShipmentImage = async (
   shipmentId: string,
   imageUri: string,
@@ -28,7 +45,8 @@ export const uploadShipmentImage = async (
 ): Promise<string> => {
   const fileName = createFileName(imageUri);
   const storageRef = ref(storage, buildShipmentImagePath(shipmentId, fileName));
-  const blob = await fetchBlob(imageUri);
+  const optimizedUri = await compressImage(imageUri, 800, 0.5);
+  const blob = await fetchBlob(optimizedUri);
 
   return new Promise((resolve, reject) => {
     const uploadTask = uploadBytesResumable(storageRef, blob);
@@ -58,7 +76,8 @@ export const uploadAvatarImage = async (
 ): Promise<string> => {
   const fileName = createFileName(imageUri);
   const storageRef = ref(storage, buildAvatarImagePath(userId, fileName));
-  const blob = await fetchBlob(imageUri);
+  const optimizedUri = await compressImage(imageUri, 400, 0.5);
+  const blob = await fetchBlob(optimizedUri);
 
   return new Promise((resolve, reject) => {
     const uploadTask = uploadBytesResumable(storageRef, blob);

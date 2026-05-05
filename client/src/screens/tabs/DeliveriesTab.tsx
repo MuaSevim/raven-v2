@@ -40,6 +40,7 @@ import type { Shipment } from "../../types/api";
 import { getAllCountries, getCitiesByCountry, Country } from "../../services/locationApi";
 import { colors, typography, spacing, borderRadius } from "../../theme";
 import { normalizeText } from "../../utils/text";
+import SkeletonLoader from "../../components/home/SkeletonLoader";
 type RouteModalType = "originCountry" | "originCity" | "destCountry" | "destCity" | null;
 
 
@@ -174,6 +175,25 @@ function getStatusColor(status: string) {
   }
 }
 
+function ShipmentCardSkeleton() {
+  return (
+    <View style={styles.shipmentCard}>
+      <View style={styles.shipmentHeader}>
+        <SkeletonLoader width="60%" height={18} />
+        <SkeletonLoader width={60} height={18} />
+      </View>
+      <View style={styles.travelerRow}>
+        <SkeletonLoader width="40%" height={14} />
+      </View>
+      <View style={styles.shipmentDetails}>
+        <SkeletonLoader width="45%" height={14} />
+        <SkeletonLoader width="30%" height={14} />
+      </View>
+      <SkeletonLoader width={80} height={16} borderRadius={12} />
+    </View>
+  );
+}
+
 export default function DeliveriesTab() {
   const navigation = useNavigation<any>();
   const { user } = useAuthStore();
@@ -298,14 +318,20 @@ export default function DeliveriesTab() {
         originCountry: country.country,
         originCity: "",
       }));
-    } else {
-      setRouteDraft((prev) => ({
-        ...prev,
-        destCountry: country.country,
-        destCity: "",
-      }));
+      setRouteModalType("originCity");
+      setRouteSearchQuery("");
+      loadRouteCities(country.country);
+      return;
     }
-    closeRouteModal();
+
+    setRouteDraft((prev) => ({
+      ...prev,
+      destCountry: country.country,
+      destCity: "",
+    }));
+    setRouteModalType("destCity");
+    setRouteSearchQuery("");
+    loadRouteCities(country.country);
   };
 
   const handleRouteCitySelect = (city: string, isOrigin: boolean) => {
@@ -520,9 +546,10 @@ export default function DeliveriesTab() {
 
       {/* Content */}
       {loading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.textPrimary} />
-          <Text style={styles.loadingText}>Loading shipments...</Text>
+        <View style={styles.listContent}>
+          {Array.from({ length: 4 }).map((_, index) => (
+            <ShipmentCardSkeleton key={`shipment-skeleton-${index}`} />
+          ))}
         </View>
       ) : error ? (
         <View style={styles.centerContainer}>
@@ -567,14 +594,13 @@ export default function DeliveriesTab() {
 
       <Modal
         visible={showRouteModal}
-        transparent
-        animationType="fade"
+        animationType="slide"
+        presentationStyle="pageSheet"
         onRequestClose={() => setShowRouteModal(false)}
       >
-        <View style={styles.routeModalOverlay}>
-          <View style={styles.routeModalContent}>
+        <SafeAreaView style={styles.routePickerContainer}>
             <View style={styles.routeModalHeader}>
-              <Text style={styles.routeModalTitle}>Route filter</Text>
+              <Text style={styles.routeModalTitle}>Set the Route</Text>
               <TouchableOpacity
                 style={styles.routeModalClose}
                 onPress={() => setShowRouteModal(false)}
@@ -705,14 +731,14 @@ export default function DeliveriesTab() {
                 <Text style={styles.routeModalApplyText}>Apply</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        </View>
+        </SafeAreaView>
       </Modal>
 
-      {routeModalType && (
+      {routeModalType !== null && (
         <Modal
-          visible
+          visible={true}
           animationType="slide"
+          transparent={false}
           onRequestClose={closeRouteModal}
         >
           <SafeAreaView style={styles.routePickerContainer}>

@@ -32,7 +32,7 @@ export default function PublicProfileScreen() {
 
                 try {
                     const data = await api.users.getProfile(userId);
-                    setProfile(data.user);
+                    setProfile(data.user || data);
                 } catch (err: Error | unknown) {
                     console.error('Error fetching profile:', err);
                 } finally {

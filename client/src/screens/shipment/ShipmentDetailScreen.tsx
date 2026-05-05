@@ -30,6 +30,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { api } from '../../utils/api';
 import type { Shipment } from '../../types/api';
 import { colors, typography, spacing, borderRadius } from '../../theme';
+import SkeletonLoader from '../../components/home/SkeletonLoader';
 
 // =============================================================================
 // TYPES
@@ -133,9 +134,76 @@ export default function ShipmentDetailScreen() {
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={colors.textPrimary} />
-      </View>
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+            <ArrowLeft size={24} color={colors.textPrimary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Shipment Detail</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+          {/* Route skeleton */}
+          <View style={styles.card}>
+            <SkeletonLoader width={80} height={16} />
+            <View style={{ marginTop: spacing.md }}>
+              <SkeletonLoader width="40%" height={14} />
+              <View style={{ height: spacing.xs }} />
+              <SkeletonLoader width="60%" height={20} />
+              <View style={{ height: spacing.xs }} />
+              <SkeletonLoader width="50%" height={14} />
+            </View>
+            <View style={{ marginTop: spacing.lg }}>
+              <SkeletonLoader width="40%" height={14} />
+              <View style={{ height: spacing.xs }} />
+              <SkeletonLoader width="55%" height={20} />
+              <View style={{ height: spacing.xs }} />
+              <SkeletonLoader width="50%" height={14} />
+            </View>
+          </View>
+          {/* Package skeleton */}
+          <View style={styles.card}>
+            <SkeletonLoader width={120} height={16} />
+            <View style={{ marginTop: spacing.md, gap: spacing.md }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+                <SkeletonLoader width={44} height={44} borderRadius={22} />
+                <View>
+                  <SkeletonLoader width={60} height={12} />
+                  <View style={{ height: 4 }} />
+                  <SkeletonLoader width={100} height={16} />
+                </View>
+              </View>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+                <SkeletonLoader width={44} height={44} borderRadius={22} />
+                <View>
+                  <SkeletonLoader width={50} height={12} />
+                  <View style={{ height: 4 }} />
+                  <SkeletonLoader width={80} height={16} />
+                </View>
+              </View>
+            </View>
+          </View>
+          {/* Earnings skeleton */}
+          <View style={styles.card}>
+            <SkeletonLoader width={100} height={16} />
+            <View style={{ marginTop: spacing.md }}>
+              <SkeletonLoader width={120} height={36} />
+            </View>
+          </View>
+          {/* Posted By skeleton */}
+          <View style={styles.card}>
+            <SkeletonLoader width={80} height={16} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md }}>
+              <SkeletonLoader width={48} height={48} borderRadius={24} />
+              <View>
+                <SkeletonLoader width={120} height={16} />
+                <View style={{ height: 4 }} />
+                <SkeletonLoader width={100} height={12} />
+              </View>
+            </View>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
     );
   }
 
@@ -160,7 +228,7 @@ export default function ShipmentDetailScreen() {
   const isMySender = shipment.sender?.id === user?.uid;
   const currencySymbol = getCurrencySymbol(shipment.currency);
   const senderName = `${shipment.sender?.firstName || ''} ${shipment.sender?.lastName || ''}`.trim() || 'Unknown';
-  const platformFee = Math.round(shipment.price * 0.15);
+  const platformFee = Math.round(shipment.price * 0.05);
   const travelerReceives = shipment.price - platformFee;
 
   return (
@@ -280,7 +348,7 @@ export default function ShipmentDetailScreen() {
           </View>
 
           <View style={styles.breakdownRow}>
-            <Text style={styles.breakdownLabel}>Platform fee (15%)</Text>
+            <Text style={styles.breakdownLabel}>Platform fee (5%)</Text>
             <Text style={[styles.breakdownValue, styles.breakdownValueNegative]}>-{currencySymbol}{platformFee}</Text>
           </View>
         </View>

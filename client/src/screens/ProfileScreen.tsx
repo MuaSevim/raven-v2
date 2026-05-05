@@ -115,13 +115,21 @@ export default function ProfileScreen() {
           setPhoneCode(profile.phoneCode || "+1");
           setAvatar(avatarUrl);
 
-          // Find country code from phone code
-          // Prefer US for +1 if ambiguous, as we don't store ISO code in DB yet
-          let country = PHONE_COUNTRIES.find(
-            (c) => c.dialCode === (profile.phoneCode || "+1")
-          );
-          const us = PHONE_COUNTRIES.find((c) => c.code === "US");
-          if (us && (!country || (profile.phoneCode || "+1") === "+1")) country = us;
+          // Find country code from stored countryCode or phone code
+          const storedCountryCode = (profile as any).countryCode;
+          let country: (typeof PHONE_COUNTRIES)[number] | undefined;
+          if (storedCountryCode) {
+            country = PHONE_COUNTRIES.find((c) => c.code === storedCountryCode);
+          }
+          if (!country) {
+            // Fallback: look up by dial code, prefer US for +1 if ambiguous
+            country = PHONE_COUNTRIES.find(
+              (c) => c.dialCode === (profile.phoneCode || "+1")
+            );
+            if ((profile.phoneCode || "+1") === "+1") {
+              country = PHONE_COUNTRIES.find((c) => c.code === "US");
+            }
+          }
 
           setCountryCode(country?.code || "US");
 
@@ -166,9 +174,8 @@ export default function ProfileScreen() {
           await updateEmail(user, email);
           await sendEmailVerification(user, actionCodeSettings);
           emailChanged = true;
-        } catch (emailError: Error | unknown) {
-          const err = emailError as Record<string, unknown>;
-          if ((err as Record<string, unknown>).code === "auth/requires-recent-login") {
+        } catch (emailError: any) {
+          if (emailError?.code === "auth/requires-recent-login") {
             Alert.alert(
               "Error",
               "Please sign out and sign in again to update your email"
@@ -176,7 +183,11 @@ export default function ProfileScreen() {
             setSaving(false);
             return;
           }
-          throw emailError;
+          // Show error but continue saving other fields
+          Alert.alert(
+            "Email Update Failed",
+            emailError?.message || "Could not update email. Other changes will still be saved."
+          );
         }
       }
 
@@ -185,16 +196,17 @@ export default function ProfileScreen() {
       await api.auth.updateProfile({
         firstName,
         lastName,
-        email,
+        email: emailChanged ? email : originalEmail,
         phone,
         phoneCode,
+        countryCode,
         avatar: avatarPayload,
       });
 
       Alert.alert("Success", "Profile updated successfully");
       setOriginalFirstName(firstName);
       setOriginalLastName(lastName);
-      setOriginalEmail(email);
+      if (emailChanged) setOriginalEmail(email);
       setOriginalPhone(phone);
       setOriginalPhoneCode(phoneCode);
       setOriginalAvatar(avatarUrl || null);
@@ -203,9 +215,9 @@ export default function ProfileScreen() {
       if (emailChanged) {
         navigation.navigate("EmailVerificationWaiting", { email });
       }
-    } catch (err: Error | unknown) {
-      const message = (err as Record<string, unknown>).message as string || "Failed to update profile";
-      Alert.alert("Error", message);
+    } catch (err: any) {
+      const message = err?.message || "Failed to update profile";
+      Alert.alert("Error", String(message));
     } finally {
       setSaving(false);
     }

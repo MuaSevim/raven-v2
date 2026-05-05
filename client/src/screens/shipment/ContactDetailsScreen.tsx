@@ -69,8 +69,16 @@ type Action =
   | { type: 'SELECT_COUNTRY'; payload: PhoneCountry }
   | { type: 'INIT_FROM_DRAFT'; payload: Partial<State> };
 
-const getCountryByDial = (dialCode?: string | null) =>
-  PHONE_COUNTRIES.find((country) => country.dialCode === dialCode);
+const getCountryByDial = (dialCode?: string | null, preferredCode?: string) => {
+  if (!dialCode) return undefined;
+  const matches = PHONE_COUNTRIES.filter((country) => country.dialCode === dialCode);
+  if (!matches.length) return undefined;
+  if (preferredCode) {
+    const preferred = matches.find((country) => country.code === preferredCode);
+    if (preferred) return preferred;
+  }
+  return matches[0];
+};
 
 // =============================================================================
 // REDUCER
@@ -88,8 +96,8 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         phoneCode: action.payload,
-        ...(getCountryByDial(action.payload)
-          ? { countryCode: getCountryByDial(action.payload)!.code }
+        ...(getCountryByDial(action.payload, state.countryCode)
+          ? { countryCode: getCountryByDial(action.payload, state.countryCode)!.code }
           : {}),
       };
     case 'SET_COUNTRY_CODE':
@@ -102,8 +110,8 @@ function reducer(state: State, action: Action): State {
       return {
         ...state,
         receiverPhoneCode: action.payload,
-        ...(getCountryByDial(action.payload)
-          ? { receiverCountryCode: getCountryByDial(action.payload)!.code }
+        ...(getCountryByDial(action.payload, state.receiverCountryCode)
+          ? { receiverCountryCode: getCountryByDial(action.payload, state.receiverCountryCode)!.code }
           : {}),
       };
     case 'SET_RECEIVER_COUNTRY_CODE':
@@ -150,14 +158,20 @@ export default function ContactDetailsScreen() {
   const { draft, setDraft, totalSteps } = useShipmentStore();
   const { user } = useAuthStore();
 
+  const destinationCountry =
+    PHONE_COUNTRIES.find((c) => c.code === draft.destCountryCode) ||
+    undefined;
+
   const initialCountry =
+    destinationCountry ||
     PHONE_COUNTRIES.find((c) => c.code === draft.senderCountryCode) ||
-    getCountryByDial(draft.senderPhoneCode) ||
+    getCountryByDial(draft.senderPhoneCode, draft.senderCountryCode) ||
     PHONE_COUNTRIES.find((c) => c.code === 'US') ||
     PHONE_COUNTRIES[0];
 
   const initialReceiverCountry =
-    getCountryByDial(draft.receiverPhoneCode) ||
+    destinationCountry ||
+    getCountryByDial(draft.receiverPhoneCode, draft.destCountryCode) ||
     initialCountry;
 
   const [state, dispatch] = useReducer(reducer, {
@@ -177,8 +191,14 @@ export default function ContactDetailsScreen() {
     searchQuery: '',
   });
 
-  const selectedCountry = PHONE_COUNTRIES.find(c => c.code === state.countryCode) || PHONE_COUNTRIES[0];
-  const selectedReceiverCountry = PHONE_COUNTRIES.find(c => c.code === state.receiverCountryCode) || PHONE_COUNTRIES[0];
+  const selectedCountry =
+    getCountryByDial(state.phoneCode, state.countryCode) ||
+    PHONE_COUNTRIES.find((c) => c.code === state.countryCode) ||
+    PHONE_COUNTRIES[0];
+  const selectedReceiverCountry =
+    getCountryByDial(state.receiverPhoneCode, state.receiverCountryCode) ||
+    PHONE_COUNTRIES.find((c) => c.code === state.receiverCountryCode) ||
+    PHONE_COUNTRIES[0];
 
   // Fetch user profile to pre-fill phone
   useEffect(() => {
@@ -195,13 +215,6 @@ export default function ContactDetailsScreen() {
         if (!draft.senderPhone && data.phone) {
           dispatch({ type: 'SET_PHONE', payload: data.phone });
           dispatch({ type: 'SET_PHONE_CODE', payload: data.phoneCode || '+1' });
-        }
-
-        if (data.phoneCode) {
-          const dialCountry = getCountryByDial(data.phoneCode);
-          if (dialCountry && dialCountry.code !== state.countryCode) {
-            dispatch({ type: 'SET_COUNTRY_CODE', payload: dialCountry.code });
-          }
         }
 
         // Pre-fill Name if not already filled
