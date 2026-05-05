@@ -78,7 +78,7 @@ const initialDraft: ShipmentDraft = {
 
   // Step 4 - Price
   price: 50,
-  currency: 'USD',
+  currency: 'EUR',
 
   // Step 5 - Contact
   senderFullName: '',

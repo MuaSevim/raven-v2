@@ -19,6 +19,12 @@ import {
   Calendar,
   DollarSign,
   CheckCircle,
+  MapPin,
+  Navigation,
+  ChevronDown,
+  Search,
+  X,
+  Check,
   Package,
   FileText,
   Mail,
@@ -31,7 +37,11 @@ import {
 import { useAuthStore } from "../../store/useAuthStore";
 import { api } from "../../utils/api";
 import type { Shipment } from "../../types/api";
+import { getAllCountries, getCitiesByCountry, Country } from "../../services/locationApi";
 import { colors, typography, spacing, borderRadius } from "../../theme";
+import { normalizeText } from "../../utils/text";
+type RouteModalType = "originCountry" | "originCity" | "destCountry" | "destCity" | null;
+
 
 
 
@@ -174,8 +184,23 @@ export default function DeliveriesTab() {
   const [error, setError] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState<string | null>(null);
   const [showRouteModal, setShowRouteModal] = useState(false);
-  const [routeFilter, setRouteFilter] = useState({ origin: '', destination: '' });
-  const [routeDraft, setRouteDraft] = useState({ origin: '', destination: '' });
+  const [routeFilter, setRouteFilter] = useState({
+    originCountry: "",
+    originCity: "",
+    destCountry: "",
+    destCity: "",
+  });
+  const [routeDraft, setRouteDraft] = useState({
+    originCountry: "",
+    originCity: "",
+    destCountry: "",
+    destCity: "",
+  });
+  const [routeModalType, setRouteModalType] = useState<RouteModalType>(null);
+  const [routeSearchQuery, setRouteSearchQuery] = useState("");
+  const [routeCountries, setRouteCountries] = useState<Country[]>([]);
+  const [routeCities, setRouteCities] = useState<string[]>([]);
+  const [routeLoading, setRouteLoading] = useState(false);
 
   const fetchShipments = async (showRefresh = false) => {
     if (!user) return;
@@ -207,6 +232,12 @@ export default function DeliveriesTab() {
     }, [user])
   );
 
+  useEffect(() => {
+    if (showRouteModal && routeCountries.length === 0) {
+      loadRouteCountries();
+    }
+  }, [showRouteModal, routeCountries.length]);
+
   const handleAddDelivery = () => {
     navigation.navigate('SetRoute');
   };
@@ -217,6 +248,145 @@ export default function DeliveriesTab() {
 
   const handleRefresh = () => {
     fetchShipments(true);
+  };
+
+  const loadRouteCountries = async () => {
+    setRouteLoading(true);
+    try {
+      const data = await getAllCountries();
+      setRouteCountries(data);
+    } catch (error) {
+      console.error("Failed to load countries:", error);
+    } finally {
+      setRouteLoading(false);
+    }
+  };
+
+  const loadRouteCities = async (country: string) => {
+    setRouteLoading(true);
+    setRouteCities([]);
+    try {
+      const data = await getCitiesByCountry(country);
+      setRouteCities(data);
+    } catch (error) {
+      console.error("Failed to load cities:", error);
+    } finally {
+      setRouteLoading(false);
+    }
+  };
+
+  const openRouteModal = (type: RouteModalType) => {
+    setRouteModalType(type);
+    setRouteSearchQuery("");
+
+    if (type === "originCity" && routeDraft.originCountry) {
+      loadRouteCities(routeDraft.originCountry);
+    } else if (type === "destCity" && routeDraft.destCountry) {
+      loadRouteCities(routeDraft.destCountry);
+    }
+  };
+
+  const closeRouteModal = () => {
+    setRouteModalType(null);
+    setRouteSearchQuery("");
+  };
+
+  const handleRouteCountrySelect = (country: Country, isOrigin: boolean) => {
+    if (isOrigin) {
+      setRouteDraft((prev) => ({
+        ...prev,
+        originCountry: country.country,
+        originCity: "",
+      }));
+    } else {
+      setRouteDraft((prev) => ({
+        ...prev,
+        destCountry: country.country,
+        destCity: "",
+      }));
+    }
+    closeRouteModal();
+  };
+
+  const handleRouteCitySelect = (city: string, isOrigin: boolean) => {
+    if (isOrigin) {
+      setRouteDraft((prev) => ({ ...prev, originCity: city }));
+    } else {
+      setRouteDraft((prev) => ({ ...prev, destCity: city }));
+    }
+    closeRouteModal();
+  };
+
+  const getRouteFilteredData = (): Array<Country | string> => {
+    const query = normalizeText(routeSearchQuery);
+
+    switch (routeModalType) {
+      case "originCountry":
+      case "destCountry":
+        return routeCountries.filter((c) =>
+          normalizeText(c.country).includes(query)
+        );
+      case "originCity":
+      case "destCity":
+        return routeCities.filter((c) =>
+          normalizeText(c).includes(query)
+        );
+      default:
+        return [];
+    }
+  };
+
+  const renderRouteModalItem = ({ item }: { item: Country | string }) => {
+    if (routeModalType === "originCountry" || routeModalType === "destCountry") {
+      const country = item as Country;
+      const isSelected = routeModalType === "originCountry"
+        ? country.country === routeDraft.originCountry
+        : country.country === routeDraft.destCountry;
+
+      return (
+        <TouchableOpacity
+          style={[styles.modalItem, isSelected && styles.modalItemSelected]}
+          onPress={() => handleRouteCountrySelect(country, routeModalType === "originCountry")}
+        >
+          <Text style={styles.modalItemText}>{country.country}</Text>
+          {isSelected && <Check size={20} color={colors.textPrimary} />}
+        </TouchableOpacity>
+      );
+    }
+
+    if (routeModalType === "originCity" || routeModalType === "destCity") {
+      const city = item as string;
+      const isSelected = routeModalType === "originCity"
+        ? city === routeDraft.originCity
+        : city === routeDraft.destCity;
+
+      return (
+        <TouchableOpacity
+          style={[styles.modalItem, isSelected && styles.modalItemSelected]}
+          onPress={() => handleRouteCitySelect(city, routeModalType === "originCity")}
+        >
+          <Text style={styles.modalItemText}>{city}</Text>
+          {isSelected && <Check size={20} color={colors.textPrimary} />}
+        </TouchableOpacity>
+      );
+    }
+
+    return null;
+  };
+
+  const getRouteModalTitle = () => {
+    switch (routeModalType) {
+      case "originCountry":
+        return "Select Origin Country";
+      case "originCity":
+        return "Select Origin City";
+      case "destCountry":
+        return "Select Destination Country";
+      case "destCity":
+        return "Select Destination City";
+      default:
+        return "";
+    }
   };
 
   const filters = [
@@ -242,22 +412,40 @@ export default function DeliveriesTab() {
     },
   ];
 
-  const normalizedOrigin = routeFilter.origin.trim().toLowerCase();
-  const normalizedDestination = routeFilter.destination.trim().toLowerCase();
+  const hasRouteFilter =
+    Boolean(routeFilter.originCountry) ||
+    Boolean(routeFilter.originCity) ||
+    Boolean(routeFilter.destCountry) ||
+    Boolean(routeFilter.destCity);
+
+  const normalizedOriginCountry = routeFilter.originCountry.trim().toLowerCase();
+  const normalizedOriginCity = routeFilter.originCity.trim().toLowerCase();
+  const normalizedDestCountry = routeFilter.destCountry.trim().toLowerCase();
+  const normalizedDestCity = routeFilter.destCity.trim().toLowerCase();
 
   const filteredShipments = [...shipments]
     .filter(s => s.status !== 'DELIVERED' && s.status !== 'CANCELLED' && s.status !== 'MATCHED')
     .filter(s => {
-      if (!normalizedOrigin) return true;
-      const originCity = s.originCity?.toLowerCase() || '';
-      const originCountry = s.originCountry?.toLowerCase() || '';
-      return originCity.includes(normalizedOrigin) || originCountry.includes(normalizedOrigin);
+      if (normalizedOriginCountry) {
+        const originCountry = s.originCountry?.toLowerCase() || '';
+        if (!originCountry.includes(normalizedOriginCountry)) return false;
+      }
+      if (normalizedOriginCity) {
+        const originCity = s.originCity?.toLowerCase() || '';
+        if (!originCity.includes(normalizedOriginCity)) return false;
+      }
+      return true;
     })
     .filter(s => {
-      if (!normalizedDestination) return true;
-      const destCity = s.destCity?.toLowerCase() || '';
-      const destCountry = s.destCountry?.toLowerCase() || '';
-      return destCity.includes(normalizedDestination) || destCountry.includes(normalizedDestination);
+      if (normalizedDestCountry) {
+        const destCountry = s.destCountry?.toLowerCase() || '';
+        if (!destCountry.includes(normalizedDestCountry)) return false;
+      }
+      if (normalizedDestCity) {
+        const destCity = s.destCity?.toLowerCase() || '';
+        if (!destCity.includes(normalizedDestCity)) return false;
+      }
+      return true;
     })
     .sort((a, b) => {
       switch (activeFilter) {
@@ -288,27 +476,27 @@ export default function DeliveriesTab() {
 
       <View style={styles.filterSection}>
         <Text style={styles.sectionLabel}>Filter options</Text>
-        
-        <TouchableOpacity
-          style={styles.routeButton}
-          onPress={() => {
-            setRouteDraft(routeFilter);
-            setShowRouteModal(true);
-          }}
-        >
-          <Text style={styles.routeButtonLabel}>Route</Text>
-          <Text style={styles.routeButtonValue}>
-            {routeFilter.origin || routeFilter.destination
-              ? `${routeFilter.origin || 'From'} → ${routeFilter.destination || 'To'}`
-              : 'Choose origin and destination'}
-          </Text>
-        </TouchableOpacity>
 
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.filtersScroll}
         >
+          <FilterChip
+            label="Route"
+            icon={
+              <MapPin
+                size={16}
+                color={hasRouteFilter ? colors.textInverse : colors.textPrimary}
+                strokeWidth={1.5}
+              />
+            }
+            isActive={hasRouteFilter}
+            onPress={() => {
+              setRouteDraft(routeFilter);
+              setShowRouteModal(true);
+            }}
+          />
           {filters.map((filter) => (
             <FilterChip
               key={filter.id}
@@ -385,32 +573,118 @@ export default function DeliveriesTab() {
       >
         <View style={styles.routeModalOverlay}>
           <View style={styles.routeModalContent}>
-            <Text style={styles.routeModalTitle}>Select Route</Text>
+            <View style={styles.routeModalHeader}>
+              <Text style={styles.routeModalTitle}>Route filter</Text>
+              <TouchableOpacity
+                style={styles.routeModalClose}
+                onPress={() => setShowRouteModal(false)}
+              >
+                <X size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
 
-            <Text style={styles.routeModalLabel}>From (origin)</Text>
-            <TextInput
-              style={styles.routeModalInput}
-              placeholder="Country or city"
-              placeholderTextColor={colors.textTertiary}
-              value={routeDraft.origin}
-              onChangeText={(value) => setRouteDraft((prev) => ({ ...prev, origin: value }))}
-            />
+            <View style={styles.routeSection}>
+              <View style={styles.routeSectionHeader}>
+                <MapPin size={18} color={colors.textPrimary} strokeWidth={2} />
+                <Text style={styles.routeSectionTitle}>From (Origin)</Text>
+              </View>
 
-            <Text style={styles.routeModalLabel}>To (destination)</Text>
-            <TextInput
-              style={styles.routeModalInput}
-              placeholder="Country or city"
-              placeholderTextColor={colors.textTertiary}
-              value={routeDraft.destination}
-              onChangeText={(value) => setRouteDraft((prev) => ({ ...prev, destination: value }))}
-            />
+              <TouchableOpacity
+                style={styles.selectField}
+                onPress={() => openRouteModal("originCountry")}
+              >
+                <Text
+                  style={
+                    routeDraft.originCountry
+                      ? styles.selectText
+                      : styles.selectPlaceholder
+                  }
+                >
+                  {routeDraft.originCountry || "Select country"}
+                </Text>
+                <ChevronDown size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.selectField}
+                onPress={() => openRouteModal("originCity")}
+                disabled={!routeDraft.originCountry}
+              >
+                <Text
+                  style={
+                    routeDraft.originCity
+                      ? styles.selectText
+                      : styles.selectPlaceholder
+                  }
+                >
+                  {routeDraft.originCity ||
+                    (routeDraft.originCountry
+                      ? "Select city"
+                      : "Select country first")}
+                </Text>
+                <ChevronDown size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.routeSection}>
+              <View style={styles.routeSectionHeader}>
+                <Navigation size={18} color={colors.textPrimary} strokeWidth={2} />
+                <Text style={styles.routeSectionTitle}>To (Destination)</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.selectField}
+                onPress={() => openRouteModal("destCountry")}
+              >
+                <Text
+                  style={
+                    routeDraft.destCountry
+                      ? styles.selectText
+                      : styles.selectPlaceholder
+                  }
+                >
+                  {routeDraft.destCountry || "Select country"}
+                </Text>
+                <ChevronDown size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.selectField}
+                onPress={() => openRouteModal("destCity")}
+                disabled={!routeDraft.destCountry}
+              >
+                <Text
+                  style={
+                    routeDraft.destCity
+                      ? styles.selectText
+                      : styles.selectPlaceholder
+                  }
+                >
+                  {routeDraft.destCity ||
+                    (routeDraft.destCountry
+                      ? "Select city"
+                      : "Select country first")}
+                </Text>
+                <ChevronDown size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            </View>
 
             <View style={styles.routeModalActions}>
               <TouchableOpacity
                 style={[styles.routeModalButton, styles.routeModalClear]}
                 onPress={() => {
-                  setRouteFilter({ origin: '', destination: '' });
-                  setRouteDraft({ origin: '', destination: '' });
+                  setRouteFilter({
+                    originCountry: "",
+                    originCity: "",
+                    destCountry: "",
+                    destCity: "",
+                  });
+                  setRouteDraft({
+                    originCountry: "",
+                    originCity: "",
+                    destCountry: "",
+                    destCity: "",
+                  });
                   setShowRouteModal(false);
                 }}
               >
@@ -420,8 +694,10 @@ export default function DeliveriesTab() {
                 style={[styles.routeModalButton, styles.routeModalApply]}
                 onPress={() => {
                   setRouteFilter({
-                    origin: routeDraft.origin.trim(),
-                    destination: routeDraft.destination.trim(),
+                    originCountry: routeDraft.originCountry.trim(),
+                    originCity: routeDraft.originCity.trim(),
+                    destCountry: routeDraft.destCountry.trim(),
+                    destCity: routeDraft.destCity.trim(),
                   });
                   setShowRouteModal(false);
                 }}
@@ -432,6 +708,50 @@ export default function DeliveriesTab() {
           </View>
         </View>
       </Modal>
+
+      {routeModalType && (
+        <Modal
+          visible
+          animationType="slide"
+          onRequestClose={closeRouteModal}
+        >
+          <SafeAreaView style={styles.routePickerContainer}>
+            <View style={styles.routePickerHeader}>
+              <Text style={styles.routePickerTitle}>{getRouteModalTitle()}</Text>
+              <TouchableOpacity onPress={closeRouteModal}>
+                <X size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.routePickerSearch}>
+              <Search size={18} color={colors.textTertiary} />
+              <TextInput
+                style={styles.routePickerInput}
+                placeholder="Search..."
+                placeholderTextColor={colors.textTertiary}
+                value={routeSearchQuery}
+                onChangeText={setRouteSearchQuery}
+                autoFocus
+              />
+            </View>
+
+            {routeLoading ? (
+              <View style={styles.routePickerLoading}>
+                <ActivityIndicator size="large" color={colors.textPrimary} />
+              </View>
+            ) : (
+              <FlatList
+                data={getRouteFilteredData()}
+                keyExtractor={(item, index) =>
+                  typeof item === "string" ? `${item}-${index}` : item.iso2
+                }
+                renderItem={renderRouteModalItem}
+                keyboardShouldPersistTaps="handled"
+              />
+            )}
+          </SafeAreaView>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -464,24 +784,6 @@ const styles = StyleSheet.create({
   filterSection: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.md,
-  },
-  routeButton: {
-    backgroundColor: colors.backgroundSecondary,
-    borderRadius: borderRadius.lg,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    marginBottom: spacing.md,
-  },
-  routeButtonLabel: {
-    fontFamily: typography.fontFamily.medium,
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  routeButtonValue: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.fontSize.base,
-    color: colors.textPrimary,
   },
   sectionLabel: {
     fontFamily: typography.fontFamily.medium,
@@ -534,27 +836,53 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
   },
+  routeModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.md,
+  },
   routeModalTitle: {
     fontFamily: typography.fontFamily.semiBold,
     fontSize: typography.fontSize.lg,
     color: colors.textPrimary,
+  },
+  routeModalClose: {
+    padding: spacing.xs,
+  },
+  routeSection: {
     marginBottom: spacing.md,
   },
-  routeModalLabel: {
-    fontFamily: typography.fontFamily.medium,
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
+  routeSectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
   },
-  routeModalInput: {
+  routeSectionTitle: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize.base,
+    color: colors.textPrimary,
+  },
+  selectField: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     backgroundColor: colors.backgroundSecondary,
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    fontFamily: typography.fontFamily.regular,
+    marginBottom: spacing.sm,
+  },
+  selectText: {
+    fontFamily: typography.fontFamily.medium,
     fontSize: typography.fontSize.base,
     color: colors.textPrimary,
-    marginBottom: spacing.md,
+  },
+  selectPlaceholder: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.base,
+    color: colors.textTertiary,
   },
   routeModalActions: {
     flexDirection: 'row',
@@ -582,6 +910,60 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.medium,
     fontSize: typography.fontSize.base,
     color: colors.textInverse,
+  },
+  routePickerContainer: {
+    flex: 1,
+    backgroundColor: colors.background,
+    padding: spacing.lg,
+  },
+  routePickerHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: spacing.md,
+  },
+  routePickerTitle: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize.lg,
+    color: colors.textPrimary,
+  },
+  routePickerSearch: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  routePickerInput: {
+    flex: 1,
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.base,
+    color: colors.textPrimary,
+  },
+  routePickerLoading: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  modalItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  modalItemSelected: {
+    backgroundColor: colors.backgroundSecondary,
+  },
+  modalItemText: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.base,
+    color: colors.textPrimary,
   },
   centerContainer: {
     flex: 1,

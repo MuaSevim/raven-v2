@@ -1,14 +1,14 @@
 // API URL for the backend server
 // Update this if switching between production and local development.
-export const API_URL = 'https://raven-v2-production.up.railway.app';
+// export const API_URL = 'https://raven-v2-production.up.railway.app';
 
 
 // Local development configuration
 // Only change this if testing on a physical device
-// export const LOCAL_NETWORK_IP = '192.168.1.105';
+export const LOCAL_NETWORK_IP = '192.168.1.105';
 
 // API URL for the backend server
-// export const API_URL = `http://${LOCAL_NETWORK_IP}:3000`;
+export const API_URL = `http://${LOCAL_NETWORK_IP}:3000`;
 
 // Quick guide to find your IP:
 // Windows: Run 'ipconfig' in terminal, look for "IPv4 Address"

@@ -169,6 +169,10 @@ async function apiRequest<T>(
 /**
  * API Client with typed methods
  */
+const normalizeShipmentList = (
+  response: ShipmentsResponse | Shipment[]
+): ShipmentsResponse => (Array.isArray(response) ? { data: response } : response);
+
 export const api = {
   // === AUTH ENDPOINTS ===
   auth: {
@@ -217,13 +221,19 @@ export const api = {
       apiRequest<Shipment>(`/shipments/${id}`, { method: 'GET' }),
 
     getMyShipments: () =>
-      apiRequest<ShipmentsResponse>('/shipments/my/sent', { method: 'GET' }),
+      apiRequest<ShipmentsResponse | Shipment[]>('/shipments/my/sent', {
+        method: 'GET',
+      }).then(normalizeShipmentList),
 
     getMyDeliveries: () =>
-      apiRequest<ShipmentsResponse>('/shipments/my/delivering', { method: 'GET' }),
+      apiRequest<ShipmentsResponse | Shipment[]>('/shipments/my/delivering', {
+        method: 'GET',
+      }).then(normalizeShipmentList),
 
     getAvailableShipments: () =>
-      apiRequest<ShipmentsResponse>('/shipments', { method: 'GET' }),
+      apiRequest<ShipmentsResponse | Shipment[]>('/shipments', {
+        method: 'GET',
+      }).then(normalizeShipmentList),
 
     getOffers: (shipmentId: string) =>
       apiRequest<ShipmentOffersResponse>(`/shipments/${shipmentId}/offers`, {

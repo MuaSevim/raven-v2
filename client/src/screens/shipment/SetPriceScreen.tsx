@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,16 +7,14 @@ import {
   TextInput,
   ScrollView,
   PanResponder,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Minus, Plus, DollarSign, Info } from 'lucide-react-native';
+import { Minus, Plus, DollarSign, Info, X } from 'lucide-react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StepHeader, BottomButton } from '../../components/shipment/StepComponents';
 import { useShipmentStore } from '../../store/useShipmentStore';
-import { useAuthStore } from '../../store/useAuthStore';
 import { colors, typography, spacing, borderRadius } from '../../theme';
-import { api } from '../../utils/api';
-import type { AuthMeResponse } from '../../types/api';
 
 const CURRENCIES = [
   { code: 'USD', symbol: '$', name: 'US Dollar' },
@@ -33,15 +31,19 @@ const STEP = 5;
 export default function SetPriceScreen() {
   const navigation = useNavigation<any>();
   const { draft, setDraft, totalSteps } = useShipmentStore();
-  const { user } = useAuthStore();
 
   const [price, setPrice] = useState(draft.price || 50);
-  const [currency, setCurrency] = useState(draft.currency || 'USD');
+  const [currency, setCurrency] = useState(draft.currency || 'EUR');
   const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
   const [sliderWidth, setSliderWidth] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
 
-  const startPriceRef = React.useRef(0);
+  const updatePriceFromPosition = (x: number) => {
+    if (sliderWidth <= 0) return;
+    const percent = Math.max(0, Math.min(1, x / sliderWidth));
+    const newPrice = Math.round(MIN_PRICE + percent * (MAX_PRICE - MIN_PRICE));
+    setPrice(newPrice);
+  };
 
   const panResponder = React.useRef(
     PanResponder.create({
@@ -51,26 +53,10 @@ export default function SetPriceScreen() {
       onMoveShouldSetPanResponderCapture: () => true,
       onPanResponderGrant: (evt) => {
         setIsDragging(true);
-        // Calculate initial price based on touch position
-        if (sliderWidth > 0) {
-          const touchX = evt.nativeEvent.locationX;
-          const percent = Math.max(0, Math.min(1, touchX / sliderWidth));
-          const newPrice = Math.round(MIN_PRICE + percent * (MAX_PRICE - MIN_PRICE));
-          setPrice(newPrice);
-          startPriceRef.current = newPrice;
-        }
+        updatePriceFromPosition(evt.nativeEvent.locationX);
       },
-      onPanResponderMove: (evt, gestureState) => {
-        // Update price based on drag distance (dx)
-        if (sliderWidth > 0) {
-          const deltaPercent = gestureState.dx / sliderWidth;
-          const priceDelta = Math.round(deltaPercent * (MAX_PRICE - MIN_PRICE));
-          const newPrice = Math.max(
-            MIN_PRICE,
-            Math.min(MAX_PRICE, startPriceRef.current + priceDelta)
-          );
-          setPrice(newPrice);
-        }
+      onPanResponderMove: (evt) => {
+        updatePriceFromPosition(evt.nativeEvent.locationX);
       },
       onPanResponderRelease: () => {
         setIsDragging(false);
@@ -81,44 +67,6 @@ export default function SetPriceScreen() {
       onPanResponderTerminationRequest: () => false,
     })
   ).current;
-
-  useEffect(() => {
-    const hydrateCurrencyFromProfile = async () => {
-      if (!user) return;
-      if (draft.currency && draft.currency !== 'USD') return;
-      try {
-        const profile = await api.auth.me() as AuthMeResponse;
-        const countryCode = profile.countryCode || '';
-        const countryName = profile.country || '';
-        const normalizedCountry = countryName.trim().toLowerCase();
-        const currencyByCountry: Record<string, string> = {
-          tr: 'TRY',
-          turkey: 'TRY',
-          us: 'USD',
-          gb: 'GBP',
-          uk: 'GBP',
-          se: 'SEK',
-          de: 'EUR',
-          fr: 'EUR',
-          es: 'EUR',
-          it: 'EUR',
-          nl: 'EUR',
-        };
-
-        const resolvedCurrency =
-          currencyByCountry[countryCode.toLowerCase()] ||
-          currencyByCountry[normalizedCountry];
-
-        if (resolvedCurrency && resolvedCurrency !== currency) {
-          setCurrency(resolvedCurrency);
-        }
-      } catch (err: Error | unknown) {
-        console.error('Failed to load currency from profile:', err);
-      }
-    };
-
-    hydrateCurrencyFromProfile();
-  }, [user, draft.currency, currency]);
 
   const canProceed = price >= MIN_PRICE;
 
@@ -190,34 +138,13 @@ export default function SetPriceScreen() {
         <View style={{ zIndex: 10 }}>
           <TouchableOpacity
             style={styles.currencySelector}
-            onPress={() => setShowCurrencyPicker(!showCurrencyPicker)}
+            onPress={() => setShowCurrencyPicker(true)}
           >
             <Text style={styles.currencyLabel}>Currency</Text>
             <View style={styles.currencyValue}>
               <Text style={styles.currencyText}>{currency}</Text>
             </View>
           </TouchableOpacity>
-
-          {showCurrencyPicker && (
-            <View style={styles.currencyPickerOverlay}>
-              {CURRENCIES.map((c) => (
-                <TouchableOpacity
-                  key={c.code}
-                  style={[
-                    styles.currencyOption,
-                    currency === c.code && styles.currencyOptionSelected,
-                  ]}
-                  onPress={() => {
-                    setCurrency(c.code);
-                    setShowCurrencyPicker(false);
-                  }}
-                >
-                  <Text style={styles.currencyOptionSymbol}>{c.symbol}</Text>
-                  <Text style={styles.currencyOptionText}>{c.name}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
         </View>
 
         {/* Price Display */}
@@ -303,6 +230,46 @@ export default function SetPriceScreen() {
         onPress={handleNext}
         disabled={!canProceed}
       />
+
+      <Modal
+        visible={showCurrencyPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCurrencyPicker(false)}
+      >
+        <View style={styles.currencyModalOverlay}>
+          <View style={styles.currencyModalContent}>
+            <View style={styles.currencyModalHeader}>
+              <Text style={styles.currencyModalTitle}>Select currency</Text>
+              <TouchableOpacity
+                style={styles.currencyModalClose}
+                onPress={() => setShowCurrencyPicker(false)}
+              >
+                <X size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {CURRENCIES.map((c) => (
+                <TouchableOpacity
+                  key={c.code}
+                  style={[
+                    styles.currencyOption,
+                    currency === c.code && styles.currencyOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setCurrency(c.code);
+                    setShowCurrencyPicker(false);
+                  }}
+                >
+                  <Text style={styles.currencyOptionSymbol}>{c.symbol}</Text>
+                  <Text style={styles.currencyOptionText}>{c.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -361,21 +328,31 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     color: colors.textPrimary,
   },
-  currencyPickerOverlay: {
-    position: 'absolute',
-    top: 60,
-    left: 0,
-    right: 0,
+  currencyModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    padding: spacing.lg,
+  },
+  currencyModalContent: {
     backgroundColor: colors.background,
     borderRadius: borderRadius.lg,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-    zIndex: 100,
+    padding: spacing.lg,
+    maxHeight: '70%',
+  },
+  currencyModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  currencyModalTitle: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize.lg,
+    color: colors.textPrimary,
+  },
+  currencyModalClose: {
+    padding: spacing.xs,
   },
   currencyOption: {
     flexDirection: 'row',

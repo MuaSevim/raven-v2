@@ -85,7 +85,13 @@ function reducer(state: State, action: Action): State {
     case 'SET_PHONE':
       return { ...state, phone: action.payload };
     case 'SET_PHONE_CODE':
-      return { ...state, phoneCode: action.payload };
+      return {
+        ...state,
+        phoneCode: action.payload,
+        ...(getCountryByDial(action.payload)
+          ? { countryCode: getCountryByDial(action.payload)!.code }
+          : {}),
+      };
     case 'SET_COUNTRY_CODE':
       return { ...state, countryCode: action.payload };
     case 'SET_RECEIVER_NAME':
@@ -93,7 +99,13 @@ function reducer(state: State, action: Action): State {
     case 'SET_RECEIVER_PHONE':
       return { ...state, receiverPhone: action.payload };
     case 'SET_RECEIVER_PHONE_CODE':
-      return { ...state, receiverPhoneCode: action.payload };
+      return {
+        ...state,
+        receiverPhoneCode: action.payload,
+        ...(getCountryByDial(action.payload)
+          ? { receiverCountryCode: getCountryByDial(action.payload)!.code }
+          : {}),
+      };
     case 'SET_RECEIVER_COUNTRY_CODE':
       return { ...state, receiverCountryCode: action.payload };
     case 'SET_PROFILE_PHONE':
@@ -185,9 +197,9 @@ export default function ContactDetailsScreen() {
           dispatch({ type: 'SET_PHONE_CODE', payload: data.phoneCode || '+1' });
         }
 
-        if (!draft.senderCountryCode && data.phoneCode) {
+        if (data.phoneCode) {
           const dialCountry = getCountryByDial(data.phoneCode);
-          if (dialCountry) {
+          if (dialCountry && dialCountry.code !== state.countryCode) {
             dispatch({ type: 'SET_COUNTRY_CODE', payload: dialCountry.code });
           }
         }
