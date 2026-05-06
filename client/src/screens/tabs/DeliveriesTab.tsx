@@ -33,6 +33,7 @@ import {
   Plus,
   AlertCircle,
   RefreshCw,
+  ArrowLeft,
 } from "lucide-react-native";
 import { useAuthStore } from "../../store/useAuthStore";
 import { api } from "../../utils/api";
@@ -509,7 +510,11 @@ export default function DeliveriesTab() {
           contentContainerStyle={styles.filtersScroll}
         >
           <FilterChip
-            label="Route"
+            label={
+              hasRouteFilter && (routeFilter.originCity || routeFilter.originCountry)
+                ? `${routeFilter.originCity || routeFilter.originCountry} → ${routeFilter.destCity || routeFilter.destCountry || '?'}`
+                : "Route"
+            }
             icon={
               <MapPin
                 size={16}
@@ -592,193 +597,167 @@ export default function DeliveriesTab() {
         />
       )}
 
+      {/* Single unified route modal — no nesting */}
       <Modal
         visible={showRouteModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowRouteModal(false)}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          if (routeModalType) {
+            closeRouteModal();
+          } else {
+            setShowRouteModal(false);
+          }
+        }}
       >
-        <View style={styles.routeModalOverlay}>
-          <View style={styles.routeModalContent}>
-            <View style={styles.routeModalHeader}>
-              <Text style={styles.routeModalTitle}>Set the Route</Text>
-              <TouchableOpacity
-                style={styles.routeModalClose}
-                onPress={() => setShowRouteModal(false)}
-              >
-                <X size={20} color={colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.routeSection}>
-              <View style={styles.routeSectionHeader}>
-                <MapPin size={18} color={colors.textPrimary} strokeWidth={2} />
-                <Text style={styles.routeSectionTitle}>From (Origin)</Text>
+        <SafeAreaView style={styles.routePickerContainer}>
+          {routeModalType ? (
+            /* ── Picker view (country or city list) ── */
+            <>
+              <View style={styles.routePickerHeader}>
+                <TouchableOpacity onPress={closeRouteModal} style={{ padding: 4 }}>
+                  <ArrowLeft size={22} color={colors.textPrimary} />
+                </TouchableOpacity>
+                <Text style={styles.routePickerTitle}>{getRouteModalTitle()}</Text>
+                <View style={{ width: 30 }} />
               </View>
 
-              <TouchableOpacity
-                style={styles.selectField}
-                onPress={() => openRouteModal("originCountry")}
-              >
-                <Text
-                  style={
-                    routeDraft.originCountry
-                      ? styles.selectText
-                      : styles.selectPlaceholder
-                  }
-                >
-                  {routeDraft.originCountry || "Select country"}
-                </Text>
-                <ChevronDown size={18} color={colors.textSecondary} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.selectField}
-                onPress={() => openRouteModal("originCity")}
-                disabled={!routeDraft.originCountry}
-              >
-                <Text
-                  style={
-                    routeDraft.originCity
-                      ? styles.selectText
-                      : styles.selectPlaceholder
-                  }
-                >
-                  {routeDraft.originCity ||
-                    (routeDraft.originCountry
-                      ? "Select city"
-                      : "Select country first")}
-                </Text>
-                <ChevronDown size={18} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.routeSection}>
-              <View style={styles.routeSectionHeader}>
-                <Navigation size={18} color={colors.textPrimary} strokeWidth={2} />
-                <Text style={styles.routeSectionTitle}>To (Destination)</Text>
+              <View style={styles.routePickerSearch}>
+                <Search size={18} color={colors.textTertiary} />
+                <TextInput
+                  style={styles.routePickerInput}
+                  placeholder="Search..."
+                  placeholderTextColor={colors.textTertiary}
+                  value={routeSearchQuery}
+                  onChangeText={setRouteSearchQuery}
+                  autoFocus
+                />
+                {routeSearchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setRouteSearchQuery("")}>
+                    <X size={16} color={colors.textTertiary} />
+                  </TouchableOpacity>
+                )}
               </View>
 
-              <TouchableOpacity
-                style={styles.selectField}
-                onPress={() => openRouteModal("destCountry")}
-              >
-                <Text
-                  style={
-                    routeDraft.destCountry
-                      ? styles.selectText
-                      : styles.selectPlaceholder
+              {routeLoading ? (
+                <View style={styles.routePickerLoading}>
+                  <ActivityIndicator size="large" color={colors.textPrimary} />
+                </View>
+              ) : (
+                <FlatList
+                  data={getRouteFilteredData()}
+                  keyExtractor={(item, index) =>
+                    typeof item === "string" ? `${item}-${index}` : item.iso2
                   }
-                >
-                  {routeDraft.destCountry || "Select country"}
-                </Text>
-                <ChevronDown size={18} color={colors.textSecondary} />
-              </TouchableOpacity>
+                  renderItem={renderRouteModalItem}
+                  keyboardShouldPersistTaps="handled"
+                />
+              )}
+            </>
+          ) : (
+            /* ── Route form view ── */
+            <>
+              <View style={styles.routePickerHeader}>
+                <Text style={styles.routePickerTitle}>Set the Route</Text>
+                <TouchableOpacity onPress={() => setShowRouteModal(false)} style={{ padding: 4 }}>
+                  <X size={20} color={colors.textPrimary} />
+                </TouchableOpacity>
+              </View>
 
-              <TouchableOpacity
-                style={styles.selectField}
-                onPress={() => openRouteModal("destCity")}
-                disabled={!routeDraft.destCountry}
+              <ScrollView
+                contentContainerStyle={{ paddingHorizontal: spacing.lg, paddingBottom: spacing.xl }}
+                showsVerticalScrollIndicator={false}
               >
-                <Text
-                  style={
-                    routeDraft.destCity
-                      ? styles.selectText
-                      : styles.selectPlaceholder
-                  }
-                >
-                  {routeDraft.destCity ||
-                    (routeDraft.destCountry
-                      ? "Select city"
-                      : "Select country first")}
-                </Text>
-                <ChevronDown size={18} color={colors.textSecondary} />
-              </TouchableOpacity>
-            </View>
+                {/* Origin */}
+                <View style={styles.routeSection}>
+                  <View style={styles.routeSectionHeader}>
+                    <MapPin size={18} color={colors.textPrimary} strokeWidth={2} />
+                    <Text style={styles.routeSectionTitle}>From (Origin)</Text>
+                  </View>
 
-            <View style={styles.routeModalActions}>
-              <TouchableOpacity
-                style={[styles.routeModalButton, styles.routeModalClear]}
-                onPress={() => {
-                  setRouteFilter({
-                    originCountry: "",
-                    originCity: "",
-                    destCountry: "",
-                    destCity: "",
-                  });
-                  setRouteDraft({
-                    originCountry: "",
-                    originCity: "",
-                    destCountry: "",
-                    destCity: "",
-                  });
-                  setShowRouteModal(false);
-                }}
-              >
-                <Text style={styles.routeModalClearText}>Clear</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.routeModalButton, styles.routeModalApply]}
-                onPress={() => {
-                  setRouteFilter({
-                    originCountry: routeDraft.originCountry.trim(),
-                    originCity: routeDraft.originCity.trim(),
-                    destCountry: routeDraft.destCountry.trim(),
-                    destCity: routeDraft.destCity.trim(),
-                  });
-                  setShowRouteModal(false);
-                }}
-              >
-                <Text style={styles.routeModalApplyText}>Apply</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
+                  <TouchableOpacity
+                    style={styles.selectField}
+                    onPress={() => openRouteModal("originCountry")}
+                  >
+                    <Text style={routeDraft.originCountry ? styles.selectText : styles.selectPlaceholder}>
+                      {routeDraft.originCountry || "Select country"}
+                    </Text>
+                    <ChevronDown size={18} color={colors.textSecondary} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.selectField, !routeDraft.originCountry && { opacity: 0.4 }]}
+                    onPress={() => openRouteModal("originCity")}
+                    disabled={!routeDraft.originCountry}
+                  >
+                    <Text style={routeDraft.originCity ? styles.selectText : styles.selectPlaceholder}>
+                      {routeDraft.originCity || (routeDraft.originCountry ? "Select city" : "Select country first")}
+                    </Text>
+                    <ChevronDown size={18} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Destination */}
+                <View style={styles.routeSection}>
+                  <View style={styles.routeSectionHeader}>
+                    <Navigation size={18} color={colors.textPrimary} strokeWidth={2} />
+                    <Text style={styles.routeSectionTitle}>To (Destination)</Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={styles.selectField}
+                    onPress={() => openRouteModal("destCountry")}
+                  >
+                    <Text style={routeDraft.destCountry ? styles.selectText : styles.selectPlaceholder}>
+                      {routeDraft.destCountry || "Select country"}
+                    </Text>
+                    <ChevronDown size={18} color={colors.textSecondary} />
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.selectField, !routeDraft.destCountry && { opacity: 0.4 }]}
+                    onPress={() => openRouteModal("destCity")}
+                    disabled={!routeDraft.destCountry}
+                  >
+                    <Text style={routeDraft.destCity ? styles.selectText : styles.selectPlaceholder}>
+                      {routeDraft.destCity || (routeDraft.destCountry ? "Select city" : "Select country first")}
+                    </Text>
+                    <ChevronDown size={18} color={colors.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+              </ScrollView>
+
+              <View style={styles.routeModalActions}>
+                <TouchableOpacity
+                  style={[styles.routeModalButton, styles.routeModalClear]}
+                  onPress={() => {
+                    const empty = { originCountry: "", originCity: "", destCountry: "", destCity: "" };
+                    setRouteFilter(empty);
+                    setRouteDraft(empty);
+                    setShowRouteModal(false);
+                  }}
+                >
+                  <Text style={styles.routeModalClearText}>Clear</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.routeModalButton, styles.routeModalApply]}
+                  onPress={() => {
+                    setRouteFilter({
+                      originCountry: routeDraft.originCountry.trim(),
+                      originCity: routeDraft.originCity.trim(),
+                      destCountry: routeDraft.destCountry.trim(),
+                      destCity: routeDraft.destCity.trim(),
+                    });
+                    setShowRouteModal(false);
+                  }}
+                >
+                  <Text style={styles.routeModalApplyText}>Apply</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </SafeAreaView>
       </Modal>
-
-      {routeModalType && (
-        <Modal
-          visible
-          animationType="slide"
-          onRequestClose={closeRouteModal}
-        >
-          <SafeAreaView style={styles.routePickerContainer}>
-            <View style={styles.routePickerHeader}>
-              <Text style={styles.routePickerTitle}>{getRouteModalTitle()}</Text>
-              <TouchableOpacity onPress={closeRouteModal}>
-                <X size={20} color={colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.routePickerSearch}>
-              <Search size={18} color={colors.textTertiary} />
-              <TextInput
-                style={styles.routePickerInput}
-                placeholder="Search..."
-                placeholderTextColor={colors.textTertiary}
-                value={routeSearchQuery}
-                onChangeText={setRouteSearchQuery}
-                autoFocus
-              />
-            </View>
-
-            {routeLoading ? (
-              <View style={styles.routePickerLoading}>
-                <ActivityIndicator size="large" color={colors.textPrimary} />
-              </View>
-            ) : (
-              <FlatList
-                data={getRouteFilteredData()}
-                keyExtractor={(item, index) =>
-                  typeof item === "string" ? `${item}-${index}` : item.iso2
-                }
-                renderItem={renderRouteModalItem}
-                keyboardShouldPersistTaps="handled"
-              />
-            )}
-          </SafeAreaView>
-        </Modal>
-      )}
     </SafeAreaView>
   );
 }
@@ -878,6 +857,7 @@ const styles = StyleSheet.create({
     padding: spacing.xs,
   },
   routeSection: {
+    marginTop: spacing.lg,
     marginBottom: spacing.md,
   },
   routeSectionHeader: {
@@ -915,11 +895,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   routeModalButton: {
     flex: 1,
     alignItems: 'center',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.md,
     borderRadius: borderRadius.lg,
   },
   routeModalClear: {
@@ -941,12 +925,15 @@ const styles = StyleSheet.create({
   routePickerContainer: {
     flex: 1,
     backgroundColor: colors.background,
-    padding: spacing.lg,
   },
   routePickerHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
     marginBottom: spacing.md,
   },
   routePickerTitle: {
@@ -960,6 +947,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     backgroundColor: colors.backgroundSecondary,
     borderRadius: borderRadius.lg,
+    marginHorizontal: spacing.lg,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     marginBottom: spacing.md,

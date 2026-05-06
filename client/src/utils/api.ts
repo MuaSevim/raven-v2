@@ -245,10 +245,10 @@ export const api = {
         method: 'GET',
       }),
 
-    submitOffer: (shipmentId: string, price: number) =>
+    submitOffer: (shipmentId: string, message: string) =>
       apiRequest<ShipmentOffer>(`/shipments/${shipmentId}/offers`, {
         method: 'POST',
-        body: JSON.stringify({ price }),
+        body: JSON.stringify({ message }),
       }),
 
     acceptOffer: (shipmentId: string, offerId: string) =>

@@ -13,6 +13,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -67,6 +69,10 @@ export default function ShipmentDetailScreen() {
   const [userOffer, setUserOffer] = useState<UserOffer | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
 
+  // Animated values for smooth offer modal transition
+  const overlayOpacity = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(Dimensions.get('window').height)).current;
+
   useEffect(() => {
     if (shipmentId) {
       fetchShipment();
@@ -107,17 +113,57 @@ export default function ShipmentDetailScreen() {
     }
   };
 
+  const openOfferModal = () => {
+    setShowOfferModal(true);
+    Animated.parallel([
+      Animated.timing(overlayOpacity, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 65,
+        friction: 11,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
+  const closeOfferModal = () => {
+    Keyboard.dismiss();
+    Animated.parallel([
+      Animated.timing(overlayOpacity, {
+        toValue: 0,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: Dimensions.get('window').height,
+        duration: 250,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      setShowOfferModal(false);
+    });
+  };
+
   const handleMakeOffer = async () => {
     if (!shipment || !user) return;
+    if (!offerMessage || offerMessage.trim().length < 10) {
+      Alert.alert('Message too short', 'Please write at least 10 characters to introduce yourself.');
+      return;
+    }
     setSubmitting(true);
 
     try {
-      const offer = await api.shipments.submitOffer(shipment.id, 0); // TODO: Get price from user
+      const offer = await api.shipments.submitOffer(shipment.id, offerMessage.trim());
       setUserOffer({ id: offer.id, status: 'PENDING' });
-      setShowOfferModal(false);
+      closeOfferModal();
       Alert.alert('Success', 'Your offer has been sent!');
     } catch (err: Error | unknown) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to send offer';
+      const errObj = err as { message?: string; statusCode?: number };
+      const errorMessage = errObj?.message || (err instanceof Error ? err.message : 'Failed to send offer');
       Alert.alert('Error', errorMessage);
     } finally {
       setSubmitting(false);
@@ -390,7 +436,7 @@ export default function ShipmentDetailScreen() {
                   </TouchableOpacity>
                 </>
               ) : (
-                <TouchableOpacity style={styles.primaryButton} onPress={() => setShowOfferModal(true)}>
+                <TouchableOpacity style={styles.primaryButton} onPress={openOfferModal}>
                   <Text style={styles.primaryButtonText}>Make Offer</Text>
                 </TouchableOpacity>
               )}
@@ -402,51 +448,57 @@ export default function ShipmentDetailScreen() {
       </ScrollView>
 
       {/* Offer Modal */}
-      <Modal visible={showOfferModal} transparent animationType="slide" onRequestClose={() => setShowOfferModal(false)}>
+      <Modal visible={showOfferModal} transparent animationType="none" onRequestClose={closeOfferModal}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
         >
-          <TouchableOpacity
-            style={styles.modalTouchable}
-            activeOpacity={1}
-            onPress={() => Keyboard.dismiss()}
+          <Animated.View
+            style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)', opacity: overlayOpacity }]}
           >
-            <View style={styles.modalContent}>
-              <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Make an Offer</Text>
-                <TouchableOpacity onPress={() => { Keyboard.dismiss(); setShowOfferModal(false); }}>
-                  <X size={24} color={colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
+            <TouchableOpacity style={{ flex: 1 }} activeOpacity={1} onPress={closeOfferModal} />
+          </Animated.View>
 
-              <Text style={styles.modalSubtitle}>
-                Introduce yourself to {senderName}
-              </Text>
-
-              <TextInput
-                style={styles.modalInput}
-                value={offerMessage}
-                onChangeText={setOfferMessage}
-                placeholder="Hi! I'm traveling on this route..."
-                placeholderTextColor={colors.textTertiary}
-                multiline
-                textAlignVertical="top"
-              />
-
-              <TouchableOpacity
-                style={[styles.primaryButton, submitting && styles.primaryButtonDisabled]}
-                onPress={handleMakeOffer}
-                disabled={submitting}
-              >
-                {submitting ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.primaryButtonText}>Send Offer</Text>
-                )}
+          <Animated.View
+            style={[
+              styles.modalContent,
+              { transform: [{ translateY: slideAnim }] },
+            ]}
+          >
+            <View style={styles.modalHandle} />
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Make an Offer</Text>
+              <TouchableOpacity onPress={closeOfferModal}>
+                <X size={24} color={colors.textPrimary} />
               </TouchableOpacity>
             </View>
-          </TouchableOpacity>
+
+            <Text style={styles.modalSubtitle}>
+              Introduce yourself to {senderName}
+            </Text>
+
+            <TextInput
+              style={styles.modalInput}
+              value={offerMessage}
+              onChangeText={setOfferMessage}
+              placeholder="Hi! I'm traveling on this route..."
+              placeholderTextColor={colors.textTertiary}
+              multiline
+              textAlignVertical="top"
+            />
+
+            <TouchableOpacity
+              style={[styles.primaryButton, submitting && styles.primaryButtonDisabled]}
+              onPress={handleMakeOffer}
+              disabled={submitting}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.primaryButtonText}>Send Offer</Text>
+              )}
+            </TouchableOpacity>
+          </Animated.View>
         </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
@@ -544,9 +596,9 @@ const styles = StyleSheet.create({
   bottomPadding: { height: spacing.xl * 2 },
 
   // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalTouchable: { flex: 1, justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: colors.background, borderTopLeftRadius: borderRadius.xl, borderTopRightRadius: borderRadius.xl, padding: spacing.xl },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end' },
+  modalHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: colors.border, alignSelf: 'center', marginBottom: spacing.md },
+  modalContent: { backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: spacing.xl, paddingTop: spacing.md },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: spacing.sm },
   modalTitle: { fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.xl, color: colors.textPrimary },
   modalSubtitle: { fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, color: colors.textSecondary, marginBottom: spacing.lg },
