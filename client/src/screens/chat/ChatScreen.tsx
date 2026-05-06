@@ -22,13 +22,15 @@ import {
   CheckCheck,
   CheckCircle,
   CreditCard,
-  Clock,
 } from 'lucide-react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { api } from '../../utils/api';
-import type { ConversationDetailResponse, Message } from '../../types/api';
+import { chatService, FirestoreMessage } from '../../services/chatService';
+import type { ConversationDetailResponse } from '../../types/api';
 import { colors, typography, spacing, borderRadius } from '../../theme';
+
+// ─── Types ──────────────────────────────────────────────────────────────
 
 interface ChatParams {
   conversationId?: string;
@@ -45,6 +47,65 @@ function getCurrencySymbol(currency: string) {
   }
 }
 
+// ─── Tracking Bar ───────────────────────────────────────────────────────
+
+const STEPS = ['Offer', 'Meet up', 'Ongoing', 'Delivered'];
+
+function getActiveStepIndex(status?: string): number {
+  switch (status) {
+    case 'OPEN':       return 0;
+    case 'MATCHED':    return 1;
+    case 'HANDED_OVER': return 1;
+    case 'ON_WAY':     return 2;
+    case 'DELIVERED':  return 3;
+    default:           return 0;
+  }
+}
+
+function TrackingBar({ status, onPress }: { status?: string; onPress?: () => void }) {
+  const activeIndex = getActiveStepIndex(status);
+
+  return (
+    <TouchableOpacity
+      style={styles.trackingContainer}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      {STEPS.map((label, i) => (
+        <React.Fragment key={label}>
+          {i > 0 && (
+            <View
+              style={[
+                styles.trackingLine,
+                i <= activeIndex && styles.trackingLineActive,
+              ]}
+            />
+          )}
+          <View style={styles.trackingStep}>
+            <View
+              style={[
+                styles.trackingDot,
+                i <= activeIndex && styles.trackingDotActive,
+                i === activeIndex && styles.trackingDotCurrent,
+              ]}
+            />
+            <Text
+              style={[
+                styles.trackingLabel,
+                i <= activeIndex && styles.trackingLabelActive,
+              ]}
+            >
+              {label}
+            </Text>
+          </View>
+        </React.Fragment>
+      ))}
+    </TouchableOpacity>
+  );
+}
+
+// ─── Main Component ─────────────────────────────────────────────────────
+
 export default function ChatScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -53,23 +114,28 @@ export default function ChatScreen() {
 
   const params = route.params as ChatParams;
 
+  // PostgreSQL metadata (conversation, shipment info, canMatch, etc.)
   const [conversation, setConversation] = useState<ConversationDetailResponse | null>(null);
-  const [message, setMessage] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [metaLoading, setMetaLoading] = useState(true);
+
+  // Firestore messages (real-time)
+  const [messages, setMessages] = useState<FirestoreMessage[]>([]);
+  const [messagesReady, setMessagesReady] = useState(false);
+  const [firestoreError, setFirestoreError] = useState<string | null>(null);
+
+  const [messageInput, setMessageInput] = useState('');
   const [sending, setSending] = useState(false);
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [matching, setMatching] = useState(false);
 
-  const fetchOrCreateConversation = async () => {
+  // ── Fetch conversation metadata from PostgreSQL ──
+  const fetchConversationMeta = async () => {
     if (!user) return;
-
     try {
-      // If we have a conversationId, fetch it directly
       if (params.conversationId) {
         const data = await api.conversations.getById(params.conversationId);
         setConversation(data);
       } else {
-        // Create or get conversation
         const data = await api.conversations.create({
           shipmentId: params.shipmentId,
           recipientId: params.recipientId,
@@ -81,72 +147,138 @@ export default function ChatScreen() {
       console.error('Error loading conversation:', err);
       Alert.alert('Error', errorMessage);
     } finally {
-      setLoading(false);
+      setMetaLoading(false);
     }
   };
 
   useFocusEffect(
     useCallback(() => {
-      fetchOrCreateConversation();
+      fetchConversationMeta();
     }, [user, params.conversationId, params.shipmentId])
   );
 
-  // Mark messages as read when entering the conversation
+  // ── Subscribe to Firestore messages once we have a conversation ID ──
   useEffect(() => {
-    const markAsRead = async () => {
-      if (!user || !conversation?.id) return;
-      try {
-        await api.conversations.markAsRead(conversation.id);
-      } catch (err: Error | unknown) {
-        console.error('Error marking messages as read:', err);
+    const convoId = conversation?.id;
+    if (!convoId) return;
+
+    // Safety timeout: if Firestore hasn't responded in 8s, show what we have
+    const fallbackTimer = setTimeout(() => {
+      if (!messagesReady) {
+        // Seed from PG messages if Firestore is empty / unavailable
+        const pgMessages = conversation?.messages || [];
+        if (pgMessages.length > 0) {
+          const seeded: FirestoreMessage[] = pgMessages.map((m) => ({
+            id: m.id,
+            senderId: m.senderId,
+            text: m.content,
+            type: (m.type as any) || 'TEXT',
+            mediaUrl: null,
+            location: null,
+            status: (m.status as 'SENT' | 'READ') || 'SENT',
+            createdAt: new Date(m.createdAt),
+          }));
+          setMessages(seeded);
+        }
+        setMessagesReady(true);
       }
+    }, 8000);
+
+    const unsubscribe = chatService.subscribeToMessages(
+      convoId,
+      (msgs) => {
+        clearTimeout(fallbackTimer);
+        if (msgs.length === 0 && !messagesReady) {
+          // Firestore empty — seed from PG messages (e.g. initial offer message)
+          const pgMessages = conversation?.messages || [];
+          if (pgMessages.length > 0) {
+            const seeded: FirestoreMessage[] = pgMessages.map((m) => ({
+              id: m.id,
+              senderId: m.senderId,
+              text: m.content,
+              type: (m.type as any) || 'TEXT',
+              mediaUrl: null,
+              location: null,
+              status: (m.status as 'SENT' | 'READ') || 'SENT',
+              createdAt: new Date(m.createdAt),
+            }));
+            setMessages(seeded);
+          }
+        } else {
+          setMessages(msgs);
+        }
+        setFirestoreError(null);
+        setMessagesReady(true);
+      },
+      (error) => {
+        console.error('Firestore listener error:', error);
+        clearTimeout(fallbackTimer);
+        setFirestoreError('Real-time chat unavailable');
+        // Fall back to PG messages so chat is still usable
+        const pgMessages = conversation?.messages || [];
+        const seeded: FirestoreMessage[] = pgMessages.map((m) => ({
+          id: m.id,
+          senderId: m.senderId,
+          text: m.content,
+          type: (m.type as any) || 'TEXT',
+          mediaUrl: null,
+          location: null,
+          status: (m.status as 'SENT' | 'READ') || 'SENT',
+          createdAt: new Date(m.createdAt),
+        }));
+        setMessages(seeded);
+        setMessagesReady(true);
+      }
+    );
+
+    return () => {
+      clearTimeout(fallbackTimer);
+      unsubscribe();
     };
-    markAsRead();
-  }, [user, conversation?.id]);
-
-  // Auto-refresh messages every 5 seconds
-  useEffect(() => {
-    if (!conversation) return;
-
-    const interval = setInterval(() => {
-      fetchOrCreateConversation();
-    }, 5000);
-
-    return () => clearInterval(interval);
   }, [conversation?.id]);
 
+  // ── Mark as read ──
+  useEffect(() => {
+    if (!user || !conversation?.id) return;
+    api.conversations.markAsRead(conversation.id).catch(() => {});
+  }, [user, conversation?.id]);
+
+  // ── Send message via Firestore ──
   const handleSend = async () => {
-    if (!message.trim() || !user || !conversation) return;
+    if (!messageInput.trim() || !user || !conversation) return;
 
     setSending(true);
-    const messageText = message.trim();
-    setMessage('');
+    const text = messageInput.trim();
+    setMessageInput('');
 
     try {
-      await api.conversations.sendMessage(conversation.id, messageText);
+      await chatService.sendMessage(conversation.id, {
+        senderId: user.uid,
+        text,
+        type: 'TEXT',
+      });
 
-      // Refresh conversation
-      await fetchOrCreateConversation();
+      // Notify PG of lastMessage only (for InboxScreen preview) — fire and forget
+      api.conversations.sendMessage(conversation.id, text).catch(() => {});
 
       setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
-      }, 100);
+      }, 150);
     } catch (err: Error | unknown) {
       console.error('Error sending message:', err);
-      setMessage(messageText); // Restore message
+      setMessageInput(text); // restore input on failure
       Alert.alert('Error', 'Failed to send message');
     } finally {
       setSending(false);
     }
   };
 
+  // ── Match handler (unchanged — PG + payment flow) ──
   const handleMatch = async () => {
     if (!user || !conversation) return;
-
     setMatching(true);
 
     try {
-      // Check if user has payment method
       const paymentMethodsResponse = await api.payments.getMethods();
       const paymentMethods = paymentMethodsResponse.data || [];
 
@@ -164,21 +296,26 @@ export default function ChatScreen() {
         return;
       }
 
-      // Hold payment and match
-      const result = await api.payments.holdPayment(
+      await api.payments.holdPayment(
         conversation.shipment?.id || '',
         conversation.otherUser?.id || ''
       );
 
-      // Send system message
+      // Send system message to Firestore
+      await chatService.sendMessage(conversation.id, {
+        senderId: 'system',
+        text: `🎉 Match confirmed! Payment of ${getCurrencySymbol(conversation.shipment?.currency || 'USD')}${conversation.shipment?.price || 0} has been held securely.`,
+        type: 'SYSTEM',
+      });
+
+      // Also update PG
       await api.conversations.sendMessage(
         conversation.id,
-        `🎉 Match confirmed! Payment of ${getCurrencySymbol(conversation.shipment?.currency || 'USD')}${conversation.shipment?.price || 0} has been held securely.`
+        `🎉 Match confirmed! Payment held securely.`
       );
 
       setShowMatchModal(false);
-      await fetchOrCreateConversation();
-
+      await fetchConversationMeta();
       Alert.alert('Success', 'Match confirmed! Payment has been held securely.');
     } catch (err: Error | unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to process match';
@@ -189,19 +326,19 @@ export default function ChatScreen() {
     }
   };
 
-  const formatTime = (dateString: string) => {
-    const date = new Date(dateString);
+  // ── Render helpers ──
+  const formatTime = (date: Date) => {
     return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   };
 
-  const renderMessage = ({ item }: { item: Message }) => {
+  const renderMessage = ({ item }: { item: FirestoreMessage }) => {
     const isMe = item.senderId === user?.uid;
-    const isSystem = item.type === 'SYSTEM' || item.type === 'MATCH_ACCEPTED';
+    const isSystem = item.type === 'SYSTEM';
 
     if (isSystem) {
       return (
         <View style={styles.systemMessage}>
-          <Text style={styles.systemMessageText}>{item.content}</Text>
+          <Text style={styles.systemMessageText}>{item.text}</Text>
         </View>
       );
     }
@@ -209,8 +346,13 @@ export default function ChatScreen() {
     return (
       <View style={[styles.messageContainer, isMe && styles.myMessageContainer]}>
         <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.theirBubble]}>
+          {item.type === 'OFFER' && (
+            <Text style={[styles.offerLabel, isMe && styles.myOfferLabel]}>
+              📦 Offer Message
+            </Text>
+          )}
           <Text style={[styles.messageText, isMe && styles.myMessageText]}>
-            {item.content}
+            {item.text}
           </Text>
           <View style={styles.messageFooter}>
             <Text style={[styles.messageTime, isMe && styles.myMessageTime]}>
@@ -219,7 +361,6 @@ export default function ChatScreen() {
             {isMe && (
               <View style={styles.statusTicks}>
                 {item.status === 'SENT' && <Check size={14} color={colors.textTertiary} />}
-                {item.status === 'DELIVERED' && <CheckCheck size={14} color={colors.textTertiary} />}
                 {item.status === 'READ' && <CheckCheck size={14} color="#3B82F6" />}
               </View>
             )}
@@ -233,7 +374,10 @@ export default function ChatScreen() {
     ? `${conversation.otherUser.firstName || ''} ${conversation.otherUser.lastName || ''}`.trim() || 'User'
     : params.recipientName || 'User';
 
-  if (loading) {
+  const shipmentStatus = conversation?.shipment?.status;
+
+  // ── Loading state ──
+  if (metaLoading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
@@ -243,6 +387,7 @@ export default function ChatScreen() {
     );
   }
 
+  // ── Main render ──
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
@@ -273,7 +418,6 @@ export default function ChatScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Info Button */}
           <TouchableOpacity
             style={styles.infoButton}
             onPress={() => {
@@ -301,7 +445,17 @@ export default function ChatScreen() {
         )}
       </View>
 
-
+      {/* Tracking Bar */}
+      {shipmentStatus && shipmentStatus !== 'OPEN' && shipmentStatus !== 'CANCELLED' && (
+        <TrackingBar
+          status={shipmentStatus}
+          onPress={() => {
+            if (conversation?.shipment?.id) {
+              navigation.navigate('ActivityDetail', { shipmentId: conversation.shipment.id });
+            }
+          }}
+        />
+      )}
 
       {/* Messages */}
       <KeyboardAvoidingView
@@ -309,23 +463,38 @@ export default function ChatScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
       >
-        <FlatList
-          ref={flatListRef}
-          data={conversation?.messages || []}
-          keyExtractor={(item) => item.id}
-          renderItem={renderMessage}
-          contentContainerStyle={styles.messagesList}
-          showsVerticalScrollIndicator={false}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
-          ListEmptyComponent={
-            <View style={styles.emptyMessages}>
-              <Text style={styles.emptyText}>Start the conversation!</Text>
-              <Text style={styles.emptySubtext}>
-                Introduce yourself and discuss the delivery details.
-              </Text>
-            </View>
-          }
-        />
+        {!messagesReady ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.textPrimary} />
+          </View>
+        ) : (
+          <>
+            {firestoreError && (
+              <View style={styles.offlineBanner}>
+                <Text style={styles.offlineBannerText}>
+                  ⚠️ Real-time chat unavailable — showing cached messages
+                </Text>
+              </View>
+            )}
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={(item) => item.id}
+              renderItem={renderMessage}
+              contentContainerStyle={styles.messagesList}
+              showsVerticalScrollIndicator={false}
+              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
+              ListEmptyComponent={
+                <View style={styles.emptyMessages}>
+                  <Text style={styles.emptyText}>Start the conversation!</Text>
+                  <Text style={styles.emptySubtext}>
+                    Introduce yourself and discuss the delivery details.
+                  </Text>
+                </View>
+              }
+            />
+          </>
+        )}
 
         {/* Input */}
         <View style={styles.inputWrapper}>
@@ -334,15 +503,15 @@ export default function ChatScreen() {
               style={styles.input}
               placeholder="Type a message..."
               placeholderTextColor={colors.textTertiary}
-              value={message}
-              onChangeText={setMessage}
+              value={messageInput}
+              onChangeText={setMessageInput}
               multiline
               maxLength={1000}
             />
             <TouchableOpacity
-              style={[styles.sendButton, (!message.trim() || sending) && styles.sendButtonDisabled]}
+              style={[styles.sendButton, (!messageInput.trim() || sending) && styles.sendButtonDisabled]}
               onPress={handleSend}
-              disabled={!message.trim() || sending}
+              disabled={!messageInput.trim() || sending}
             >
               {sending ? (
                 <ActivityIndicator size="small" color={colors.textInverse} />
@@ -449,30 +618,10 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.base,
     color: colors.textPrimary,
   },
-  routeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginTop: 2,
-  },
   routeText: {
     fontFamily: typography.fontFamily.regular,
     fontSize: typography.fontSize.xs,
     color: colors.textSecondary,
-  },
-  matchedBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    backgroundColor: '#22C55E20',
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 2,
-    borderRadius: borderRadius.full,
-  },
-  matchedText: {
-    fontFamily: typography.fontFamily.medium,
-    fontSize: 10,
-    color: '#22C55E',
   },
   matchButton: {
     flexDirection: 'row',
@@ -488,37 +637,73 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSize.sm,
     color: colors.textInverse,
   },
-  priceBanner: {
+  infoButton: {
+    padding: spacing.sm,
+  },
+
+  // ── Tracking Bar ──
+  trackingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     backgroundColor: colors.backgroundSecondary,
-    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  priceLabel: {
+  trackingStep: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  trackingDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.border,
+  },
+  trackingDotActive: {
+    backgroundColor: '#22C55E',
+  },
+  trackingDotCurrent: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+    borderWidth: 2,
+    borderColor: '#22C55E',
+    backgroundColor: colors.background,
+  },
+  trackingLine: {
+    flex: 1,
+    height: 2,
+    backgroundColor: colors.border,
+    marginBottom: 16, // align with dots, not labels
+  },
+  trackingLineActive: {
+    backgroundColor: '#22C55E',
+  },
+  trackingLabel: {
     fontFamily: typography.fontFamily.regular,
-    fontSize: typography.fontSize.sm,
-    color: colors.textSecondary,
+    fontSize: 10,
+    color: colors.textTertiary,
   },
-  priceValue: {
-    fontFamily: typography.fontFamily.bold,
-    fontSize: typography.fontSize.base,
+  trackingLabelActive: {
+    fontFamily: typography.fontFamily.medium,
     color: colors.textPrimary,
   },
-  pendingBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
+
+  // ── Messages ──
+  offlineBanner: {
     backgroundColor: '#FEF3C7',
-    paddingVertical: spacing.sm,
+    paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FDE68A',
   },
-  pendingText: {
+  offlineBannerText: {
     fontFamily: typography.fontFamily.medium,
-    fontSize: typography.fontSize.sm,
+    fontSize: typography.fontSize.xs,
     color: '#92400E',
+    textAlign: 'center',
   },
   keyboardView: {
     flex: 1,
@@ -573,15 +758,23 @@ const styles = StyleSheet.create({
   myMessageText: {
     color: colors.textInverse,
   },
+  messageFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
   messageTime: {
     fontFamily: typography.fontFamily.regular,
     fontSize: typography.fontSize.xs,
     color: colors.textTertiary,
-    marginTop: spacing.xs,
     alignSelf: 'flex-end',
   },
   myMessageTime: {
     color: 'rgba(255,255,255,0.7)',
+  },
+  statusTicks: {
+    marginLeft: 4,
   },
   systemMessage: {
     alignItems: 'center',
@@ -597,9 +790,18 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.lg,
     textAlign: 'center',
   },
-  infoButton: {
-    padding: spacing.sm,
+  offerLabel: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize.xs,
+    color: colors.textSecondary,
+    marginBottom: 4,
   },
+  myOfferLabel: {
+    color: colors.textInverse,
+    opacity: 0.8,
+  },
+
+  // ── Input ──
   inputWrapper: {
     paddingBottom: Platform.OS === 'ios' ? spacing.sm : 0,
     paddingHorizontal: spacing.sm,
@@ -636,7 +838,8 @@ const styles = StyleSheet.create({
   sendButtonDisabled: {
     opacity: 0.5,
   },
-  // Modal styles
+
+  // ── Modal ──
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
@@ -724,38 +927,5 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.semiBold,
     fontSize: typography.fontSize.base,
     color: colors.textInverse,
-  },
-  // Message status ticks
-  messageFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
-  },
-  statusTicks: {
-    marginLeft: 4,
-  },
-  tickGrey: {
-    fontSize: 10,
-    color: colors.textTertiary,
-  },
-  tickBlack: {
-    fontSize: 10,
-    color: colors.textPrimary,
-  },
-  tickBlue: {
-    fontSize: 10,
-    color: '#3B82F6',
-  },
-  // Offer message styling
-  offerLabel: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.fontSize.xs,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  myOfferLabel: {
-    color: colors.textInverse,
-    opacity: 0.8,
   },
 });

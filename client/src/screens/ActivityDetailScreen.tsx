@@ -104,7 +104,7 @@ export default function ActivityDetailScreen() {
     setSubmitting(true);
 
     try {
-      await api.shipments.submitOffer(shipment.id, 0); // TODO: Get price from user
+      await api.shipments.submitOffer(shipment.id, offerMessage.trim());
       setShowOfferModal(false);
       Alert.alert('Success', 'Your offer has been sent!');
     } catch (err: Error | unknown) {

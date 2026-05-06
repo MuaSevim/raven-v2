@@ -7,7 +7,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
 
-  // Enable global exception filter
+  // Enable global exception filter.
   app.useGlobalFilters(new AllExceptionsFilter());
 
   // Enable global validation pipe

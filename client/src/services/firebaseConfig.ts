@@ -3,6 +3,7 @@ import { initializeApp } from "firebase/app";
 // @ts-ignore: getReactNativePersistence is missing from web-based types but present in RN bundle
 import { initializeAuth, getReactNativePersistence } from "firebase/auth";
 import { getStorage } from "firebase/storage";
+import { getFirestore } from "firebase/firestore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const firebaseConfig = {
@@ -23,5 +24,6 @@ const auth = initializeAuth(app, {
 });
 
 const storage = getStorage(app);
+const firestore = getFirestore(app);
 
-export { auth, storage };
+export { auth, storage, firestore };

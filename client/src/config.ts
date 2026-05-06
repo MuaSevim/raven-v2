@@ -2,7 +2,7 @@
 // Update this if switching between production and local development.
 // export const API_URL = 'https://raven-v2-production.up.railway.app';
 
-
+// my home ip: 192.168.1.105
 // Local development configuration
 // Only change this if testing on a physical device
 export const LOCAL_NETWORK_IP = '192.168.1.105';

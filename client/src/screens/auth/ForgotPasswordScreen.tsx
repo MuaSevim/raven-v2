@@ -94,7 +94,12 @@ export default function ForgotPasswordScreen({ navigation, route }: Props) {
 
           <TouchableOpacity
             style={styles.doneButton}
-            onPress={() => navigation.navigate("SignIn")}
+            onPress={() => 
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'SignIn' }],
+              })
+            }
           >
             <Text style={styles.doneButtonText}>Done ✓</Text>
           </TouchableOpacity>

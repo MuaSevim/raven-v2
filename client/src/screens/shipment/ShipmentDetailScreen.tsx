@@ -159,14 +159,22 @@ export default function ShipmentDetailScreen() {
     try {
       const offer = await api.shipments.submitOffer(shipment.id, offerMessage.trim());
       setUserOffer({ id: offer.id, status: 'PENDING' });
+      
       closeOfferModal();
-      Alert.alert('Success', 'Your offer has been sent!');
+      
+      // Asynchronously transition to Chat
+      setTimeout(() => {
+        navigation.navigate('Chat', {
+          shipmentId: shipment.id,
+          recipientId: shipment.sender?.id,
+        });
+      }, 300); // wait for modal to finish closing
+
     } catch (err: Error | unknown) {
       const errObj = err as { message?: string; statusCode?: number };
       const errorMessage = errObj?.message || (err instanceof Error ? err.message : 'Failed to send offer');
       Alert.alert('Error', errorMessage);
-    } finally {
-      setSubmitting(false);
+      setSubmitting(false); // Only reset on error so button doesn't flash before transition
     }
   };
 
