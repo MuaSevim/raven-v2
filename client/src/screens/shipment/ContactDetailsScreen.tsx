@@ -206,7 +206,9 @@ export default function ContactDetailsScreen() {
     const fetchProfile = async () => {
       if (!user) return;
       try {
-        const data = await api.auth.me() as AuthMeResponse;
+        const data = await api.auth.me() as AuthMeResponse | null;
+        if (!data) return;
+
         dispatch({
           type: 'SET_PROFILE_PHONE',
           payload: { phone: data.phone || null, phoneCode: data.phoneCode || null },

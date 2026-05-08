@@ -64,11 +64,11 @@ export default function SetRouteScreen() {
       if (!user) return;
 
       const userData = await api.auth.me();
-      if (userData.country) {
+      if (userData?.country) {
         setOriginCountry(userData.country);
         setOriginCountryCode(userData.countryCode || '');
       }
-      if (userData.city) {
+      if (userData?.city) {
         setOriginCity(userData.city);
       }
     } catch (err: Error | unknown) {

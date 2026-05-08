@@ -98,7 +98,14 @@ export default function ProfileScreen() {
         try {
           const data = await api.auth.me();
           const profile = data as AuthMeResponse;
-          const avatarUrl = profile.avatar || profile.profilePicture || null;
+          
+          if (!profile) {
+            console.warn('Profile not found, possibly due to database reset. Signing out...');
+            await signOut();
+            return;
+          }
+
+          const avatarUrl = profile.avatar || (profile as any).profilePicture || null;
           setProfile({
             firstName: profile.firstName || "",
             lastName: profile.lastName || "",
