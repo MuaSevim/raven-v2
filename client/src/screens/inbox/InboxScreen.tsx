@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import { useAuthStore } from '../../store/useAuthStore';
 import { api } from '../../utils/api';
 import type { Conversation } from '../../types/api';
 import { colors, typography, spacing, borderRadius } from '../../theme';
+import SkeletonLoader from '../../components/home/SkeletonLoader';
 
 function formatTime(dateString: string) {
   const date = new Date(dateString);
@@ -164,21 +165,27 @@ export default function InboxScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Track if we've ever loaded data (for SWR)
+  const hasLoadedOnce = useRef(false);
+
   const fetchConversations = async (showRefresh = false) => {
     if (!user) return;
 
     if (showRefresh) setRefreshing(true);
-    else setLoading(true);
+    // Only show loading skeleton on first-ever load
+    else if (!hasLoadedOnce.current) setLoading(true);
 
     setError(null);
 
     try {
       const data = await api.conversations.getAll();
       setConversations(data.data || []);
+      hasLoadedOnce.current = true;
     } catch (err: Error | unknown) {
       const message = err instanceof Error ? err.message : 'Failed to fetch conversations';
       console.error('Error fetching conversations:', err);
-      setError(message);
+      // Only show error if we have no cached data
+      if (!hasLoadedOnce.current) setError(message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -216,9 +223,20 @@ export default function InboxScreen() {
 
       {/* Content */}
       {loading ? (
-        <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color={colors.textPrimary} />
-          <Text style={styles.loadingText}>Loading messages...</Text>
+        <View style={styles.skeletonContainer}>
+          {[1, 2, 3, 4, 5].map((i) => (
+            <View key={i} style={styles.skeletonItem}>
+              <SkeletonLoader width={52} height={52} borderRadius={26} />
+              <View style={styles.skeletonContent}>
+                <View style={styles.skeletonRow}>
+                  <SkeletonLoader width="60%" height={16} />
+                  <SkeletonLoader width={40} height={12} />
+                </View>
+                <SkeletonLoader width="40%" height={12} />
+                <SkeletonLoader width="80%" height={14} />
+              </View>
+            </View>
+          ))}
         </View>
       ) : error ? (
         <View style={styles.centerContainer}>
@@ -451,5 +469,24 @@ const styles = StyleSheet.create({
   messageTickPreview: {
     fontSize: 10,
     color: colors.textTertiary,
+  },
+  skeletonContainer: {
+    paddingVertical: spacing.sm,
+  },
+  skeletonItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    gap: spacing.md,
+  },
+  skeletonContent: {
+    flex: 1,
+    gap: spacing.sm,
+  },
+  skeletonRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
 });

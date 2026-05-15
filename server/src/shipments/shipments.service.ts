@@ -472,6 +472,84 @@ export class ShipmentsService {
     };
   }
 
+  /**
+   * Counter-offer — the shipment sender proposes a different price.
+   * Updates the offer's counterPrice and also updates the shipment's price.
+   */
+  async counterOffer(shipmentId: string, offerId: string, userId: string, counterPrice: number) {
+    const shipment = await this.prisma.shipment.findUnique({
+      where: { id: shipmentId },
+    });
+
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
+    }
+
+    if (shipment.senderId !== userId) {
+      throw new ForbiddenException('Only the shipment sender can counter-offer');
+    }
+
+    if (shipment.status !== ShipmentStatus.OPEN) {
+      throw new ForbiddenException('Can only counter-offer on OPEN shipments');
+    }
+
+    const offer = await this.prisma.shipmentOffer.findUnique({
+      where: { id: offerId },
+    });
+
+    if (!offer || offer.shipmentId !== shipmentId) {
+      throw new NotFoundException('Offer not found');
+    }
+
+    if (offer.status !== OfferStatus.PENDING) {
+      throw new ForbiddenException('This offer has already been processed');
+    }
+
+    // Update the offer with counter price
+    await this.prisma.shipmentOffer.update({
+      where: { id: offerId },
+      data: { counterPrice },
+    });
+
+    // Also update the shipment's listed price
+    await this.prisma.shipment.update({
+      where: { id: shipmentId },
+      data: { price: counterPrice },
+    });
+
+    // Send a system message to the conversation
+    const conversation = await this.prisma.conversation.findFirst({
+      where: { shipmentId },
+    });
+
+    if (conversation) {
+      const currency = shipment.currency || 'USD';
+      const symbol = currency === 'EUR' ? '€' : currency === 'GBP' ? '£' : '$';
+      const message = `💰 Counter offer: ${symbol}${counterPrice}`;
+
+      await this.prisma.message.create({
+        data: {
+          content: message,
+          type: MessageCategory.SYSTEM,
+          conversationId: conversation.id,
+          senderId: userId,
+        },
+      });
+
+      await this.prisma.conversation.update({
+        where: { id: conversation.id },
+        data: {
+          lastMessage: message,
+          lastMessageAt: new Date(),
+        },
+      });
+    }
+
+    return {
+      counterPrice,
+      message: `Counter offer of ${counterPrice} has been sent.`,
+    };
+  }
 
   async getUserOfferOnShipment(shipmentId: string, userId: string) {
     const offer = await this.prisma.shipmentOffer.findFirst({

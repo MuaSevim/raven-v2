@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useExitWarning } from '../../hooks/useExitWarning';
 import {
   View,
   Text,
@@ -161,8 +162,10 @@ export default function SetRouteScreen() {
     navigation.navigate('PackageDetails');
   };
 
+  const { showExitAlert } = useExitWarning();
+
   const handleClose = () => {
-    navigation.goBack();
+    showExitAlert();
   };
 
   // Filter data based on search query

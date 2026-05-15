@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useExitWarning } from '../../hooks/useExitWarning';
 import {
   View,
   Text,
@@ -134,8 +135,10 @@ export default function DeliveryWindowScreen() {
     navigation.goBack();
   };
 
+  const { showExitAlert } = useExitWarning();
+
   const handleClose = () => {
-    navigation.navigate('MainTabs');
+    showExitAlert();
   };
 
   // Generate calendar days

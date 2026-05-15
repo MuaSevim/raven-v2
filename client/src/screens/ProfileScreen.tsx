@@ -37,6 +37,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useAuthStore } from "../store/useAuthStore";
 import { colors, typography, spacing, borderRadius } from "../theme";
 import { api } from "../utils/api";
+import { invalidateCache } from "../utils/cache";
 import { VerificationModal } from "../components/ui";
 import { PHONE_COUNTRIES, PhoneCountry } from "../services/locationApi";
 import { updateEmail, sendEmailVerification } from "firebase/auth";
@@ -91,10 +92,13 @@ export default function ProfileScreen() {
   const [originalAvatar, setOriginalAvatar] = useState<string | null>(null);
 
   // Fetch profile
+  const hasLoadedProfile = React.useRef(false);
   useFocusEffect(
     useCallback(() => {
       const fetchProfile = async () => {
         if (!user) return;
+        // Only show full-screen loading on first load
+        if (!hasLoadedProfile.current) setLoading(true);
         try {
           const data = await api.auth.me();
           const profile = data as AuthMeResponse;
@@ -151,6 +155,7 @@ export default function ProfileScreen() {
           setOriginalPhone(profile.phone || "");
           setOriginalPhoneCode(profile.phoneCode || "+1");
           setOriginalAvatar(avatarUrl);
+          hasLoadedProfile.current = true;
         } catch (err: Error | unknown) {
           console.error("Error fetching profile:", err);
         } finally {
@@ -215,9 +220,10 @@ export default function ProfileScreen() {
         avatar: avatarPayload,
       });
 
-      Alert.alert("Success", "Profile updated successfully", [
-        { text: "OK", onPress: () => navigation.goBack() },
-      ]);
+      // Invalidate cached profile so next read gets fresh data
+      invalidateCache('auth:me');
+
+      // Update local "original" state so hasChanges resets to false
       setOriginalFirstName(firstName);
       setOriginalLastName(lastName);
       if (emailChanged) setOriginalEmail(email);
@@ -226,8 +232,8 @@ export default function ProfileScreen() {
       setOriginalAvatar(avatarUrl || null);
       setAvatar(avatarUrl || null);
 
-      // If email changed, the auth state change automatically handles
-      // redirecting to email verification — no manual navigate needed.
+      // Show success — stay on current screen (no navigation)
+      Alert.alert("Success", "Profile updated successfully");
     } catch (err: any) {
       const message = err?.message || "Failed to update profile";
       Alert.alert("Error", String(message));

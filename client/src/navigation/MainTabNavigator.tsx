@@ -64,7 +64,8 @@ export default function MainTabNavigator() {
                 color={color}
                 strokeWidth={focused ? 2.5 : 1.5}
               />
-              {unreadCount > 0 && (
+              {/* Hide badge when user is ON Home — they already see the inbox indicator */}
+              {unreadCount > 0 && !focused && (
                 <View style={styles.badge}>
                   <Text style={styles.badgeText}>
                     {unreadCount > 99 ? '99+' : unreadCount}

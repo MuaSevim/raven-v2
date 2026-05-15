@@ -206,6 +206,7 @@ model ShipmentOffer {
   
   // Offer Details
   message     String
+  counterPrice Float?    // Sender's counter-proposed price (null if no counter-offer)
   
   // Status
   status      OfferStatus @default(PENDING)

@@ -24,6 +24,9 @@ import {
   Package,
   Truck,
   Clock,
+  DollarSign,
+  Minus,
+  Plus,
 } from 'lucide-react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -103,12 +106,13 @@ interface ActionCardProps {
   conversation: ConversationDetailResponse;
   userId: string;
   onAcceptOffer: (offerId: string) => void;
+  onCounterOffer: (offerId: string) => void;
   onConfirmHandover: () => void;
   onConfirmDelivery: () => void;
   loading: boolean;
 }
 
-function ActionCard({ conversation, userId, onAcceptOffer, onConfirmHandover, onConfirmDelivery, loading }: ActionCardProps) {
+function ActionCard({ conversation, userId, onAcceptOffer, onCounterOffer, onConfirmHandover, onConfirmDelivery, loading }: ActionCardProps) {
   const shipment = conversation.shipment as any;
   if (!shipment) return null;
 
@@ -147,7 +151,7 @@ function ActionCard({ conversation, userId, onAcceptOffer, onConfirmHandover, on
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.actionBtnOutline}
-              onPress={() => {/* TODO: Counter offer flow */}}
+              onPress={() => onCounterOffer(pendingOffer.id)}
             >
               <Text style={styles.actionBtnOutlineText}>Counter Offer</Text>
             </TouchableOpacity>
@@ -280,6 +284,11 @@ export default function ChatScreen() {
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [matching, setMatching] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+
+  // Counter-offer state
+  const [showCounterModal, setShowCounterModal] = useState(false);
+  const [counterOfferId, setCounterOfferId] = useState<string | null>(null);
+  const [counterPrice, setCounterPrice] = useState(0);
 
   // ── Fetch conversation metadata from PostgreSQL (once on mount only) ──
   const fetchConversationMeta = useCallback(async () => {
@@ -474,6 +483,33 @@ export default function ChatScreen() {
       await fetchConversationMeta();
     } catch (err: any) {
       Alert.alert('Error', err?.message || 'Failed to accept offer');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // ── Counter Offer ──
+  const handleOpenCounterOffer = (offerId: string) => {
+    setCounterOfferId(offerId);
+    setCounterPrice(conversation?.shipment?.price || 50);
+    setShowCounterModal(true);
+  };
+
+  const handleSubmitCounterOffer = async () => {
+    if (!conversation?.shipment?.id || !counterOfferId) return;
+    setActionLoading(true);
+    try {
+      await api.shipments.counterOffer(conversation.shipment.id, counterOfferId, counterPrice);
+      const currency = getCurrencySymbol(conversation.shipment?.currency || 'USD');
+      await chatService.sendMessage(conversation.id, {
+        senderId: 'system',
+        text: `💰 Counter offer: ${currency}${counterPrice}`,
+        type: 'SYSTEM',
+      });
+      setShowCounterModal(false);
+      await fetchConversationMeta();
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to send counter offer');
     } finally {
       setActionLoading(false);
     }
@@ -690,6 +726,7 @@ export default function ChatScreen() {
           conversation={conversation}
           userId={user.uid}
           onAcceptOffer={handleAcceptOffer}
+          onCounterOffer={handleOpenCounterOffer}
           onConfirmHandover={handleConfirmHandover}
           onConfirmDelivery={handleConfirmDelivery}
           loading={actionLoading}
@@ -811,6 +848,83 @@ export default function ChatScreen() {
                   <ActivityIndicator size="small" color={colors.textInverse} />
                 ) : (
                   <Text style={styles.modalConfirmText}>Confirm Match</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Counter Offer Modal */}
+      <Modal
+        visible={showCounterModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCounterModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.counterModalContent}>
+            <View style={styles.counterModalHandle} />
+            <Text style={styles.counterModalTitle}>Counter Offer</Text>
+            <Text style={styles.counterModalDesc}>
+              Propose a different price for this delivery.
+            </Text>
+
+            {/* Price Display */}
+            <View style={styles.counterPriceDisplay}>
+              <Text style={styles.counterPriceSymbol}>
+                {getCurrencySymbol(conversation?.shipment?.currency || 'USD')}
+              </Text>
+              <Text style={styles.counterPriceValue}>{counterPrice}</Text>
+            </View>
+
+            {/* Price Controls */}
+            <View style={styles.counterPriceControls}>
+              <TouchableOpacity
+                style={styles.counterPriceBtn}
+                onPress={() => setCounterPrice(p => Math.max(5, p - 5))}
+              >
+                <Minus size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
+
+              <View style={styles.counterSliderTrack}>
+                <View style={[
+                  styles.counterSliderFill,
+                  { width: `${Math.min(100, ((counterPrice - 5) / 95) * 100)}%` }
+                ]} />
+              </View>
+
+              <TouchableOpacity
+                style={styles.counterPriceBtn}
+                onPress={() => setCounterPrice(p => Math.min(100, p + 5))}
+              >
+                <Plus size={20} color={colors.textPrimary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.counterPriceRange}>
+              <Text style={styles.counterPriceRangeText}>$5</Text>
+              <Text style={styles.counterPriceRangeText}>$100</Text>
+            </View>
+
+            {/* Buttons */}
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowCounterModal(false)}
+                disabled={actionLoading}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConfirmButton}
+                onPress={handleSubmitCounterOffer}
+                disabled={actionLoading}
+              >
+                {actionLoading ? (
+                  <ActivityIndicator size="small" color={colors.textInverse} />
+                ) : (
+                  <Text style={styles.modalConfirmText}>Send Offer</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1242,5 +1356,92 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.semiBold,
     fontSize: typography.fontSize.base,
     color: colors.textInverse,
+  },
+  // Counter-offer modal styles
+  counterModalContent: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: spacing.lg,
+    paddingBottom: spacing.xl * 2,
+    width: '100%',
+    position: 'absolute',
+    bottom: 0,
+  },
+  counterModalHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: colors.border,
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: spacing.lg,
+  },
+  counterModalTitle: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.fontSize.xl,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  counterModalDesc: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+  },
+  counterPriceDisplay: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  counterPriceSymbol: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: 32,
+    color: colors.textPrimary,
+  },
+  counterPriceValue: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: 56,
+    color: colors.textPrimary,
+    marginLeft: spacing.xs,
+  },
+  counterPriceControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.xs,
+  },
+  counterPriceBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.backgroundSecondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  counterSliderTrack: {
+    flex: 1,
+    height: 6,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  counterSliderFill: {
+    height: '100%',
+    backgroundColor: colors.textPrimary,
+    borderRadius: 3,
+  },
+  counterPriceRange: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing.xl,
+    paddingHorizontal: 52,
+  },
+  counterPriceRangeText: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.xs,
+    color: colors.textTertiary,
   },
 });

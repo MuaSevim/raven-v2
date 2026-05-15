@@ -98,6 +98,20 @@ export class ShipmentsController {
     return this.shipmentsService.acceptOffer(id, offerId, req.user.uid);
   }
 
+  /**
+   * Counter-offer — sender proposes a different price.
+   * POST /shipments/:id/offers/:offerId/counter
+   */
+  @Post(':id/offers/:offerId/counter')
+  counterOffer(
+    @Request() req,
+    @Param('id') id: string,
+    @Param('offerId') offerId: string,
+    @Body('counterPrice') counterPrice: number,
+  ) {
+    return this.shipmentsService.counterOffer(id, offerId, req.user.uid, counterPrice);
+  }
+
   @Get(':id/my-offer')
   getMyOffer(@Request() req, @Param('id') id: string) {
     return this.shipmentsService.getUserOfferOnShipment(id, req.user.uid);

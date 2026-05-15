@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useExitWarning } from '../../hooks/useExitWarning';
 import {
   View,
   Text,
@@ -131,8 +132,10 @@ export default function PackageDetailsScreen() {
     navigation.goBack();
   };
 
+  const { showExitAlert } = useExitWarning();
+
   const handleClose = () => {
-    navigation.navigate('MainTabs');
+    showExitAlert();
   };
 
   const getUnitLabel = () => {

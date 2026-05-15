@@ -190,7 +190,9 @@ export const api = {
       }),
 
     me: () =>
-      apiRequest<AuthMeResponse>('/auth/me', { method: 'GET' }),
+      withCache('auth:me', 60_000, () =>
+        apiRequest<AuthMeResponse>('/auth/me', { method: 'GET' })
+      ),
 
     updateProfile: (data: Record<string, unknown>) =>
       apiRequest<User>('/auth/me', {
@@ -224,25 +226,25 @@ export const api = {
       ),
 
     getMyShipments: () =>
-      withCache('shipments:my:sent', 15_000, () =>
+      withCache('shipments:my:sent', 30_000, () =>
         apiRequest<ShipmentsResponse | Shipment[]>('/shipments/my/sent', { method: 'GET' })
           .then(normalizeShipmentList)
       ),
 
     getMyDeliveries: () =>
-      withCache('shipments:my:delivering', 15_000, () =>
+      withCache('shipments:my:delivering', 30_000, () =>
         apiRequest<ShipmentsResponse | Shipment[]>('/shipments/my/delivering', { method: 'GET' })
           .then(normalizeShipmentList)
       ),
 
     getMyOffers: () =>
-      withCache('shipments:my:offers', 15_000, () =>
+      withCache('shipments:my:offers', 30_000, () =>
         apiRequest<ShipmentsResponse | Shipment[]>('/shipments/my/offers', { method: 'GET' })
           .then(normalizeShipmentList)
       ),
 
     getAvailableShipments: () =>
-      withCache('shipments:available', 20_000, () =>
+      withCache('shipments:available', 45_000, () =>
         apiRequest<ShipmentsResponse | Shipment[]>('/shipments', { method: 'GET' })
           .then(normalizeShipmentList)
       ),
@@ -273,6 +275,18 @@ export const api = {
       });
     },
 
+    counterOffer: async (shipmentId: string, offerId: string, counterPrice: number) => {
+      invalidateCache('shipments:');
+      invalidateCache('conversations:');
+      return apiRequest<{ counterPrice: number; message: string }>(
+        `/shipments/${shipmentId}/offers/${offerId}/counter`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ counterPrice }),
+        }
+      );
+    },
+
     confirmHandover: (shipmentId: string) =>
       apiRequest<{ message: string; shipment: Shipment }>(
         `/shipments/${shipmentId}/confirm-handover`,
@@ -289,7 +303,7 @@ export const api = {
   // === CONVERSATION ENDPOINTS ===
   conversations: {
     getAll: () =>
-      withCache('conversations:all', 10_000, () =>
+      withCache('conversations:all', 30_000, () =>
         apiRequest<ConversationsResponse | Conversation[]>('/conversations', { method: 'GET' })
           .then(res => Array.isArray(res) ? { data: res } : res)
       ),

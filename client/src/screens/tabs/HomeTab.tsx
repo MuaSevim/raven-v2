@@ -91,13 +91,14 @@ export default function HomeTab() {
           // Always exclude CANCELLED
           if (s.status === 'CANCELLED') return false;
 
-          // Include DELIVERED if delivered within last 2 days
+          // Include DELIVERED/COMPLETED only if delivered within last 2 days
           if (s.status === 'COMPLETED') {
             const deliveredAt = new Date(s.updatedAt);
             return deliveredAt >= twoDaysAgo;
           }
 
-          // Include all other active statuses
+          // Include ALL other statuses: OPEN, MATCHED, IN_TRANSIT, etc.
+          // This intentionally includes future-dated shipments (OPEN/MATCHED with dateStart in the future)
           return true;
         })
         .map((s: Shipment) => ({
