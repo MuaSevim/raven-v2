@@ -76,9 +76,15 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
     try {
       const emailLower = email.trim().toLowerCase();
 
-      // Check if email exists in our system first
+      // Check if email exists in our system first with a short 3-second timeout
+      // to prevent hanging if the backend network is unreachable.
       try {
-        const { exists } = await authApi.checkEmail(emailLower);
+        const checkPromise = authApi.checkEmail(emailLower);
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), 3000)
+        );
+        const { exists } = await Promise.race([checkPromise, timeoutPromise]) as { exists: boolean };
+        
         if (!exists) {
           setErrors({ email: "Account doesn't exist" });
           setIsLoading(false);
@@ -86,7 +92,7 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
         }
       } catch (checkError) {
         console.error('Email check error:', checkError);
-        // If check fails, we still try to proceed with Firebase
+        // If check fails or times out, we still try to proceed with Firebase
       }
 
       // Sign in directly with Firebase
@@ -94,7 +100,10 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
       setFailedLoginAttempts(0);
 
       if (!credential.user.emailVerified) {
-        navigation.navigate('EmailVerificationWaiting', { email: emailLower });
+        // App.tsx auth listener handles routing automatically, 
+        // but just in case, we can clear the form
+        setEmail('');
+        setPassword('');
       }
 
     } catch (error: any) {
@@ -109,28 +118,24 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
           break;
         case 'auth/wrong-password':
         case 'auth/invalid-credential':
-          // Password is incorrect or user not found (Firebase combines these for security)
+          // Password is incorrect or user not found
           passwordError = 'Incorrect credentials. Please try again.';
           setFailedLoginAttempts((prev) => prev + 1);
           setPassword(''); // Clear password field
           break;
         case 'auth/user-disabled':
-          // Account has been disabled
           emailError = 'This account has been disabled';
           break;
         case 'auth/too-many-requests':
-          // Too many failed login attempts
           passwordError = 'Too many failed attempts. Please try again later.';
           break;
         case 'auth/network-request-failed':
-          // Network error
           emailError = 'Network error. Please check your connection.';
           break;
         case 'auth/invalid-email':
           emailError = 'Invalid email address';
           break;
         default:
-          // Log unexpected errors for debugging
           console.error('Sign in error:', error.code, error.message);
           emailError = error.message || 'An unexpected error occurred. Please try again.';
       }
@@ -165,7 +170,7 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
               />
             </View>
             <Text style={styles.brandName}>RAVEN</Text>
-            <Text style={styles.tagline}>"Delivery has never been easier"</Text>
+            <Text style={styles.tagline}>"Travel around the planet"</Text>
           </View>
 
           {/* Form Section */}
@@ -229,6 +234,9 @@ export default function SignInScreen({ navigation }: SignInScreenProps) {
             <TouchableOpacity
               onPress={() => {
                 resetSignup();
+                setEmail('');
+                setPassword('');
+                setErrors({});
                 navigation.navigate('SignUpStep1');
               }}
             >

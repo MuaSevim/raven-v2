@@ -5,7 +5,11 @@
 // my home ip: 192.168.1.105
 // Local development configuration
 // Only change this if testing on a physical device
+// phone's router:
+// export const LOCAL_NETWORK_IP = '10.35.227.149';
+// home:
 export const LOCAL_NETWORK_IP = '192.168.1.105';
+
 
 // API URL for the backend server
 export const API_URL = `http://${LOCAL_NETWORK_IP}:3000`;

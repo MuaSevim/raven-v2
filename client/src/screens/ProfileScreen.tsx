@@ -73,8 +73,8 @@ export default function ProfileScreen() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [phoneCode, setPhoneCode] = useState("+1");
-  const [countryCode, setCountryCode] = useState("US");
+  const [phoneCode, setPhoneCode] = useState("");
+  const [countryCode, setCountryCode] = useState("");
   const [avatar, setAvatar] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -87,7 +87,7 @@ export default function ProfileScreen() {
   const [originalLastName, setOriginalLastName] = useState("");
   const [originalEmail, setOriginalEmail] = useState("");
   const [originalPhone, setOriginalPhone] = useState("");
-  const [originalPhoneCode, setOriginalPhoneCode] = useState("+1");
+  const [originalPhoneCode, setOriginalPhoneCode] = useState("");
   const [originalAvatar, setOriginalAvatar] = useState<string | null>(null);
 
   // Fetch profile
@@ -119,26 +119,31 @@ export default function ProfileScreen() {
           setLastName(profile.lastName || "");
           setEmail(profile.email || "");
           setPhone(profile.phone || "");
-          setPhoneCode(profile.phoneCode || "+1");
           setAvatar(avatarUrl);
 
-          // Find country code from stored countryCode or phone code
+          // Determine country code & phone code from what the DB actually has
           const storedCountryCode = (profile as any).countryCode;
+          const storedPhoneCode = profile.phoneCode;
+
+          // Step 1: Find the country entry
           let country: (typeof PHONE_COUNTRIES)[number] | undefined;
+
+          // Prefer stored countryCode (e.g. "TR")
           if (storedCountryCode) {
             country = PHONE_COUNTRIES.find((c) => c.code === storedCountryCode);
           }
-          if (!country) {
-            // Fallback: look up by dial code, prefer US for +1 if ambiguous
-            country = PHONE_COUNTRIES.find(
-              (c) => c.dialCode === (profile.phoneCode || "+1")
-            );
-            if ((profile.phoneCode || "+1") === "+1") {
-              country = PHONE_COUNTRIES.find((c) => c.code === "US");
-            }
+
+          // Fallback: look up by phone dial code
+          if (!country && storedPhoneCode) {
+            country = PHONE_COUNTRIES.find((c) => c.dialCode === storedPhoneCode);
           }
 
-          setCountryCode(country?.code || "US");
+          // If we found a country but user has no phone code stored, auto-fill with that country's dial code
+          const resolvedPhoneCode = storedPhoneCode || country?.dialCode || "+1";
+          const resolvedCountryCode = country?.code || storedCountryCode || "US";
+
+          setPhoneCode(resolvedPhoneCode);
+          setCountryCode(resolvedCountryCode);
 
           setOriginalFirstName(profile.firstName || "");
           setOriginalLastName(profile.lastName || "");

@@ -6,6 +6,7 @@
 import { API_URL } from '../config';
 import { useAuthStore } from '../store/useAuthStore';
 import { auth } from '../services/firebaseConfig';
+import { withCache, invalidateCache } from './cache';
 import type {
   User,
   AuthResponse,
@@ -218,22 +219,33 @@ export const api = {
       }),
 
     getById: (id: string) =>
-      apiRequest<Shipment>(`/shipments/${id}`, { method: 'GET' }),
+      withCache(`shipments:${id}`, 30_000, () =>
+        apiRequest<Shipment>(`/shipments/${id}`, { method: 'GET' })
+      ),
 
     getMyShipments: () =>
-      apiRequest<ShipmentsResponse | Shipment[]>('/shipments/my/sent', {
-        method: 'GET',
-      }).then(normalizeShipmentList),
+      withCache('shipments:my:sent', 15_000, () =>
+        apiRequest<ShipmentsResponse | Shipment[]>('/shipments/my/sent', { method: 'GET' })
+          .then(normalizeShipmentList)
+      ),
 
     getMyDeliveries: () =>
-      apiRequest<ShipmentsResponse | Shipment[]>('/shipments/my/delivering', {
-        method: 'GET',
-      }).then(normalizeShipmentList),
+      withCache('shipments:my:delivering', 15_000, () =>
+        apiRequest<ShipmentsResponse | Shipment[]>('/shipments/my/delivering', { method: 'GET' })
+          .then(normalizeShipmentList)
+      ),
+
+    getMyOffers: () =>
+      withCache('shipments:my:offers', 15_000, () =>
+        apiRequest<ShipmentsResponse | Shipment[]>('/shipments/my/offers', { method: 'GET' })
+          .then(normalizeShipmentList)
+      ),
 
     getAvailableShipments: () =>
-      apiRequest<ShipmentsResponse | Shipment[]>('/shipments', {
-        method: 'GET',
-      }).then(normalizeShipmentList),
+      withCache('shipments:available', 20_000, () =>
+        apiRequest<ShipmentsResponse | Shipment[]>('/shipments', { method: 'GET' })
+          .then(normalizeShipmentList)
+      ),
 
     getOffers: (shipmentId: string) =>
       apiRequest<ShipmentOffersResponse>(`/shipments/${shipmentId}/offers`, {
@@ -245,16 +257,21 @@ export const api = {
         method: 'GET',
       }),
 
-    submitOffer: (shipmentId: string, message: string) =>
-      apiRequest<ShipmentOffer>(`/shipments/${shipmentId}/offers`, {
+    submitOffer: async (shipmentId: string, message: string) => {
+      invalidateCache('shipments:');
+      invalidateCache('conversations:');
+      return apiRequest<ShipmentOffer>(`/shipments/${shipmentId}/offers`, {
         method: 'POST',
         body: JSON.stringify({ message }),
-      }),
+      });
+    },
 
-    acceptOffer: (shipmentId: string, offerId: string) =>
-      apiRequest<Shipment>(`/shipments/${shipmentId}/offers/${offerId}/accept`, {
+    acceptOffer: async (shipmentId: string, offerId: string) => {
+      invalidateCache('shipments:');
+      return apiRequest<Shipment>(`/shipments/${shipmentId}/offers/${offerId}/accept`, {
         method: 'POST',
-      }),
+      });
+    },
 
     confirmHandover: (shipmentId: string) =>
       apiRequest<{ message: string; shipment: Shipment }>(
@@ -272,7 +289,10 @@ export const api = {
   // === CONVERSATION ENDPOINTS ===
   conversations: {
     getAll: () =>
-      apiRequest<ConversationsResponse>('/conversations', { method: 'GET' }),
+      withCache('conversations:all', 10_000, () =>
+        apiRequest<ConversationsResponse | Conversation[]>('/conversations', { method: 'GET' })
+          .then(res => Array.isArray(res) ? { data: res } : res)
+      ),
 
     getUnread: () =>
       apiRequest<UnreadConversationsResponse>('/conversations/unread', {
@@ -280,15 +300,17 @@ export const api = {
       }),
 
     getById: (id: string) =>
-      apiRequest<ConversationDetailResponse>(`/conversations/${id}`, {
-        method: 'GET',
-      }),
+      withCache(`conversations:${id}`, 20_000, () =>
+        apiRequest<ConversationDetailResponse>(`/conversations/${id}`, { method: 'GET' })
+      ),
 
-    create: (data: Record<string, unknown>) =>
-      apiRequest<Conversation>('/conversations', {
+    create: async (data: Record<string, unknown>) => {
+      invalidateCache('conversations:');
+      return apiRequest<Conversation>('/conversations', {
         method: 'POST',
         body: JSON.stringify(data),
-      }),
+      });
+    },
 
     markAsRead: (id: string) =>
       apiRequest<{ message: string }>(`/conversations/${id}/read`, {

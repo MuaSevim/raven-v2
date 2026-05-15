@@ -85,6 +85,18 @@ export class ShipmentsController {
   }
 
 
+  /**
+   * Accept an offer — only the shipment sender can do this.
+   * Changes Offer → ACCEPTED, Shipment → MATCHED, assigns courier.
+   */
+  @Post(':id/offers/:offerId/accept')
+  acceptOffer(
+    @Request() req,
+    @Param('id') id: string,
+    @Param('offerId') offerId: string,
+  ) {
+    return this.shipmentsService.acceptOffer(id, offerId, req.user.uid);
+  }
 
   @Get(':id/my-offer')
   getMyOffer(@Request() req, @Param('id') id: string) {

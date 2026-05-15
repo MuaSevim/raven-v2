@@ -63,6 +63,7 @@ export default function HomeTab() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const hasData = activeItems.length > 0 || !loading;
 
 
   // Fetch dashboard data
@@ -74,7 +75,7 @@ export default function HomeTab() {
         api.shipments.getMyShipments(),
         api.shipments.getMyDeliveries(),
         api.payments.getTransactions(),
-        api.shipments.getMyShipments(), // Note: Adjust if this API differs
+        api.shipments.getMyOffers(), // Fixed: Now correctly calls getMyOffers
         api.conversations.getUnread(),
       ]);
 
@@ -183,7 +184,7 @@ export default function HomeTab() {
       setActiveItems(allItems);
 
       // Unread count
-      setUnreadCount(unreadRes.unread || 0);
+      setUnreadCount(unreadRes.unreadCount || 0);
 
 
     } catch (err: Error | unknown) {
@@ -196,6 +197,10 @@ export default function HomeTab() {
 
   useFocusEffect(
     useCallback(() => {
+      // On first load show skeleton; subsequent focuses show stale data + silently refresh
+      if (activeItems.length === 0) {
+        setLoading(true);
+      }
       fetchDashboard();
     }, [fetchDashboard])
   );

@@ -171,8 +171,8 @@ export default function ReviewShipmentScreen() {
         imageUrl: uploadedImageUrl,
 
         // Dates
-        dateStart: draft.dateStart.toISOString(),
-        dateEnd: draft.dateEnd.toISOString(),
+        dateStart: draft.dateStart ? draft.dateStart.toISOString() : new Date().toISOString(),
+        dateEnd: draft.dateEnd ? draft.dateEnd.toISOString() : new Date().toISOString(),
 
         // Pricing
         price: draft.price,

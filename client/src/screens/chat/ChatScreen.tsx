@@ -16,14 +16,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import {
   ArrowLeft,
   Send,
-  BadgeCheck,
   Info,
   Check,
   CheckCheck,
   CheckCircle,
   CreditCard,
+  Package,
+  Truck,
+  Clock,
 } from 'lucide-react-native';
-import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { api } from '../../utils/api';
 import { chatService, FirestoreMessage } from '../../services/chatService';
@@ -49,59 +51,209 @@ function getCurrencySymbol(currency: string) {
 
 // ─── Tracking Bar ───────────────────────────────────────────────────────
 
-const STEPS = ['Offer', 'Meet up', 'Ongoing', 'Delivered'];
+const STEPS = ['Offer', 'Meet up', 'Ongoing', 'Successful'];
 
 function getActiveStepIndex(status?: string): number {
   switch (status) {
-    case 'OPEN':       return 0;
-    case 'MATCHED':    return 1;
+    case 'OPEN':        return 0;
+    case 'MATCHED':     return 1;
     case 'HANDED_OVER': return 1;
-    case 'ON_WAY':     return 2;
-    case 'DELIVERED':  return 3;
-    default:           return 0;
+    case 'ON_WAY':      return 2;
+    case 'DELIVERED':   return 3;
+    default:            return 0;
   }
 }
 
-function TrackingBar({ status, onPress }: { status?: string; onPress?: () => void }) {
+function TrackingBar({ status }: { status?: string }) {
   const activeIndex = getActiveStepIndex(status);
 
   return (
-    <TouchableOpacity
-      style={styles.trackingContainer}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      {STEPS.map((label, i) => (
-        <React.Fragment key={label}>
-          {i > 0 && (
-            <View
-              style={[
-                styles.trackingLine,
-                i <= activeIndex && styles.trackingLineActive,
-              ]}
-            />
-          )}
-          <View style={styles.trackingStep}>
-            <View
-              style={[
+    <View style={styles.trackingContainer}>
+      {STEPS.map((label, i) => {
+        const isComplete = i < activeIndex;
+        const isActive = i === activeIndex;
+        const isReached = isComplete || isActive;
+        return (
+          <React.Fragment key={label}>
+            {i > 0 && (
+              <View style={[styles.trackingLine, isComplete && styles.trackingLineActive]} />
+            )}
+            <View style={styles.trackingStep}>
+              <View style={[
                 styles.trackingDot,
-                i <= activeIndex && styles.trackingDotActive,
-                i === activeIndex && styles.trackingDotCurrent,
-              ]}
-            />
-            <Text
-              style={[
+                isReached && styles.trackingDotActive,
+              ]}>
+                {isComplete && <Check size={7} color={colors.textInverse} strokeWidth={3} />}
+              </View>
+              <Text style={[
                 styles.trackingLabel,
-                i <= activeIndex && styles.trackingLabelActive,
-              ]}
-            >
-              {label}
-            </Text>
-          </View>
-        </React.Fragment>
-      ))}
-    </TouchableOpacity>
+                isReached && styles.trackingLabelActive,
+              ]}>{label}</Text>
+            </View>
+          </React.Fragment>
+        );
+      })}
+    </View>
   );
+}
+
+// ─── Action Card ────────────────────────────────────────────────────────
+
+interface ActionCardProps {
+  conversation: ConversationDetailResponse;
+  userId: string;
+  onAcceptOffer: (offerId: string) => void;
+  onConfirmHandover: () => void;
+  onConfirmDelivery: () => void;
+  loading: boolean;
+}
+
+function ActionCard({ conversation, userId, onAcceptOffer, onConfirmHandover, onConfirmDelivery, loading }: ActionCardProps) {
+  const shipment = conversation.shipment as any;
+  if (!shipment) return null;
+
+  const status = shipment.status;
+  const isSender = shipment.senderId === userId;
+  const currency = getCurrencySymbol(shipment.currency || 'USD');
+  const price = shipment.price || 0;
+
+  // State 1: OPEN — Show offer info + Accept button for sender
+  if (status === 'OPEN') {
+    const pendingOffer = shipment.offers?.find((o: any) => o.status === 'PENDING');
+    if (!pendingOffer) return null;
+
+    const courierName = pendingOffer.courier
+      ? `${pendingOffer.courier.firstName || ''} ${pendingOffer.courier.lastName || ''}`.trim()
+      : 'Courier';
+
+    if (isSender) {
+      return (
+        <View style={styles.actionCard}>
+          <View style={styles.actionCardHeader}>
+            <Package size={18} color={colors.textPrimary} />
+            <Text style={styles.actionCardTitle}>Delivery Offer</Text>
+            <Text style={styles.actionCardPrice}>{currency}{price}</Text>
+          </View>
+          <Text style={styles.actionCardDesc}>
+            {courierName} proposes to transport your item.
+          </Text>
+          <View style={styles.actionCardButtons}>
+            <TouchableOpacity
+              style={styles.actionBtnPrimary}
+              onPress={() => onAcceptOffer(pendingOffer.id)}
+              disabled={loading}
+            >
+              {loading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.actionBtnPrimaryText}>Accept</Text>}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.actionBtnOutline}
+              onPress={() => {/* TODO: Counter offer flow */}}
+            >
+              <Text style={styles.actionBtnOutlineText}>Counter Offer</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      );
+    }
+    // Courier sees "Awaiting Response"
+    return (
+      <View style={styles.actionCard}>
+        <View style={styles.actionCardHeader}>
+          <Clock size={18} color={colors.textSecondary} />
+          <Text style={styles.actionCardTitle}>Offer Sent</Text>
+          <Text style={styles.actionCardPrice}>{currency}{price}</Text>
+        </View>
+        <Text style={styles.actionCardDesc}>Waiting for the sender to review your offer.</Text>
+      </View>
+    );
+  }
+
+  // State 2: MATCHED — Confirm Handover
+  if (status === 'MATCHED' || status === 'HANDED_OVER') {
+    const myConfirmed = isSender ? shipment.senderConfirmedHandover : shipment.courierConfirmedHandover;
+    const otherConfirmed = isSender ? shipment.courierConfirmedHandover : shipment.senderConfirmedHandover;
+
+    return (
+      <View style={styles.actionCard}>
+        <View style={styles.actionCardHeader}>
+          <CheckCircle size={18} color={colors.textPrimary} />
+          <Text style={styles.actionCardTitle}>Meet Up Phase</Text>
+        </View>
+        <Text style={styles.actionCardDesc}>
+          Meet with your {isSender ? 'courier' : 'sender'} to hand over the package.
+        </Text>
+        <View style={styles.actionCardButtons}>
+          {myConfirmed ? (
+            <View style={styles.actionBtnDisabled}>
+              <Clock size={14} color={colors.textTertiary} />
+              <Text style={styles.actionBtnDisabledText}>
+                {otherConfirmed ? 'Both confirmed!' : 'Waiting for other party...'}
+              </Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.actionBtnPrimary}
+              onPress={onConfirmHandover}
+              disabled={loading}
+            >
+              {loading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.actionBtnPrimaryText}>Confirm Handover</Text>}
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  // State 3: ON_WAY — Confirm Delivery
+  if (status === 'ON_WAY') {
+    const myConfirmed = isSender ? shipment.senderConfirmedDelivery : shipment.courierConfirmedDelivery;
+    const otherConfirmed = isSender ? shipment.courierConfirmedDelivery : shipment.senderConfirmedDelivery;
+
+    return (
+      <View style={styles.actionCard}>
+        <View style={styles.actionCardHeader}>
+          <Truck size={18} color={colors.textPrimary} />
+          <Text style={styles.actionCardTitle}>In Transit</Text>
+        </View>
+        <Text style={styles.actionCardDesc}>
+          Package is on the way. Confirm when delivery is complete.
+        </Text>
+        <View style={styles.actionCardButtons}>
+          {myConfirmed ? (
+            <View style={styles.actionBtnDisabled}>
+              <Clock size={14} color={colors.textTertiary} />
+              <Text style={styles.actionBtnDisabledText}>
+                {otherConfirmed ? 'Delivery confirmed!' : 'Waiting for other party...'}
+              </Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              style={styles.actionBtnPrimary}
+              onPress={onConfirmDelivery}
+              disabled={loading}
+            >
+              {loading ? <ActivityIndicator size="small" color="#fff" /> : <Text style={styles.actionBtnPrimaryText}>Confirm Delivery</Text>}
+            </TouchableOpacity>
+          )}
+        </View>
+      </View>
+    );
+  }
+
+  // State 4: DELIVERED — Complete
+  if (status === 'DELIVERED') {
+    return (
+      <View style={styles.actionCard}>
+        <View style={styles.actionCardHeader}>
+          <CheckCircle size={18} color={colors.textPrimary} />
+          <Text style={styles.actionCardTitle}>Delivery Complete</Text>
+        </View>
+        <Text style={styles.actionCardDesc}>Package has been delivered successfully! 🎉</Text>
+      </View>
+    );
+  }
+
+  return null;
 }
 
 // ─── Main Component ─────────────────────────────────────────────────────
@@ -127,20 +279,51 @@ export default function ChatScreen() {
   const [sending, setSending] = useState(false);
   const [showMatchModal, setShowMatchModal] = useState(false);
   const [matching, setMatching] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
 
-  // ── Fetch conversation metadata from PostgreSQL ──
-  const fetchConversationMeta = async () => {
+  // ── Fetch conversation metadata from PostgreSQL (once on mount only) ──
+  const fetchConversationMeta = useCallback(async () => {
     if (!user) return;
     try {
+      let data;
       if (params.conversationId) {
-        const data = await api.conversations.getById(params.conversationId);
-        setConversation(data);
+        data = await api.conversations.getById(params.conversationId);
       } else {
-        const data = await api.conversations.create({
-          shipmentId: params.shipmentId,
-          recipientId: params.recipientId,
-        });
-        setConversation(data);
+        // Try to find existing conversation first (avoid unnecessary creation)
+        try {
+          const all = await api.conversations.getAll();
+          const existing = (all.data || []).find(
+            (c: any) => c.shipmentId === params.shipmentId || c.shipment?.id === params.shipmentId
+          );
+          if (existing) {
+            data = await api.conversations.getById(existing.id);
+          }
+        } catch {}
+
+        if (!data) {
+          data = await api.conversations.create({
+            shipmentId: params.shipmentId,
+            recipientId: params.recipientId,
+          });
+        }
+      }
+      setConversation(data);
+
+      // Immediately seed messages from PG so chat isn't blank while Firestore connects
+      const msgs = data?.messages;
+      if (Array.isArray(msgs) && msgs.length > 0) {
+        const pgMessages: FirestoreMessage[] = msgs.map((m: any) => ({
+          id: m.id,
+          senderId: m.senderId,
+          text: m.content,
+          type: (m.type as any) || 'TEXT',
+          mediaUrl: null,
+          location: null,
+          status: (m.status as 'SENT' | 'READ') || 'SENT',
+          createdAt: new Date(m.createdAt),
+        }));
+        setMessages(pgMessages);
+        setMessagesReady(true);
       }
     } catch (err: Error | unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to load conversation';
@@ -149,46 +332,34 @@ export default function ChatScreen() {
     } finally {
       setMetaLoading(false);
     }
-  };
+  }, [user, params.conversationId, params.shipmentId, params.recipientId]);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchConversationMeta();
-    }, [user, params.conversationId, params.shipmentId])
-  );
+  // Run once on mount — NOT useFocusEffect (prevents re-fetching on every focus)
+  useEffect(() => {
+    fetchConversationMeta();
+  }, []);
 
   // ── Subscribe to Firestore messages once we have a conversation ID ──
+  const messagesReadyRef = useRef(false);
+
   useEffect(() => {
     const convoId = conversation?.id;
     if (!convoId) return;
 
-    // Safety timeout: if Firestore hasn't responded in 8s, show what we have
+    // Safety timeout: if Firestore hasn't responded in 3s, show what we have
     const fallbackTimer = setTimeout(() => {
-      if (!messagesReady) {
-        // Seed from PG messages if Firestore is empty / unavailable
-        const pgMessages = conversation?.messages || [];
-        if (pgMessages.length > 0) {
-          const seeded: FirestoreMessage[] = pgMessages.map((m) => ({
-            id: m.id,
-            senderId: m.senderId,
-            text: m.content,
-            type: (m.type as any) || 'TEXT',
-            mediaUrl: null,
-            location: null,
-            status: (m.status as 'SENT' | 'READ') || 'SENT',
-            createdAt: new Date(m.createdAt),
-          }));
-          setMessages(seeded);
-        }
+      if (!messagesReadyRef.current) {
+        messagesReadyRef.current = true;
         setMessagesReady(true);
       }
-    }, 8000);
+    }, 3000);
 
     const unsubscribe = chatService.subscribeToMessages(
       convoId,
-      (msgs) => {
+      (firestoreMsgs) => {
         clearTimeout(fallbackTimer);
-        if (msgs.length === 0 && !messagesReady) {
+
+        if (firestoreMsgs.length === 0 && !messagesReadyRef.current) {
           // Firestore empty — seed from PG messages (e.g. initial offer message)
           const pgMessages = conversation?.messages || [];
           if (pgMessages.length > 0) {
@@ -205,9 +376,17 @@ export default function ChatScreen() {
             setMessages(seeded);
           }
         } else {
-          setMessages(msgs);
+          // MERGE: keep optimistic messages that aren't yet in the Firestore snapshot
+          setMessages(prev => {
+            const optimistic = prev.filter(
+              m => m.id.startsWith('optimistic_') &&
+                !firestoreMsgs.some(fm => fm.text === m.text && fm.senderId === m.senderId)
+            );
+            return [...firestoreMsgs, ...optimistic];
+          });
         }
         setFirestoreError(null);
+        messagesReadyRef.current = true;
         setMessagesReady(true);
       },
       (error) => {
@@ -227,6 +406,7 @@ export default function ChatScreen() {
           createdAt: new Date(m.createdAt),
         }));
         setMessages(seeded);
+        messagesReadyRef.current = true;
         setMessagesReady(true);
       }
     );
@@ -243,13 +423,25 @@ export default function ChatScreen() {
     api.conversations.markAsRead(conversation.id).catch(() => {});
   }, [user, conversation?.id]);
 
-  // ── Send message via Firestore ──
+  // ── Send message via Firestore (optimistic UI) ──
   const handleSend = async () => {
     if (!messageInput.trim() || !user || !conversation) return;
 
-    setSending(true);
     const text = messageInput.trim();
     setMessageInput('');
+
+    // Optimistic: immediately append to local state
+    const optimisticMsg: FirestoreMessage = {
+      id: `optimistic_${Date.now()}`,
+      senderId: user.uid,
+      text,
+      type: 'TEXT',
+      mediaUrl: null,
+      location: null,
+      status: 'SENT',
+      createdAt: new Date(),
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
 
     try {
       await chatService.sendMessage(conversation.id, {
@@ -257,19 +449,71 @@ export default function ChatScreen() {
         text,
         type: 'TEXT',
       });
-
       // Notify PG of lastMessage only (for InboxScreen preview) — fire and forget
       api.conversations.sendMessage(conversation.id, text).catch(() => {});
-
-      setTimeout(() => {
-        flatListRef.current?.scrollToEnd({ animated: true });
-      }, 150);
     } catch (err: Error | unknown) {
       console.error('Error sending message:', err);
       setMessageInput(text); // restore input on failure
+      // Remove optimistic message
+      setMessages(prev => prev.filter(m => m.id !== optimisticMsg.id));
       Alert.alert('Error', 'Failed to send message');
+    }
+  };
+
+  // ── Accept Offer ──
+  const handleAcceptOffer = async (offerId: string) => {
+    if (!conversation?.shipment?.id) return;
+    setActionLoading(true);
+    try {
+      await api.shipments.acceptOffer(conversation.shipment.id, offerId);
+      await chatService.sendMessage(conversation.id, {
+        senderId: 'system',
+        text: '✅ Offer accepted! You are now matched.',
+        type: 'SYSTEM',
+      });
+      await fetchConversationMeta();
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to accept offer');
     } finally {
-      setSending(false);
+      setActionLoading(false);
+    }
+  };
+
+  // ── Confirm Handover ──
+  const handleConfirmHandover = async () => {
+    if (!conversation?.shipment?.id) return;
+    setActionLoading(true);
+    try {
+      const result = await api.shipments.confirmHandover(conversation.shipment.id);
+      await chatService.sendMessage(conversation.id, {
+        senderId: 'system',
+        text: result.message,
+        type: 'SYSTEM',
+      });
+      await fetchConversationMeta();
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to confirm handover');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // ── Confirm Delivery ──
+  const handleConfirmDelivery = async () => {
+    if (!conversation?.shipment?.id) return;
+    setActionLoading(true);
+    try {
+      const result = await api.shipments.confirmDelivery(conversation.shipment.id);
+      await chatService.sendMessage(conversation.id, {
+        senderId: 'system',
+        text: result.message,
+        type: 'SYSTEM',
+      });
+      await fetchConversationMeta();
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to confirm delivery');
+    } finally {
+      setActionLoading(false);
     }
   };
 
@@ -376,12 +620,15 @@ export default function ChatScreen() {
 
   const shipmentStatus = conversation?.shipment?.status;
 
-  // ── Loading state ──
+  // ── Loading state — subtle skeleton instead of blocking spinner ──
   if (metaLoading) {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.textPrimary} />
+        <View style={[styles.header, { justifyContent: 'center' }]}>
+          <View style={{ width: 120, height: 14, backgroundColor: colors.backgroundSecondary, borderRadius: 7 }} />
+        </View>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="small" color={colors.textTertiary} />
         </View>
       </SafeAreaView>
     );
@@ -391,69 +638,61 @@ export default function ChatScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
-      <View style={[styles.header, { flexDirection: 'column', alignItems: 'stretch', gap: 0 }]}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', width: '100%', marginBottom: conversation?.canMatch ? spacing.sm : 0 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm, flex: 1 }}>
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-              <ArrowLeft size={24} color={colors.textPrimary} />
-            </TouchableOpacity>
+      <View style={styles.header}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <ArrowLeft size={24} color={colors.textPrimary} />
+        </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.headerInfo}
-              onPress={() => conversation && navigation.navigate('PublicProfile', { userId: conversation.otherUser?.id })}
-            >
-              <View style={styles.headerName}>
-                <Text style={styles.recipientName} numberOfLines={1}>
-                  {otherUserName}
-                </Text>
-                {conversation?.otherUser?.isVerified && (
-                  <BadgeCheck size={16} color={colors.textPrimary} fill={colors.background} />
-                )}
-              </View>
-              {conversation && (
-                <Text style={styles.routeText}>
-                  {conversation.shipment?.originCity} → {conversation.shipment?.destCity}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-
+        <View style={styles.headerCenter}>
+          <Text style={styles.headerTitle}>RAVEN</Text>
           <TouchableOpacity
-            style={styles.infoButton}
-            onPress={() => {
-              if (!conversation) return;
-              if (conversation.shipment?.status === 'OPEN') {
-                navigation.navigate('ShipmentDetail', { shipmentId: conversation.shipment?.id });
-              } else {
-                navigation.navigate('ActivityDetail', { shipmentId: conversation.shipment?.id });
-              }
-            }}
+            onPress={() => conversation && navigation.navigate('PublicProfile', { userId: conversation.otherUser?.id })}
           >
-            <Info size={22} color={colors.textPrimary} />
+            <Text style={styles.headerSubtitle}>{otherUserName}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Match Button - Only for sender when shipment is OPEN */}
-        {conversation?.canMatch && (
-          <TouchableOpacity
-            style={[styles.matchButton, { justifyContent: 'center', width: '100%' }]}
-            onPress={() => setShowMatchModal(true)}
-          >
-            <CheckCircle size={16} color={colors.textInverse} />
-            <Text style={styles.matchButtonText}>Match</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Tracking Bar */}
-      {shipmentStatus && shipmentStatus !== 'OPEN' && shipmentStatus !== 'CANCELLED' && (
-        <TrackingBar
-          status={shipmentStatus}
+        <TouchableOpacity
+          style={styles.infoButton}
           onPress={() => {
-            if (conversation?.shipment?.id) {
-              navigation.navigate('ActivityDetail', { shipmentId: conversation.shipment.id });
+            if (!conversation) return;
+            if (conversation.shipment?.status === 'OPEN') {
+              navigation.navigate('ShipmentDetail', { shipmentId: conversation.shipment?.id });
+            } else {
+              navigation.navigate('ActivityDetail', { shipmentId: conversation.shipment?.id });
             }
           }}
+        >
+          <Info size={22} color={colors.textPrimary} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Tracking Bar — always visible */}
+      {shipmentStatus && shipmentStatus !== 'CANCELLED' && (
+        <>
+          <TrackingBar status={shipmentStatus} />
+          {/* Current Offer Pill */}
+          {conversation?.shipment?.price != null && (
+            <View style={styles.offerPillContainer}>
+              <View style={styles.offerPill}>
+                <Text style={styles.offerPillText}>
+                  Current Offer: {getCurrencySymbol(conversation.shipment?.currency || 'USD')}{conversation.shipment.price}
+                </Text>
+              </View>
+            </View>
+          )}
+        </>
+      )}
+
+      {/* Action Card — contextual based on shipment status */}
+      {conversation && user && (
+        <ActionCard
+          conversation={conversation}
+          userId={user.uid}
+          onAcceptOffer={handleAcceptOffer}
+          onConfirmHandover={handleConfirmHandover}
+          onConfirmDelivery={handleConfirmDelivery}
+          loading={actionLoading}
         />
       )}
 
@@ -465,7 +704,7 @@ export default function ChatScreen() {
       >
         {!messagesReady ? (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.textPrimary} />
+            <ActivityIndicator size="small" color={colors.textTertiary} />
           </View>
         ) : (
           <>
@@ -478,12 +717,12 @@ export default function ChatScreen() {
             )}
             <FlatList
               ref={flatListRef}
-              data={messages}
+              data={[...messages].reverse()}
+              inverted
               keyExtractor={(item) => item.id}
               renderItem={renderMessage}
               contentContainerStyle={styles.messagesList}
               showsVerticalScrollIndicator={false}
-              onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: false })}
               ListEmptyComponent={
                 <View style={styles.emptyMessages}>
                   <Text style={styles.emptyText}>Start the conversation!</Text>
@@ -533,7 +772,7 @@ export default function ChatScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalIcon}>
-              <CheckCircle size={48} color="#22C55E" />
+              <CheckCircle size={48} color={colors.textPrimary} />
             </View>
             <Text style={styles.modalTitle}>Confirm Match</Text>
             <Text style={styles.modalDescription}>
@@ -595,50 +834,36 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    gap: spacing.sm,
   },
   backButton: {
     padding: spacing.xs,
-    marginRight: spacing.xs,
+    width: 40,
   },
-  headerInfo: {
+  headerCenter: {
     flex: 1,
-  },
-  headerName: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
   },
-  recipientName: {
-    fontFamily: typography.fontFamily.semiBold,
+  headerTitle: {
+    fontFamily: typography.fontFamily.bold,
     fontSize: typography.fontSize.base,
     color: colors.textPrimary,
+    letterSpacing: 1,
   },
-  routeText: {
+  headerSubtitle: {
     fontFamily: typography.fontFamily.regular,
     fontSize: typography.fontSize.xs,
     color: colors.textSecondary,
-  },
-  matchButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    backgroundColor: '#22C55E',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.lg,
-  },
-  matchButtonText: {
-    fontFamily: typography.fontFamily.semiBold,
-    fontSize: typography.fontSize.sm,
-    color: colors.textInverse,
+    marginTop: 1,
   },
   infoButton: {
-    padding: spacing.sm,
+    padding: spacing.xs,
+    width: 40,
+    alignItems: 'flex-end' as const,
   },
 
   // ── Tracking Bar ──
@@ -647,9 +872,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
-    backgroundColor: colors.backgroundSecondary,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    backgroundColor: colors.background,
   },
   trackingStep: {
     alignItems: 'center',
@@ -660,26 +883,20 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     backgroundColor: colors.border,
+    justifyContent: 'center' as const,
+    alignItems: 'center' as const,
   },
   trackingDotActive: {
-    backgroundColor: '#22C55E',
-  },
-  trackingDotCurrent: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    borderWidth: 2,
-    borderColor: '#22C55E',
-    backgroundColor: colors.background,
+    backgroundColor: colors.textPrimary,
   },
   trackingLine: {
     flex: 1,
     height: 2,
     backgroundColor: colors.border,
-    marginBottom: 16, // align with dots, not labels
+    marginBottom: 16,
   },
   trackingLineActive: {
-    backgroundColor: '#22C55E',
+    backgroundColor: colors.textPrimary,
   },
   trackingLabel: {
     fontFamily: typography.fontFamily.regular,
@@ -688,6 +905,104 @@ const styles = StyleSheet.create({
   },
   trackingLabelActive: {
     fontFamily: typography.fontFamily.medium,
+    color: colors.textPrimary,
+  },
+
+  // ── Offer Pill ──
+  offerPillContainer: {
+    alignItems: 'center',
+    paddingBottom: spacing.sm,
+    backgroundColor: colors.background,
+  },
+  offerPill: {
+    backgroundColor: colors.textPrimary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+    borderRadius: borderRadius.full,
+  },
+  offerPillText: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize.xs,
+    color: colors.textInverse,
+  },
+
+  // ── Action Card ──
+  actionCard: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+    backgroundColor: colors.backgroundSecondary,
+    borderRadius: borderRadius.xl,
+    padding: spacing.md,
+  },
+  actionCardHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  actionCardTitle: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize.base,
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  actionCardPrice: {
+    fontFamily: typography.fontFamily.bold,
+    fontSize: typography.fontSize.xl,
+    color: colors.textPrimary,
+  },
+  actionCardDesc: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.sm,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  actionCardButtons: {
+    flexDirection: 'row' as const,
+    gap: spacing.sm,
+  },
+  actionBtnPrimary: {
+    flex: 1,
+    backgroundColor: colors.textPrimary,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  actionBtnPrimaryText: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize.base,
+    color: colors.textInverse,
+  },
+  actionBtnDisabled: {
+    flex: 1,
+    flexDirection: 'row' as const,
+    gap: spacing.xs,
+    backgroundColor: colors.border,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+  },
+  actionBtnDisabledText: {
+    fontFamily: typography.fontFamily.regular,
+    fontSize: typography.fontSize.sm,
+    color: colors.textTertiary,
+  },
+  actionBtnOutline: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.textPrimary,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    backgroundColor: colors.background,
+  },
+  actionBtnOutlineText: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize.sm,
     color: colors.textPrimary,
   },
 
@@ -920,7 +1235,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: spacing.md,
     borderRadius: borderRadius.lg,
-    backgroundColor: '#22C55E',
+    backgroundColor: colors.textPrimary,
     alignItems: 'center',
   },
   modalConfirmText: {

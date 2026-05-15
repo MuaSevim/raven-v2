@@ -59,6 +59,20 @@ export class ShipmentsService {
       });
     }
 
+    // One-active-delivery rule: user can only have one active shipment at a time
+    const activeShipment = await this.prisma.shipment.findFirst({
+      where: {
+        senderId,
+        status: { in: [ShipmentStatus.OPEN, ShipmentStatus.MATCHED, ShipmentStatus.HANDED_OVER, ShipmentStatus.ON_WAY] },
+      },
+    });
+
+    if (activeShipment) {
+      throw new ForbiddenException(
+        'You already have an active delivery. Please complete or cancel it before creating a new one.'
+      );
+    }
+
     const {
       dateStart,
       dateEnd,
@@ -340,11 +354,16 @@ export class ShipmentsService {
       },
     });
 
-    // Get or create conversation and inject offer message
-    const [user1Id, user2Id] = [courierId, shipment.senderId].sort();
-    let conversation = await this.prisma.conversation.findUnique({
+    // Get or create conversation — sender is ALWAYS user1, courier is ALWAYS user2
+    const user1Id = shipment.senderId; // sender
+    const user2Id = courierId;         // courier
+    let conversation = await this.prisma.conversation.findFirst({
       where: {
-        user1Id_user2Id_shipmentId: { user1Id, user2Id, shipmentId },
+        shipmentId,
+        OR: [
+          { user1Id, user2Id },
+          { user1Id: user2Id, user2Id: user1Id },
+        ],
       },
     });
 
@@ -380,6 +399,78 @@ export class ShipmentsService {
     return offer;
   }
 
+  /**
+   * Accept an offer — only the shipment sender can trigger this.
+   * Changes Offer → ACCEPTED, assigns courier, Shipment → MATCHED.
+   */
+  async acceptOffer(shipmentId: string, offerId: string, userId: string) {
+    const shipment = await this.prisma.shipment.findUnique({
+      where: { id: shipmentId },
+    });
+
+    if (!shipment) {
+      throw new NotFoundException('Shipment not found');
+    }
+
+    if (shipment.senderId !== userId) {
+      throw new ForbiddenException('Only the shipment sender can accept offers');
+    }
+
+    if (shipment.status !== ShipmentStatus.OPEN) {
+      throw new ForbiddenException('Can only accept offers on OPEN shipments');
+    }
+
+    const offer = await this.prisma.shipmentOffer.findUnique({
+      where: { id: offerId },
+    });
+
+    if (!offer || offer.shipmentId !== shipmentId) {
+      throw new NotFoundException('Offer not found');
+    }
+
+    if (offer.status !== OfferStatus.PENDING) {
+      throw new ForbiddenException('This offer has already been processed');
+    }
+
+    // Accept the offer
+    await this.prisma.shipmentOffer.update({
+      where: { id: offerId },
+      data: { status: OfferStatus.ACCEPTED },
+    });
+
+    // Reject all other pending offers on this shipment
+    await this.prisma.shipmentOffer.updateMany({
+      where: {
+        shipmentId,
+        id: { not: offerId },
+        status: OfferStatus.PENDING,
+      },
+      data: { status: OfferStatus.REJECTED },
+    });
+
+    // Assign courier and move shipment to MATCHED
+    const updated = await this.prisma.shipment.update({
+      where: { id: shipmentId },
+      data: {
+        courierId: offer.courierId,
+        status: ShipmentStatus.MATCHED,
+      },
+      include: {
+        sender: {
+          select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
+        },
+        courier: {
+          select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
+        },
+      },
+    });
+
+    return {
+      shipment: updated,
+      offerId: offer.id,
+      message: 'Offer accepted! You are now matched with this courier.',
+    };
+  }
 
 
   async getUserOfferOnShipment(shipmentId: string, userId: string) {

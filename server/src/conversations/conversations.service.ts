@@ -210,6 +210,23 @@ export class ConversationsService {
             status: true,
             senderId: true,
             courierId: true,
+            senderConfirmedHandover: true,
+            courierConfirmedHandover: true,
+            senderConfirmedDelivery: true,
+            courierConfirmedDelivery: true,
+            content: true,
+            offers: {
+              select: {
+                id: true,
+                status: true,
+                courierId: true,
+                message: true,
+                courier: {
+                  select: { id: true, firstName: true, lastName: true },
+                },
+              },
+              orderBy: { createdAt: 'desc' },
+            },
           },
         },
         messages: {

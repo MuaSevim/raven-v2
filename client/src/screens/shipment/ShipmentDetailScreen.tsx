@@ -30,6 +30,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuthStore } from '../../store/useAuthStore';
 import { api } from '../../utils/api';
+import { chatService } from '../../services/chatService';
 import type { Shipment } from '../../types/api';
 import { colors, typography, spacing, borderRadius } from '../../theme';
 import SkeletonLoader from '../../components/home/SkeletonLoader';
@@ -158,23 +159,47 @@ export default function ShipmentDetailScreen() {
 
     try {
       const offer = await api.shipments.submitOffer(shipment.id, offerMessage.trim());
-      setUserOffer({ id: offer.id, status: 'PENDING' });
-      
-      closeOfferModal();
-      
-      // Asynchronously transition to Chat
-      setTimeout(() => {
-        navigation.navigate('Chat', {
+      setUserOffer({ id: offer.id, status: 'PENDING', conversationId: (offer as any).conversationId });
+
+      // Get or create the conversation — backend returns the existing/new one
+      let conversationId: string | undefined;
+      try {
+        const convo = await api.conversations.create({
           shipmentId: shipment.id,
           recipientId: shipment.sender?.id,
         });
-      }, 300); // wait for modal to finish closing
+        conversationId = (convo as any).id;
+      } catch {}
+
+      // Write the offer message to Firestore so the sender sees it in real-time
+      if (conversationId) {
+        try {
+          await chatService.sendMessage(conversationId, {
+            senderId: user.uid,
+            text: offerMessage.trim(),
+            type: 'OFFER',
+          });
+        } catch (fsErr) {
+          console.warn('Firestore write failed (non-critical):', fsErr);
+        }
+      }
+
+      closeOfferModal();
+
+      // Navigate to Chat with conversationId so it loads instantly
+      setTimeout(() => {
+        navigation.navigate('Chat', {
+          conversationId,
+          shipmentId: shipment.id,
+          recipientId: shipment.sender?.id,
+        });
+      }, 300);
 
     } catch (err: Error | unknown) {
       const errObj = err as { message?: string; statusCode?: number };
       const errorMessage = errObj?.message || (err instanceof Error ? err.message : 'Failed to send offer');
       Alert.alert('Error', errorMessage);
-      setSubmitting(false); // Only reset on error so button doesn't flash before transition
+      setSubmitting(false);
     }
   };
 
@@ -307,6 +332,7 @@ export default function ShipmentDetailScreen() {
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Route</Text>
           <View style={styles.routeContainer}>
+            <View style={styles.routeLine} />
             <View style={styles.routePoint}>
               <View style={styles.routeDot} />
               <View style={styles.routeInfo}>
@@ -315,7 +341,6 @@ export default function ShipmentDetailScreen() {
                 <Text style={styles.routeCountry}>{shipment.originCountry}</Text>
               </View>
             </View>
-            <View style={styles.routeLine} />
             <View style={styles.routePoint}>
               <View style={[styles.routeDot, { backgroundColor: colors.textPrimary }]} />
               <View style={styles.routeInfo}>
@@ -526,15 +551,14 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.backgroundSecondary, borderRadius: borderRadius.xl, padding: spacing.lg, marginBottom: spacing.md },
   cardTitle: { fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.base, color: colors.textPrimary, marginBottom: spacing.md },
 
-  // Route
-  routeContainer: { position: 'relative' },
-  routePoint: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: spacing.lg },
-  routeDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.border, marginTop: 4 },
-  routeInfo: { marginLeft: spacing.md, flex: 1 },
+  routeContainer: { position: 'relative', paddingLeft: 24 },
+  routePoint: { flexDirection: 'row', alignItems: 'flex-start', position: 'relative' },
+  routeDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: colors.border, position: 'absolute', left: -24, top: 4 },
+  routeInfo: { flex: 1, paddingBottom: spacing.lg },
   routeLabel: { fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.xs, color: colors.textTertiary, textTransform: 'capitalize' },
   routeCity: { fontFamily: typography.fontFamily.semiBold, fontSize: typography.fontSize.lg, color: colors.textPrimary },
   routeCountry: { fontFamily: typography.fontFamily.regular, fontSize: typography.fontSize.sm, color: colors.textSecondary },
-  routeLine: { position: 'absolute', left: 5, top: 16, width: 2, height: 40, backgroundColor: colors.border },
+  routeLine: { position: 'absolute', left: -19, top: 16, bottom: 16, width: 2, backgroundColor: colors.border },
 
   // Delivery Window
   deliveryWindowContainer: {

@@ -171,6 +171,23 @@ export interface Conversation {
     currency?: string;
     status?: string;
     senderId?: string;
+    courierId?: string;
+    content?: string;
+    senderConfirmedHandover?: boolean;
+    courierConfirmedHandover?: boolean;
+    senderConfirmedDelivery?: boolean;
+    courierConfirmedDelivery?: boolean;
+    offers?: {
+      id: string;
+      status: string;
+      courierId: string;
+      message?: string;
+      courier?: {
+        id: string;
+        firstName: string;
+        lastName: string;
+      };
+    }[];
   };
   messages?: Message[];
   isSender?: boolean;
@@ -199,7 +216,7 @@ export interface ConversationsResponse {
 export type ConversationDetailResponse = Conversation;
 
 export interface UnreadConversationsResponse {
-  unread: number;
+  unreadCount: number;
 }
 
 export interface MessagesResponse {

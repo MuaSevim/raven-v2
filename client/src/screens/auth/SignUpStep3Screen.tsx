@@ -20,6 +20,7 @@ import {
   fetchCountries,
   fetchCities,
   searchCountries,
+  prewarmCities,
   Country
 } from '../../services/locationService';
 import { normalizeText } from '../../utils/text';
@@ -264,6 +265,8 @@ export default function SignUpStep3Screen({ navigation }: Props) {
       setSelectedCountry(country);
       setSelectedCity(''); // Reset city when country changes
       if (errors.country) setErrors({ ...errors, country: undefined });
+      // Pre-warm city cache immediately — they'll be ready when user taps city field
+      prewarmCities(country.name);
     }
   };
 

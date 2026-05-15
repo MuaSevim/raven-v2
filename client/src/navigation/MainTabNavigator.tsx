@@ -28,15 +28,15 @@ export default function MainTabNavigator() {
         if (!user) return;
         try {
           const data = await api.conversations.getUnread();
-          setUnreadCount(data.unread || 0);
+          setUnreadCount(data.unreadCount || 0);
         } catch (err: Error | unknown) {
-          console.error('Error fetching unread count:', err);
+          // Silently fail — badge is non-critical
         }
       };
       fetchUnreadCount();
 
-      // Refresh every 30 seconds
-      const interval = setInterval(fetchUnreadCount, 30000);
+      // Poll every 10 seconds for near-real-time badge updates
+      const interval = setInterval(fetchUnreadCount, 10000);
       return () => clearInterval(interval);
     }, [user])
   );

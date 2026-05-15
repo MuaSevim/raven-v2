@@ -19,32 +19,47 @@ export interface City {
   country: string;
 }
 
-// Get all countries
+// In-memory caches
+let countriesCache: Country[] | null = null;
+const citiesCache: Record<string, string[]> = {};
+
+// Get all countries (cached)
 export async function getAllCountries(): Promise<Country[]> {
+  if (countriesCache) return countriesCache;
+
   try {
-    const response = await axios.get(`${COUNTRIES_API_BASE}/countries/iso`);
+    const response = await axios.get(`${COUNTRIES_API_BASE}/countries/iso`, { timeout: 15000 });
     if (response.data.error) throw new Error(response.data.msg);
-    return response.data.data
+    const data = response.data.data
       .map((item: any) => ({
         country: item.name,
         iso2: item.Iso2,
         iso3: item.Iso3,
       }))
       .filter((c: Country) => c.country !== 'Antarctica');
+    countriesCache = data;
+    return data;
   } catch (error) {
     console.error('Error fetching countries:', error);
     throw error;
   }
 }
 
-// Get cities by country
+// Get cities by country (cached)
 export async function getCitiesByCountry(country: string): Promise<string[]> {
+  const key = country.toLowerCase();
+  if (citiesCache[key]) return citiesCache[key];
+
   try {
-    const response = await axios.post(`${COUNTRIES_API_BASE}/countries/cities`, {
-      country,
-    });
+    const response = await axios.post(
+      `${COUNTRIES_API_BASE}/countries/cities`,
+      { country },
+      { timeout: 10000 },
+    );
     if (response.data.error) throw new Error(response.data.msg);
-    return response.data.data;
+    const cities = response.data.data;
+    citiesCache[key] = cities;
+    return cities;
   } catch (error) {
     console.error('Error fetching cities:', error);
     throw error;

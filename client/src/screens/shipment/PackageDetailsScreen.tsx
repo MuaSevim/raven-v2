@@ -64,7 +64,7 @@ export default function PackageDetailsScreen() {
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.8,
+        quality: 0.4, // Pre-compress at pick time; storage.ts compresses again
       });
 
       if (!result.canceled && result.assets[0]) {
@@ -87,7 +87,7 @@ export default function PackageDetailsScreen() {
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.8,
+        quality: 0.4, // Pre-compress at capture time; storage.ts compresses again
       });
 
       if (!result.canceled && result.assets[0]) {

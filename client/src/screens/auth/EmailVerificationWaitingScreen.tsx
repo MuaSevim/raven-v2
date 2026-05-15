@@ -24,7 +24,7 @@ export default function EmailVerificationWaitingScreen({ navigation, route }: Pr
     const currentUser = auth.currentUser;
     if (!currentUser) {
       Alert.alert("Error", "No active session found. Please sign in again.");
-      navigation.navigate("SignIn");
+      auth.signOut();
       return;
     }
 
@@ -50,7 +50,7 @@ export default function EmailVerificationWaitingScreen({ navigation, route }: Pr
     const currentUser = auth.currentUser;
     if (!currentUser) {
       Alert.alert("Error", "No active session found. Please sign in again.");
-      navigation.navigate("SignIn");
+      auth.signOut();
       return;
     }
 
@@ -60,6 +60,14 @@ export default function EmailVerificationWaitingScreen({ navigation, route }: Pr
     } catch (error: Error | unknown) {
       const message = error instanceof Error ? error.message : "Failed to resend email";
       Alert.alert("Error", message);
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await auth.signOut();
+    } catch (error: any) {
+      Alert.alert("Error", "Failed to sign out");
     }
   };
 
@@ -81,6 +89,10 @@ export default function EmailVerificationWaitingScreen({ navigation, route }: Pr
 
         <Text style={styles.resend} onPress={handleResend}>
           Resend Email
+        </Text>
+
+        <Text style={[styles.resend, { marginTop: spacing.md, color: colors.error }]} onPress={handleSignOut}>
+          Sign Out
         </Text>
       </View>
     </SafeAreaView>

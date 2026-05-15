@@ -226,8 +226,9 @@ export default function DeliveriesTab() {
   const fetchShipments = async (showRefresh = false) => {
     if (!user) return;
 
+    // Only show full skeleton if we have no data yet
     if (showRefresh) setRefreshing(true);
-    else setLoading(true);
+    else if (shipments.length === 0) setLoading(true);
 
     setError(null);
 
@@ -239,14 +240,13 @@ export default function DeliveriesTab() {
       console.error('Error fetching shipments:', err);
       const errorMessage = err instanceof Error ? err.message : 'Failed to load shipments';
       setError(errorMessage);
-      Alert.alert('Error', `Could not load shipments: ${errorMessage}`);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  // Fetch on mount and when screen comes into focus
+  // Fetch on mount and when screen comes into focus (silently if data exists)
   useFocusEffect(
     useCallback(() => {
       fetchShipments();

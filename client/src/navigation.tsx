@@ -248,7 +248,6 @@ export default function Navigation() {
             />
             <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
             <Stack.Screen name="EnterNewPassword" component={EnterNewPasswordScreen} />
-            <Stack.Screen name="SignIn" component={SignInScreen} />
           </>
         ) : (
           // Auth Stack
