@@ -6,7 +6,6 @@ import {
     ScrollView,
     TouchableOpacity,
     Image,
-    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ArrowLeft, BadgeCheck, Star, Package, Plane, MapPin } from 'lucide-react-native';
@@ -15,6 +14,7 @@ import { colors, typography, spacing, borderRadius } from '../theme';
 import { useAuthStore } from '../store/useAuthStore';
 import { api } from '../utils/api';
 import type { UserProfile } from '../types/api';
+import SkeletonLoader from '../components/home/SkeletonLoader';
 
 export default function PublicProfileScreen() {
     const navigation = useNavigation<any>();
@@ -74,7 +74,7 @@ export default function PublicProfileScreen() {
         return (
             <SafeAreaView style={styles.container}>
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={colors.textPrimary} />
+                    <SkeletonLoader width="80%" height={200} />
                 </View>
             </SafeAreaView>
         );
@@ -125,7 +125,7 @@ export default function PublicProfileScreen() {
 
                     <View style={styles.nameRow}>
                         <Text style={styles.userName}>{fullName}</Text>
-                        {profile.isVerified && (
+                        {profile.verificationStatus === 'verified' && (
                             <BadgeCheck size={20} color={colors.textPrimary} fill={colors.background} />
                         )}
                     </View>

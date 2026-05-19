@@ -52,10 +52,10 @@ export class ConversationsService {
       },
       include: {
         user1: {
-          select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
+          select: { id: true, firstName: true, lastName: true, avatar: true, verificationStatus: true },
         },
         user2: {
-          select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
+          select: { id: true, firstName: true, lastName: true, avatar: true, verificationStatus: true },
         },
         shipment: {
           select: { id: true, originCity: true, destCity: true, price: true, currency: true, status: true },
@@ -80,12 +80,12 @@ export class ConversationsService {
           shipmentId: dto.shipmentId,
         },
         include: {
-          user1: {
-            select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
-          },
-          user2: {
-            select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
-          },
+            user1: {
+              select: { id: true, firstName: true, lastName: true, avatar: true, verificationStatus: true },
+            },
+            user2: {
+              select: { id: true, firstName: true, lastName: true, avatar: true, verificationStatus: true },
+            },
           shipment: {
             select: { id: true, originCity: true, destCity: true, price: true, currency: true, status: true },
           },
@@ -131,12 +131,12 @@ export class ConversationsService {
       take,
       skip,
       include: {
-        user1: {
-          select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
-        },
-        user2: {
-          select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
-        },
+          user1: {
+            select: { id: true, firstName: true, lastName: true, avatar: true, verificationStatus: true },
+          },
+          user2: {
+            select: { id: true, firstName: true, lastName: true, avatar: true, verificationStatus: true },
+          },
         shipment: {
           select: { id: true, originCity: true, destCity: true, price: true, currency: true, status: true },
         },
@@ -195,10 +195,10 @@ export class ConversationsService {
       where: { id: conversationId },
       include: {
         user1: {
-          select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
+          select: { id: true, firstName: true, lastName: true, avatar: true, verificationStatus: true },
         },
         user2: {
-          select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
+          select: { id: true, firstName: true, lastName: true, avatar: true, verificationStatus: true },
         },
         shipment: {
           select: {

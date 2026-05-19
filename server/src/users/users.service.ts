@@ -13,12 +13,11 @@ export class UsersService {
         const user = await this.prisma.user.findUnique({
             where: { id: userId },
             select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                avatar: true,
-                isVerified: true,
-                verificationStatus: true,
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    avatar: true,
+                    verificationStatus: true,
                 country: true,
                 city: true,
                 bio: true,

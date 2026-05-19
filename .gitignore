@@ -22,3 +22,7 @@ Thumbs.db
 
 # Agent
 .agent/
+
+# Reports
+ai_project_report.md
+repomix-output.txt

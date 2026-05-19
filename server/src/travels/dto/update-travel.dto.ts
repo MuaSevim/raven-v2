@@ -62,4 +62,8 @@ export class UpdateTravelDto {
   @IsOptional()
   @IsString()
   flightNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  pnr?: string;
 }

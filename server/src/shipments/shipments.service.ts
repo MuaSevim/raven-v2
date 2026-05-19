@@ -96,7 +96,7 @@ export class ShipmentsService {
             firstName: true,
             lastName: true,
             avatar: true,
-            isVerified: true,
+                verificationStatus: true,
           },
         },
       },
@@ -148,7 +148,7 @@ export class ShipmentsService {
             firstName: true,
             lastName: true,
             avatar: true,
-            isVerified: true,
+                verificationStatus: true,
           },
         },
         _count: {
@@ -169,7 +169,7 @@ export class ShipmentsService {
             firstName: true,
             lastName: true,
             avatar: true,
-            isVerified: true,
+                verificationStatus: true,
             country: true,
             city: true,
           },
@@ -180,7 +180,7 @@ export class ShipmentsService {
             firstName: true,
             lastName: true,
             avatar: true,
-            isVerified: true,
+                verificationStatus: true,
           },
         },
         offers: {
@@ -191,7 +191,7 @@ export class ShipmentsService {
                 firstName: true,
                 lastName: true,
                 avatar: true,
-                isVerified: true,
+                    verificationStatus: true,
               },
             },
           },
@@ -223,7 +223,7 @@ export class ShipmentsService {
             firstName: true,
             lastName: true,
             avatar: true,
-            isVerified: true,
+                verificationStatus: true,
           },
         },
         courier: {
@@ -232,7 +232,7 @@ export class ShipmentsService {
             firstName: true,
             lastName: true,
             avatar: true,
-            isVerified: true,
+                verificationStatus: true,
           },
         },
         _count: {
@@ -268,7 +268,7 @@ export class ShipmentsService {
                 firstName: true,
                 lastName: true,
                 avatar: true,
-                isVerified: true,
+                    verificationStatus: true,
               },
             },
           },
@@ -348,7 +348,7 @@ export class ShipmentsService {
             firstName: true,
             lastName: true,
             avatar: true,
-            isVerified: true,
+            verificationStatus: true,
           },
         },
       },
@@ -457,10 +457,10 @@ export class ShipmentsService {
       },
       include: {
         sender: {
-          select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
+          select: { id: true, firstName: true, lastName: true, avatar: true, verificationStatus: true },
         },
         courier: {
-          select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
+          select: { id: true, firstName: true, lastName: true, avatar: true, verificationStatus: true },
         },
       },
     });
@@ -647,10 +647,10 @@ export class ShipmentsService {
       data: updateData,
       include: {
         sender: {
-          select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
+          select: { id: true, firstName: true, lastName: true, avatar: true, verificationStatus: true },
         },
         courier: {
-          select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
+          select: { id: true, firstName: true, lastName: true, avatar: true, verificationStatus: true },
         },
       },
     });
@@ -740,10 +740,10 @@ export class ShipmentsService {
       data: updateData,
       include: {
         sender: {
-          select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
+          select: { id: true, firstName: true, lastName: true, avatar: true, verificationStatus: true },
         },
         courier: {
-          select: { id: true, firstName: true, lastName: true, avatar: true, isVerified: true },
+          select: { id: true, firstName: true, lastName: true, avatar: true, verificationStatus: true },
         },
       },
     });

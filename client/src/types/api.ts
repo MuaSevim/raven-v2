@@ -12,6 +12,8 @@ export interface User {
   phone: string;
   avatar?: string | null;
   profilePicture?: string;
+  verificationStatus?: 'unverified' | 'pending' | 'verified' | 'rejected' | 'suspended';
+  passport?: string | null;
   createdAt: string;
 }
 
@@ -88,7 +90,7 @@ export interface Shipment {
     firstName: string;
     lastName: string;
     avatar?: string | null;
-    isVerified?: boolean;
+    verificationStatus?: 'unverified' | 'pending' | 'verified' | 'rejected' | 'suspended';
   };
   courierId?: string | null;
   courier?: {
@@ -96,7 +98,7 @@ export interface Shipment {
     firstName: string;
     lastName: string;
     avatar?: string | null;
-    isVerified?: boolean;
+    verificationStatus?: 'unverified' | 'pending' | 'verified' | 'rejected' | 'suspended';
   } | null;
   _count?: { offers: number };
 }

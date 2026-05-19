@@ -13,7 +13,7 @@ interface RavenCardProps {
         firstName: string | null;
         lastName: string | null;
         avatar: string | null;
-        isVerified: boolean;
+        verificationStatus?: 'unverified' | 'pending' | 'verified' | 'rejected' | 'suspended';
     };
     onPress: () => void;
     onChatPress: () => void;
@@ -43,7 +43,7 @@ export default function RavenCard({ user, onPress, onChatPress }: RavenCardProps
                     <View style={styles.nameContainer}>
                         <View style={styles.nameRow}>
                             <Text style={styles.name}>{fullName}</Text>
-                            {user.isVerified && (
+                            {user.verificationStatus === 'verified' && (
                                 <BadgeCheck size={16} color={colors.textPrimary} fill={colors.background} />
                             )}
                         </View>

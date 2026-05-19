@@ -249,20 +249,33 @@ async function main() {
   console.log('🌱 Starting database seed...\n');
 
   // Clear existing data
-  console.log('🗑️  Clearing existing data...');
+  console.log('🗑️  Clearing existing data (preserving users)...');
   await prisma.shipmentOffer.deleteMany();
   await prisma.shipment.deleteMany();
   await prisma.travel.deleteMany();
-  await prisma.user.deleteMany();
-  console.log('✅ Existing data cleared\n');
+  // Do NOT delete users - preserve existing user accounts
+  console.log('✅ Existing data cleared (users preserved)\n');
 
   // Create users
-  console.log('👥 Creating users...');
+  console.log('👥 Ensuring test users exist (upsert)...');
   for (const userData of users) {
     const dateOfBirth = new Date(userData.birthYear, userData.birthMonth - 1, userData.birthDay);
 
-    await prisma.user.create({
-      data: {
+    await prisma.user.upsert({
+      where: { id: userData.id },
+      update: {
+        email: userData.email,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
+        dateOfBirth,
+        country: userData.country,
+        countryCode: userData.countryCode,
+        city: userData.city,
+        avatar: getAvatar(`${userData.firstName} ${userData.lastName}`),
+        verificationStatus: userData.isVerified ? 'verified' : 'unverified',
+        passport: null,
+      },
+      create: {
         id: userData.id,
         email: userData.email,
         firstName: userData.firstName,
@@ -271,13 +284,14 @@ async function main() {
         country: userData.country,
         countryCode: userData.countryCode,
         city: userData.city,
-        isVerified: userData.isVerified,
         avatar: getAvatar(`${userData.firstName} ${userData.lastName}`),
+        verificationStatus: userData.isVerified ? 'verified' : 'unverified',
+        passport: null,
       },
     });
-    console.log(`   ✓ Created user: ${userData.firstName} ${userData.lastName}`);
+    console.log(`   ✓ Upserted user: ${userData.firstName} ${userData.lastName}`);
   }
-  console.log(`✅ Created ${users.length} users\n`);
+  console.log(`✅ Ensured ${users.length} test users exist\n`);
 
   // Create shipments
   console.log('📦 Creating shipments...');

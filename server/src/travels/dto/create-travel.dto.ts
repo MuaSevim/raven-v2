@@ -56,4 +56,8 @@ export class CreateTravelDto {
   @IsOptional()
   @IsString()
   flightNumber?: string;
+
+  @IsOptional()
+  @IsString()
+  pnr?: string;
 }

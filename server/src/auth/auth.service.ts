@@ -137,7 +137,7 @@ export class AuthService implements OnModuleInit {
         country: dto.country || null,
         countryCode: dto.countryCode || null,
         city: dto.city || null,
-        isVerified: false,
+        verificationStatus: 'unverified',
       },
     });
 
@@ -201,7 +201,7 @@ export class AuthService implements OnModuleInit {
         country: dto.country,
         countryCode: dto.countryCode,
         city: dto.city,
-        isVerified: true, // Social login users are pre-verified
+        verificationStatus: 'verified', // Social login users are pre-verified
       },
     });
 
