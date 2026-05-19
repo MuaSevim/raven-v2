@@ -38,7 +38,6 @@ import { useAuthStore } from "../store/useAuthStore";
 import { colors, typography, spacing, borderRadius } from "../theme";
 import { api } from "../utils/api";
 import { invalidateCache } from "../utils/cache";
-import { VerificationModal } from "../components/ui";
 import { PHONE_COUNTRIES, PhoneCountry } from "../services/locationApi";
 import { updateEmail, sendEmailVerification } from "firebase/auth";
 import { normalizeText } from "../utils/text";
@@ -57,7 +56,9 @@ interface UserProfile {
   email: string;
   phone: string | null;
   phoneCode: string | null;
-  isVerified: boolean;
+  verificationStatus?: 'unverified' | 'pending' | 'verified' | 'rejected' | 'suspended';
+  passport?: string | null;
+  documentUrl?: string | null;
 }
 
 // =============================================================================
@@ -79,7 +80,6 @@ export default function ProfileScreen() {
   const [avatar, setAvatar] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [showVerifyModal, setShowVerifyModal] = useState(false);
   const [showCountryPicker, setShowCountryPicker] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -117,7 +117,9 @@ export default function ProfileScreen() {
             email: profile.email || "",
             phone: profile.phone || null,
             phoneCode: profile.phoneCode || "+1",
-            isVerified: false,
+            verificationStatus: (profile as any).verificationStatus,
+            passport: (profile as any).passport || null,
+            documentUrl: (profile as any).documentUrl || null,
           });
           setFirstName(profile.firstName || "");
           setLastName(profile.lastName || "");
@@ -350,13 +352,12 @@ export default function ProfileScreen() {
     setPhone(cleaned);
   };
 
-  const handleVerificationComplete = () => {
-    setShowVerifyModal(false);
-    setProfile((prev) => (prev ? { ...prev, isVerified: true } : prev));
-    Alert.alert(
-      "🎉 Verified!",
-      "Your account is now verified. You will see a verified badge on your profile."
-    );
+  const handleAccountStatus = () => {
+    navigation.navigate('AccountStatus');
+  };
+
+  const handleMyFlights = () => {
+    Alert.alert('Coming soon', 'My Flights will be available in a future update.');
   };
 
   const getInitial = () => {
@@ -444,7 +445,7 @@ export default function ProfileScreen() {
             <View style={styles.editAvatarBtn}>
               <Camera size={16} color={colors.textInverse} />
             </View>
-            {profile?.isVerified && (
+            {profile?.verificationStatus === 'verified' && (
               <View style={styles.verifiedBadge}>
                 <BadgeCheck size={20} color="#22C55E" fill="#fff" />
               </View>
@@ -523,6 +524,20 @@ export default function ProfileScreen() {
         <View style={styles.actionButtons}>
           <TouchableOpacity
             style={styles.actionButton}
+            onPress={handleAccountStatus}
+          >
+            <Text style={styles.actionButtonText}>Account Status</Text>
+            <ChevronRight size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={handleMyFlights}
+          >
+            <Text style={styles.actionButtonText}>My Flights</Text>
+            <ChevronRight size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
             onPress={() => navigation.navigate("Earnings")}
           >
             <Text style={styles.actionButtonText}>Statistics</Text>
@@ -591,12 +606,6 @@ export default function ProfileScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Verification Modal */}
-      <VerificationModal
-        visible={showVerifyModal}
-        onClose={() => setShowVerifyModal(false)}
-        onVerified={handleVerificationComplete}
-      />
     </SafeAreaView>
   );
 }

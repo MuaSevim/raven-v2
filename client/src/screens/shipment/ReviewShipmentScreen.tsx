@@ -87,6 +87,31 @@ export default function ReviewShipmentScreen() {
 
   const [loading, setLoading] = useState(false);
   const [uploadProgress] = useState(new Animated.Value(0));
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
+
+  const fetchVerification = async () => {
+    if (!user) return null;
+    try {
+      const data = await api.auth.me();
+      const status = data?.verificationStatus || null;
+      setVerificationStatus(status);
+      return status;
+    } catch {
+      setVerificationStatus(null);
+      return null;
+    }
+  };
+
+  const ensureVerified = async () => {
+    if (verificationStatus === 'verified') return true;
+    const status = await fetchVerification();
+    if (status !== 'verified') {
+      Alert.alert('Verification required', 'Please verify your account before creating a delivery.');
+      navigation.navigate('AccountStatus');
+      return false;
+    }
+    return true;
+  };
 
   const getCurrencySymbol = () => {
     switch (draft.currency) {
@@ -106,6 +131,9 @@ export default function ReviewShipmentScreen() {
       Alert.alert("Error", "You must be logged in to create a shipment");
       return;
     }
+
+    const ok = await ensureVerified();
+    if (!ok) return;
 
     const weightValue = parseFloat(draft.weight);
     const validationErrors: string[] = [];

@@ -14,6 +14,10 @@ export class TravelsService {
       throw new NotFoundException('User not found. Please complete registration first.');
     }
 
+    if (existingUser.verificationStatus !== 'verified') {
+      throw new ForbiddenException('Please verify your account before adding a flight.');
+    }
+
     return this.prisma.travel.create({
       data: {
         ...createTravelDto,

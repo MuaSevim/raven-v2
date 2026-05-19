@@ -247,8 +247,22 @@ export class AuthService implements OnModuleInit {
    * Update user profile
    */
   async updateUser(uid: string, dto: UpdateUserDto) {
-    const { birthDay, birthMonth, birthYear, avatar, ...rest } = dto;
+    const { birthDay, birthMonth, birthYear, avatar, passport, documentUrl, ...rest } = dto;
     const dateOfBirth = this.buildDateOfBirth(birthDay, birthMonth, birthYear);
+
+    const existingUser = await this.prisma.user.findUnique({
+      where: { id: uid },
+      select: {
+        avatar: true,
+        passport: true,
+        documentUrl: true,
+        verificationStatus: true,
+      },
+    });
+
+    if (!existingUser) {
+      throw new BadRequestException('User not found');
+    }
 
     if (rest.email) {
       const normalizedEmail = rest.email.toLowerCase().trim();
@@ -261,11 +275,26 @@ export class AuthService implements OnModuleInit {
       rest.email = normalizedEmail;
     }
 
+    const nextAvatar = avatar !== undefined
+      ? this.normalizeAvatarUrl(avatar)
+      : existingUser.avatar;
+    const nextPassport = passport !== undefined ? passport : existingUser.passport;
+    const nextDocumentUrl = documentUrl !== undefined ? documentUrl : existingUser.documentUrl;
+
+    const hasAllVerificationDocs = Boolean(nextAvatar) && Boolean(nextPassport) && Boolean(nextDocumentUrl);
+    const lockedStatus = existingUser.verificationStatus === 'suspended' || existingUser.verificationStatus === 'rejected';
+    const nextVerificationStatus = lockedStatus
+      ? existingUser.verificationStatus
+      : (hasAllVerificationDocs ? 'verified' : 'unverified');
+
     const user = await this.prisma.user.update({
       where: { id: uid },
       data: {
         ...rest,
-        ...(avatar !== undefined ? { avatar: this.normalizeAvatarUrl(avatar) } : {}),
+        ...(avatar !== undefined ? { avatar: nextAvatar } : {}),
+        ...(passport !== undefined ? { passport } : {}),
+        ...(documentUrl !== undefined ? { documentUrl } : {}),
+        verificationStatus: nextVerificationStatus,
         ...(dateOfBirth !== undefined ? { dateOfBirth } : {}),
       },
     });

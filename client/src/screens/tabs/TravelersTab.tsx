@@ -95,7 +95,7 @@ function TravelerCard({ travel, onPress }: TravelerCardProps) {
           <View>
             <View style={styles.nameRow}>
               <Text style={styles.travelerName}>{travelerName}</Text>
-              {travel.traveler?.isVerified && (
+              {travel.traveler?.verificationStatus === 'verified' && (
                 <BadgeCheck
                   size={16}
                   color={colors.textPrimary}
@@ -232,7 +232,7 @@ export default function TravelersTab() {
       case 'price':
         return (a.pricePerKg || 0) - (b.pricePerKg || 0);
       case 'verified':
-        return (b.traveler?.isVerified ? 1 : 0) - (a.traveler?.isVerified ? 1 : 0);
+        return (b.traveler?.verificationStatus === 'verified' ? 1 : 0) - (a.traveler?.verificationStatus === 'verified' ? 1 : 0);
       default:
         return 0;
     }

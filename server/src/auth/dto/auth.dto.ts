@@ -137,6 +137,14 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   phoneCode?: string;
+
+  @IsOptional()
+  @IsString()
+  passport?: string;
+
+  @IsOptional()
+  @IsString()
+  documentUrl?: string;
 }
 
 export class VerifyEmailDto {

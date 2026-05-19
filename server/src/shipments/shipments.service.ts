@@ -48,6 +48,10 @@ export class ShipmentsService {
 
     if (!existingUser) {
       throw new NotFoundException('Sender not found');
+    }
+
+    if (existingUser.verificationStatus !== 'verified') {
+      throw new ForbiddenException('Please verify your account before creating a shipment.');
     } else if (firstName || lastName) {
       // Update name if provided and user doesn't have one
       await this.prisma.user.update({
@@ -309,6 +313,19 @@ export class ShipmentsService {
 
   // Offers
   async createOffer(shipmentId: string, courierId: string, createOfferDto: CreateOfferDto) {
+    const courier = await this.prisma.user.findUnique({
+      where: { id: courierId },
+      select: { verificationStatus: true },
+    });
+
+    if (!courier) {
+      throw new NotFoundException('Courier not found');
+    }
+
+    if (courier.verificationStatus !== 'verified') {
+      throw new ForbiddenException('Please verify your account before making an offer.');
+    }
+
     const shipment = await this.prisma.shipment.findUnique({
       where: { id: shipmentId },
     });

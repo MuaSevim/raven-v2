@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Image,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import {
@@ -63,7 +64,17 @@ export default function HomeTab() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
   const hasData = activeItems.length > 0 || !loading;
+
+  const handleCreateShipment = () => {
+    if (needsVerification) {
+      Alert.alert('Verification required', 'Please verify your account to create a delivery.');
+      navigation.navigate('AccountStatus');
+      return;
+    }
+    navigation.navigate('SetRoute');
+  };
 
 
   // Fetch dashboard data
@@ -71,12 +82,13 @@ export default function HomeTab() {
     if (!user) return;
 
     try {
-      const [shipmentsRes, deliveringRes, transactionsRes, offersRes, unreadRes] = await Promise.all([
+      const [shipmentsRes, deliveringRes, transactionsRes, offersRes, unreadRes, profileRes] = await Promise.all([
         api.shipments.getMyShipments(),
         api.shipments.getMyDeliveries(),
         api.payments.getTransactions(),
         api.shipments.getMyOffers(), // Fixed: Now correctly calls getMyOffers
         api.conversations.getUnread(),
+        api.auth.me(),
       ]);
 
       // Process shipments
@@ -187,6 +199,10 @@ export default function HomeTab() {
       // Unread count
       setUnreadCount(unreadRes.unreadCount || 0);
 
+      // Verification banner
+      const isVerified = profileRes?.verificationStatus === 'verified';
+      setNeedsVerification(!isVerified);
+
 
     } catch (err: Error | unknown) {
       console.error('Error fetching dashboard:', err);
@@ -243,6 +259,17 @@ export default function HomeTab() {
           </View>
         </View>
 
+        {needsVerification && (
+          <TouchableOpacity
+            style={styles.verifyBanner}
+            activeOpacity={0.85}
+            onPress={() => navigation.navigate('AccountStatus')}
+          >
+            <Text style={styles.verifyBannerText}>Please verify your account</Text>
+            <View style={styles.verifyDot} />
+          </TouchableOpacity>
+        )}
+
 
         {/* Explore Section */}
         <View style={styles.section}>
@@ -250,7 +277,7 @@ export default function HomeTab() {
           <TouchableOpacity
             style={styles.ctaCard}
             activeOpacity={0.8}
-            onPress={() => navigation.navigate('SetRoute')}
+            onPress={handleCreateShipment}
           >
             <View style={{ marginRight: spacing.md }}>
               <Package size={28} color={colors.textPrimary} strokeWidth={1.5} />
@@ -385,6 +412,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+  },
+  verifyBanner: {
+    marginBottom: spacing.lg,
+    backgroundColor: colors.textPrimary,
+    borderRadius: borderRadius.full,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  verifyBannerText: {
+    fontFamily: typography.fontFamily.semiBold,
+    fontSize: typography.fontSize.sm,
+    color: colors.textInverse,
+  },
+  verifyDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.textInverse,
   },
   avatarButton: {
     width: 40,

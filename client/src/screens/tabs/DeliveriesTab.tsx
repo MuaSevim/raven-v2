@@ -131,7 +131,7 @@ function ShipmentCard({ shipment, onPress }: ShipmentCardProps) {
       {/* Sender info */}
       <View style={styles.travelerRow}>
         <Text style={styles.travelerName}>{senderName}</Text>
-        {shipment.sender?.isVerified && (
+        {shipment.sender?.verificationStatus === 'verified' && (
           <BadgeCheck
             size={16}
             color={colors.textPrimary}

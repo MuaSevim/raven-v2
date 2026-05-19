@@ -24,6 +24,9 @@ import PublicProfileScreen from "./screens/PublicProfileScreen";
 import ActivitiesScreen from "./screens/ActivitiesScreen";
 import ActivityDetailScreen from "./screens/ActivityDetailScreen";
 import NetworkDiagnosticsScreen from "./screens/NetworkDiagnosticsScreen";
+import AccountStatusScreen from "./screens/AccountStatusScreen";
+import UploadPassportScreen from "./screens/UploadPassportScreen";
+import UploadCriminalRecordScreen from "./screens/UploadCriminalRecordScreen";
 import {
   SignInScreen,
   SignUpStep1Screen,
@@ -111,6 +114,9 @@ export type RootStackParamList = {
   About: undefined;
   PrivacyPolicy: undefined;
   HelpSupport: undefined;
+  AccountStatus: undefined;
+  UploadPassport: undefined;
+  UploadCriminalRecord: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -235,6 +241,9 @@ export default function Navigation() {
             <Stack.Screen name="Activities" component={ActivitiesScreen} />
             <Stack.Screen name="ActivityDetail" component={ActivityDetailScreen} />
             <Stack.Screen name="NetworkDiagnostics" component={NetworkDiagnosticsScreen} />
+            <Stack.Screen name="AccountStatus" component={AccountStatusScreen} />
+            <Stack.Screen name="UploadPassport" component={UploadPassportScreen} />
+            <Stack.Screen name="UploadCriminalRecord" component={UploadCriminalRecordScreen} />
             <Stack.Screen name="About" component={AboutScreen} />
             <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
             <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />

@@ -20,6 +20,7 @@ const Tab = createBottomTabNavigator();
 export default function MainTabNavigator() {
   const { user } = useAuthStore();
   const [unreadCount, setUnreadCount] = useState(0);
+  const [needsVerification, setNeedsVerification] = useState(false);
 
   // Fetch unread count
   useFocusEffect(
@@ -38,6 +39,22 @@ export default function MainTabNavigator() {
       // Poll every 10 seconds for near-real-time badge updates
       const interval = setInterval(fetchUnreadCount, 10000);
       return () => clearInterval(interval);
+    }, [user])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      const fetchVerification = async () => {
+        if (!user) return;
+        try {
+          const data = await api.auth.me();
+          const isVerified = data?.verificationStatus === 'verified';
+          setNeedsVerification(!isVerified);
+        } catch {
+          setNeedsVerification(false);
+        }
+      };
+      fetchVerification();
     }, [user])
   );
 
@@ -96,11 +113,16 @@ export default function MainTabNavigator() {
         options={{
           tabBarLabel: 'Profile',
           tabBarIcon: ({ color, focused }) => (
-            <User
-              size={26}
-              color={color}
-              strokeWidth={focused ? 2.5 : 1.5}
-            />
+            <View style={styles.iconContainer}>
+              <User
+                size={26}
+                color={color}
+                strokeWidth={focused ? 2.5 : 1.5}
+              />
+              {needsVerification && !focused && (
+                <View style={styles.profileDot} />
+              )}
+            </View>
           ),
         }}
       />
@@ -163,5 +185,14 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily.semiBold,
     fontSize: 10,
     color: colors.textInverse,
+  },
+  profileDot: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: colors.textPrimary,
   },
 });

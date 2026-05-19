@@ -8,11 +8,17 @@ const buildShipmentImagePath = (shipmentId: string, fileName: string) =>
 const buildAvatarImagePath = (userId: string, fileName: string) =>
   `avatars/${userId}/${fileName}`;
 
+const buildVerificationDocumentPath = (userId: string, category: string, fileName: string) =>
+  `verification/${userId}/${category}/${fileName}`;
+
 const createFileName = (uri: string) => {
   const baseName = uri.split('/').pop() || `image-${Date.now()}.jpg`;
   const hasExtension = baseName.includes('.');
   return hasExtension ? baseName : `${baseName}.jpg`;
 };
+
+const isImageFile = (uri: string) =>
+  /\.(jpe?g|png)$/i.test(uri.split('?')[0] || '');
 
 const fetchBlob = async (uri: string): Promise<Blob> => {
   const response = await fetch(uri);
@@ -77,6 +83,40 @@ export const uploadAvatarImage = async (
   const fileName = createFileName(imageUri);
   const storageRef = ref(storage, buildAvatarImagePath(userId, fileName));
   const optimizedUri = await compressImage(imageUri, 400, 0.5);
+  const blob = await fetchBlob(optimizedUri);
+
+  return new Promise((resolve, reject) => {
+    const uploadTask = uploadBytesResumable(storageRef, blob);
+
+    uploadTask.on(
+      'state_changed',
+      (snapshot) => {
+        if (!onProgress || snapshot.totalBytes === 0) {
+          return;
+        }
+        const percent = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+        onProgress(percent);
+      },
+      (error) => reject(error),
+      async () => {
+        const url = await getDownloadURL(uploadTask.snapshot.ref);
+        resolve(url);
+      },
+    );
+  });
+};
+
+export const uploadVerificationDocument = async (
+  userId: string,
+  category: 'passport' | 'criminal-record',
+  fileUri: string,
+  onProgress?: (percent: number) => void,
+): Promise<string> => {
+  const fileName = createFileName(fileUri);
+  const storageRef = ref(storage, buildVerificationDocumentPath(userId, category, fileName));
+  const optimizedUri = isImageFile(fileUri)
+    ? await compressImage(fileUri, 1200, 0.7)
+    : fileUri;
   const blob = await fetchBlob(optimizedUri);
 
   return new Promise((resolve, reject) => {

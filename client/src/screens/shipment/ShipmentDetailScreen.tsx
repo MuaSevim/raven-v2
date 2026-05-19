@@ -69,6 +69,7 @@ export default function ShipmentDetailScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [userOffer, setUserOffer] = useState<UserOffer | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
 
   // Animated values for smooth offer modal transition
   const overlayOpacity = useRef(new Animated.Value(0)).current;
@@ -79,7 +80,32 @@ export default function ShipmentDetailScreen() {
       fetchShipment();
       fetchUserOffer();
     }
+    fetchVerification();
   }, [shipmentId]);
+
+  const fetchVerification = async () => {
+    if (!user) return null;
+    try {
+      const data = await api.auth.me();
+      const status = data?.verificationStatus || null;
+      setVerificationStatus(status);
+      return status;
+    } catch {
+      setVerificationStatus(null);
+      return null;
+    }
+  };
+
+  const ensureVerified = async () => {
+    if (verificationStatus === 'verified') return true;
+    const status = await fetchVerification();
+    if (status !== 'verified') {
+      Alert.alert('Verification required', 'Please verify your account before making an offer.');
+      navigation.navigate('AccountStatus');
+      return false;
+    }
+    return true;
+  };
 
   useEffect(() => {
     const showSub = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
@@ -151,6 +177,8 @@ export default function ShipmentDetailScreen() {
 
   const handleMakeOffer = async () => {
     if (!shipment || !user) return;
+    const ok = await ensureVerified();
+    if (!ok) return;
     if (!offerMessage || offerMessage.trim().length < 10) {
       Alert.alert('Message too short', 'Please write at least 10 characters to introduce yourself.');
       return;
@@ -449,7 +477,9 @@ export default function ShipmentDetailScreen() {
             <View style={{ flex: 1 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <Text style={styles.senderName}>{senderName}</Text>
-                {shipment.sender?.isVerified && <BadgeCheck size={14} color={colors.textPrimary} fill={colors.background} />}
+                {shipment.sender?.verificationStatus === 'verified' && (
+                  <BadgeCheck size={14} color={colors.textPrimary} fill={colors.background} />
+                )}
               </View>
               <Text style={styles.senderRole}>Member since 2025</Text>
             </View>

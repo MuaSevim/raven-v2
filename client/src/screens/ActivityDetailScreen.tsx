@@ -81,10 +81,36 @@ export default function ActivityDetailScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [confirmingHandover, setConfirmingHandover] = useState(false);
   const [confirmingDelivery, setConfirmingDelivery] = useState(false);
+  const [verificationStatus, setVerificationStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (shipmentId) fetchShipment();
+    fetchVerification();
   }, [shipmentId]);
+
+  const fetchVerification = async () => {
+    if (!user) return null;
+    try {
+      const data = await api.auth.me();
+      const status = data?.verificationStatus || null;
+      setVerificationStatus(status);
+      return status;
+    } catch {
+      setVerificationStatus(null);
+      return null;
+    }
+  };
+
+  const ensureVerified = async () => {
+    if (verificationStatus === 'verified') return true;
+    const status = await fetchVerification();
+    if (status !== 'verified') {
+      Alert.alert('Verification required', 'Please verify your account before making an offer.');
+      navigation.navigate('AccountStatus');
+      return false;
+    }
+    return true;
+  };
 
   const fetchShipment = async () => {
     if (!shipmentId || !user) return setLoading(false);
@@ -101,6 +127,8 @@ export default function ActivityDetailScreen() {
 
   const handleMakeOffer = async () => {
     if (!shipment || !user) return;
+    const ok = await ensureVerified();
+    if (!ok) return;
     setSubmitting(true);
 
     try {
@@ -352,7 +380,9 @@ export default function ActivityDetailScreen() {
                 <View style={styles.ravenNameContainer}>
                   <View style={styles.ravenNameRow}>
                     <Text style={styles.ravenName}>{ravenName}</Text>
-                    {ravenUser.isVerified && <BadgeCheck size={14} color={colors.textPrimary} fill={colors.background} />}
+                    {ravenUser.verificationStatus === 'verified' && (
+                      <BadgeCheck size={14} color={colors.textPrimary} fill={colors.background} />
+                    )}
                   </View>
                   <Text style={styles.ravenSubtitle}>Tap to view profile</Text>
                 </View>

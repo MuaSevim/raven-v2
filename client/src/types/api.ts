@@ -34,6 +34,9 @@ export interface AuthMeResponse {
   city?: string;
   avatar?: string | null;
   profilePicture?: string;
+  verificationStatus?: 'unverified' | 'pending' | 'verified' | 'rejected' | 'suspended';
+  passport?: string | null;
+  documentUrl?: string | null;
   createdAt: string;
 }
 
@@ -163,7 +166,7 @@ export interface Conversation {
     firstName: string | null;
     lastName: string | null;
     avatar: string | null;
-    isVerified: boolean;
+    verificationStatus?: 'unverified' | 'pending' | 'verified' | 'rejected' | 'suspended';
   };
   shipment?: {
     id: string;
@@ -300,7 +303,7 @@ export interface Travel {
     firstName: string | null;
     lastName: string | null;
     avatar: string | null;
-    isVerified: boolean;
+    verificationStatus?: 'unverified' | 'pending' | 'verified' | 'rejected' | 'suspended';
     country: string | null;
     city: string | null;
   };
@@ -338,7 +341,7 @@ export interface UserProfile {
   phone?: string;
   profilePicture?: string;
   avatar?: string | null;
-  isVerified?: boolean;
+  verificationStatus?: 'unverified' | 'pending' | 'verified' | 'rejected' | 'suspended';
   country?: string | null;
   city?: string | null;
   joinedAt?: string;

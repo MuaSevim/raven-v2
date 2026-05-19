@@ -20,13 +20,13 @@
 * [x] Counter-offer full-stack flow implemented (Prisma schema → NestJS → ChatScreen modal).
 
 ## 4. Current Task / Active Focus
-* **Objective:** Reduce reloads between navigation changes and tighten shared client state/caching.
-* **Goal:** Keep profile, deliveries, and auth data warm in a universal cache/store so tab and screen focus do not trigger constant refetches.
+* **Objective:** Ship the new verification flow (account status, document uploads, and gating).
+* **Goal:** Unverified users can browse but cannot create shipments, offers, or travels until passport, criminal record, and profile photo are uploaded.
 
 ## 5. Next Critical Dependencies
-1. **Client Cache Strategy:** Consolidate shared reads like `auth:me` into a single source of truth and limit focus-driven refetches.
+1. **Verification Flow QA:** Validate account status UI, upload flows, and server-side gating after running builds.
 2. **Profile Flow:** Verify avatar, phone, and email update paths against the new verification schema.
-3. **Travel Flow:** Confirm `pnr` is accepted end-to-end in create/update travel payloads.
+3. **Client Cache Strategy:** Consolidate shared reads like `auth:me` into a single source of truth and limit focus-driven refetches.
 
 ## 6. Completed Schema Changes
 * [x] Removed `isVerified` in favor of `verificationStatus`.
@@ -34,3 +34,7 @@
 * [x] Added `passport` to the user model.
 * [x] Added `pnr` to the travel model and DTOs.
 * [x] Updated seed behavior to preserve existing users.
+
+## 7. In Progress (Not Yet Verified)
+* [ ] Account Status screen, upload flows (passport + criminal record), and profile tab indicator.
+* [ ] Server-side gating for shipments, offers, and travels based on verification status.
